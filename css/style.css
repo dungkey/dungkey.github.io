@@ -8,7 +8,7 @@ body {
     margin: 0 auto;
     margin-top: 20px;
     background-color: rgb(203, 185, 167);
-    padding: 0 20px 20px 20px;
+    padding: 20px 20px 20px 20px;
     border: 5px solid black;
 }
 
@@ -28,5 +28,4 @@ img {
     display: block;
     margin: 0 auto;
     width: 200px;
-    margin-top: 20px;
 }
