@@ -1,2 +1,3 @@
 # dungkey.github.io
-personal homepage
+
+please click into [dungeky'homepage](dungkey.github.io) to use it
