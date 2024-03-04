@@ -1,0 +1,32 @@
+html {
+    background-color: rgb(124, 76, 63);
+    font-family: serif;
+}
+
+body {
+    width: 600px;
+    margin: 0 auto;
+    margin-top: 20px;
+    background-color: rgb(203, 185, 167);
+    padding: 0 20px 20px 20px;
+    border: 5px solid black;
+}
+
+h1 {
+    color: rgb(73, 19, 4);
+    font-size: 50px;
+    text-align: center;
+}
+
+p,a {
+    color: #418BDE;
+    font-size: 24px;
+    font-family:sans-serif
+}
+
+img {
+    display: block;
+    margin: 0 auto;
+    width: 200px;
+    margin-top: 20px;
+}
