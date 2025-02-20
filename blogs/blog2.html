@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="dungkey" />
+    <meta name="description" content="我的个人博客实现原理" />
+    <title>我的个人博客实现原理 - dungkey's Blog</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/blog.css" />
+    <link rel="icon" href="../images/shark.png" />
+</head>
+<body>
+    <button class="menu-toggle" id="menuToggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+        <svg class="moon" viewBox="0 0 24 24">
+            <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
+        </svg>
+        <svg class="sun" viewBox="0 0 24 24">
+            <path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 0 1-1V1a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1zm0 20a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm13-11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2zM1 12a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm20.485-7.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM3.515 19.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM20.485 19.071a1 1 0 0 0-1.414 1.414l1.414 1.414a1 1 0 0 0 1.414-1.414l-1.414-1.414zM3.515 4.929a1 1 0 0 0 1.414-1.414L3.515 2.101A1 1 0 0 0 2.101 3.515l1.414 1.414z"/>
+        </svg>
+    </button>
+
+    <header>
+        <a href="../index.html" class="home-link">
+            <img src="../images/shark.png" alt="shark" class="small-logo" />
+        </a>
+        <h1>我的个人博客实现原理</h1>
+        <p class="post-meta">发布于 2025年02月20日</p>
+    </header>
+
+    <div id="sidebarContainer">
+    </div>
+
+    <div class="layout-container">
+        <main id="mainContent" class="blog-content fixed-content">
+            <article>
+                <h1>我的个人博客实现原理</h1>
+<p>这篇文章将详细介绍我是如何实现这个个人博客系统的。整个项目采用了静态网站生成的方式，使用 Python 将 Markdown 文件转换为 HTML 页面，并实现了暗色主题切换、响应式侧边栏等功能。</p>
+<h2>项目结构</h2>
+<p>项目采用以下目录结构：</p>
+<pre><code>dungkey.github.io/
+├── components/         # 可复用的HTML组件
+│   └── sidebar.html   # 侧边栏组件
+├── css/               # 样式文件
+│   ├── style.css     # 主要样式
+│   └── blog.css      # 博客页面特定样式
+├── images/           # 图片资源
+│   └── shark.png    # 网站 logo
+├── markdown/         # Markdown 源文件
+│   ├── blog1.md     # 博客文章
+│   └── blog2.md     # 博客文章
+├── blogs/            # 生成的博客HTML文件
+├── scripts/          # Python 脚本
+│   └── md2blog.py   # Markdown转HTML工具
+├── index.html        # 主页
+└── requirements.txt  # Python依赖
+</code></pre>
+<h2>核心实现原理</h2>
+<h3>1. Markdown 转 HTML</h3>
+<p>整个博客系统的核心是 <code>md2blog.py</code> 脚本，它负责将 Markdown 文件转换为 HTML 页面。主要功能包括：</p>
+<pre><code class="language-python">def convert_md_to_html(md_path):
+    # 读取 Markdown 文件
+    # 提取标题
+    # 转换为 HTML
+    # 应用模板
+    # 保存文件
+    # 更新侧边栏
+</code></pre>
+<p>使用 <code>markdown</code> 库进行转换，并使用 <code>BeautifulSoup4</code> 处理 HTML。这样可以保持文章的结构化，同时支持代码高亮等特性。</p>
+<h3>2. 组件化设计</h3>
+<p>为了提高代码复用性，我将侧边栏设计为独立组件。侧边栏组件包含了博客列表，并在主页和博客页面中共享。</p>
+<p>主页通过 JavaScript 的 <code>fetch</code> API 动态加载侧边栏：</p>
+<pre><code class="language-javascript">fetch('components/sidebar.html')
+    .then(response =&gt; response.text())
+    .then(html =&gt; {
+        document.getElementById('sidebarContainer').innerHTML = html;
+        initMenuToggle();
+    });
+</code></pre>
+<h3>3. 响应式设计</h3>
+<p>采用 CSS 的媒体查询和 Flexbox 布局，实现了响应式设计。侧边栏在移动设备上可以滑动显示/隐藏：</p>
+<pre><code class="language-css">aside {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    width: 300px;
+    height: 100vh;
+    transition: all 0.3s ease;
+}
+
+aside.active {
+    left: 0;
+}
+</code></pre>
+<h3>4. 主题切换</h3>
+<p>实现了浅色/深色主题切换功能，使用 CSS 变量定义主题颜色：</p>
+<pre><code class="language-css">:root {
+    --bg-primary: #e8e8e8;
+    --text-primary: #4a4a4a;
+    /* 其他颜色变量 */
+}
+
+[data-theme=&quot;dark&quot;] {
+    --bg-primary: #2d3436;
+    --text-primary: #eeeeee;
+    /* 其他暗色主题颜色 */
+}
+</code></pre>
+<p>主题状态保存在 <code>localStorage</code> 中，确保刷新页面后保持用户的主题选择。</p>
+<h3>5. 自动化博客管理</h3>
+<p>每次添加新博客时，系统会：</p>
+<ol>
+<li>自动生成唯一的博客编号</li>
+<li>提取文章标题和发布日期</li>
+<li>更新侧边栏的博客列表</li>
+<li>保持博客列表按时间排序</li>
+</ol>
+<h2>技术栈</h2>
+<ul>
+<li>HTML5 + CSS3：页面结构和样式</li>
+<li>JavaScript：交互功能</li>
+<li>Python：静态页面生成</li>
+<li>Markdown：文章编写</li>
+<li>BeautifulSoup4：HTML 处理</li>
+<li>CSS 变量：主题切换</li>
+<li>Flexbox：响应式布局</li>
+</ul>
+<h2>部署方案</h2>
+<p>项目设计为静态网站，可以轻松部署到 GitHub Pages 等静态托管服务。所有页面都是预先生成的 HTML，不需要服务器端渲染，加载速度快且易于维护。</p>
+<h2>未来改进计划</h2>
+<ol>
+<li>添加文章分类功能</li>
+<li>实现文章搜索</li>
+<li>添加评论系统</li>
+<li>优化移动端体验</li>
+<li>添加文章目录导航</li>
+<li>支持更多 Markdown 扩展语法</li>
+</ol>
+<h2>总结</h2>
+<p>这个博客系统虽然简单，但包含了现代网站开发的多个重要概念：</p>
+<ul>
+<li>组件化开发</li>
+<li>响应式设计</li>
+<li>主题切换</li>
+<li>静态站点生成</li>
+<li>版本控制</li>
+<li>自动化工具</li>
+</ul>
+<p>通过这个项目，我不仅搭建了自己的博客平台，也学习和实践了多个前端开发技术。希望这篇文章能帮助你理解整个项目的实现原理，也欢迎你参考这些代码来构建自己的博客系统。 </p>
+            </article>
+        </main>
+    </div>
+
+    <footer>
+        <p>© 2024 琦珏. All rights reserved.</p>
+        <a href="../index.html" class="back-home">返回主页</a>
+    </footer>
+
+    <script>
+        // 加载侧边栏组件
+        fetch('../components/sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('sidebarContainer').innerHTML = html;
+                // 在加载完侧边栏后初始化菜单切换功能
+                initMenuToggle();
+            });
+
+        function initMenuToggle() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const layoutContainer = document.querySelector('.layout-container');
+
+            if (menuToggle && sidebar && layoutContainer) {
+                menuToggle.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                    layoutContainer.classList.toggle('shifted');
+                    menuToggle.classList.toggle('active');
+                });
+            }
+        }
+
+        // 主题切换功能
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+
+        // 从localStorage获取主题设置
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-theme', savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // 添加动画效果
+            themeToggle.style.transform = 'rotate(360deg)';
+            setTimeout(() => {
+                themeToggle.style.transform = 'rotate(0)';
+            }, 300);
+        });
+    </script>
+</body>
+</html>
