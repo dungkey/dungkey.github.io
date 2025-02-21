@@ -1,84 +1,96 @@
 <!DOCTYPE html>
 <html lang="zh" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="里世界 - 探索技术与艺术的个人空间">
     <title>里版本 - 个人博客</title>
     <link rel="stylesheet" href="inner_css/common.css">
     <link rel="stylesheet" href="inner_css/main.css">
     <link rel="stylesheet" href="inner_css/blog.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- 添加字体预加载 -->
+    <link rel="preload" as="style" href="inner_css/common.css">
+    <link rel="preload" as="style" href="inner_css/main.css">
 </head>
+
 <body class="inner-theme">
-    <div class="background-animation"></div>
-    
-    <header class="site-header">
+    <div class="background-animation" aria-hidden="true"></div>
+
+    <header class="site-header" role="banner">
         <div class="header-content">
             <div class="header-left">
                 <h1 class="site-title">里世界</h1>
-                <nav class="site-nav">
-                    <a href="#" class="nav-link">首页</a>
+                <nav class="site-nav" role="navigation">
+                    <a href="#" class="nav-link" aria-current="page">首页</a>
                     <a href="inner_blogs/sillytavern_guide.html" class="nav-link">文章</a>
-                    <a href="#" class="nav-link">关于</a>
+                    <a href="#about" class="nav-link">关于</a>
                 </nav>
             </div>
         </div>
     </header>
 
-    <button class="menu-toggle" id="menuToggle">
+    <button class="menu-toggle" id="menuToggle" aria-label="切换菜单" aria-expanded="false">
         <span></span>
         <span></span>
         <span></span>
     </button>
-    
-    <button class="theme-toggle" id="themeToggle" title="切换主题">
-        <svg class="moon" viewBox="0 0 24 24">
-            <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"></path>
+
+    <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换深色模式">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z" />
         </svg>
-        <svg class="sun" viewBox="0 0 24 24">
-            <path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 0 1-1V1a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1zm0 20a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm13-11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2zM1 12a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm20.485-7.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM3.515 19.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM20.485 19.071a1 1 0 0 0-1.414 1.414l1.414 1.414a1 1 0 0 0 1.414-1.414l-1.414-1.414zM3.515 4.929a1 1 0 0 0 1.414-1.414L3.515 2.101A1 1 0 0 0 2.101 3.515l1.414 1.414z"></path>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 0 1-1V1a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1zm0 20a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm13-11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2zM1 12a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1zm20.485-7.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM3.515 19.071l-1.414 1.414a1 1 0 1 0 1.414 1.414l1.414-1.414a1 1 0 0 0-1.414-1.414zM20.485 19.071a1 1 0 0 0-1.414 1.414l1.414 1.414a1 1 0 0 0 1.414-1.414l-1.414-1.414zM3.515 4.929a1 1 0 0 0 1.414-1.414L3.515 2.101A1 1 0 0 0 2.101 3.515l1.414 1.414z" />
         </svg>
     </button>
 
-    <aside id="sidebarContainer" class="sidebar"></aside>
-    
-    <div class="container">
-        <main class="content">
-            <section class="welcome-section">
-                <h2>欢迎来到里世界</h2>
-                <p>在这里，我们抛开技术的束缚，聊聊生活、艺术、旅行，以及所有让生命更有趣的事物。</p>
-            </section>
-            
-            <section class="featured-posts">
-                <h3>精选文章</h3>
-                <div class="post-grid" id="featuredPosts">
-                    <!-- 文章将通过JavaScript动态加载 -->
-                </div>
-            </section>
-        </main>
-    </div>
+    <aside id="sidebarContainer" class="sidebar" role="complementary"></aside>
 
-    <script src="inner_js/script.js"></script>
+    <main class="container" role="main">
+        <section class="welcome-section">
+            <h2>欢迎来到里世界</h2>
+            <p>在这里，我们探索技术工具的使用技巧，分享开发经验，一起学习让工作更高效的方法。无论是版本控制还是AI应用，都能在这里找到详细的指南。</p>
+        </section>
+
+        <section class="featured-posts">
+            <h3>精选文章</h3>
+            <div class="post-grid" id="featuredPosts"></div>
+        </section>
+    </main>
+
+    <script src="inner_js/script.js" defer></script>
     <script>
-        const themeToggle = document.getElementById('themeToggle');
-        const html = document.documentElement;
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeToggle = document.getElementById('themeToggle');
+            const html = document.documentElement;
+            const savedTheme = localStorage.getItem('inner_theme') || 'light';
 
-        // 从localStorage获取主题设置
-        const savedTheme = localStorage.getItem('inner_theme') || 'light';
-        html.setAttribute('data-theme', savedTheme);
+            const setTheme = (theme) => {
+                html.setAttribute('data-theme', theme);
+                localStorage.setItem('inner_theme', theme);
+                themeToggle.setAttribute('aria-label', `切换${theme === 'light' ? '深色' : '浅色'}模式`);
+            };
 
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(savedTheme);
 
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('inner_theme', newTheme);
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = html.getAttribute('data-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
 
-            // 添加动画效果
-            themeToggle.style.transform = 'rotate(360deg)';
-            setTimeout(() => {
-                themeToggle.style.transform = 'rotate(0)';
-            }, 300);
+                requestAnimationFrame(() => {
+                    themeToggle.style.transform = 'rotate(360deg)';
+                    setTimeout(() => {
+                        themeToggle.style.transform = 'rotate(0)';
+                    }, 300);
+                });
+            });
         });
     </script>
 </body>
+
 </html>

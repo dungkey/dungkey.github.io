@@ -1,11 +1,9 @@
 ---
-title: "SillyTavern：开源AI聊天前端的新选择"
-date: "2024-01-10"
-author: "里世界"
-tags: ["AI", "开源项目", "教程"]
-featured: true
-cover_image: "images/sillytavern_cover.jpg"
-description: "深入了解SillyTavern这个强大的AI聊天前端，从安装部署到进阶使用的完整指南"
+title: "SillyTavern 使用指南"
+date: "2024-02-21"
+category: "AI工具"
+readingTime: "8分钟"
+excerpt: "SillyTavern是一个强大的AI聊天前端，本文将详细介绍如何安装、配置和使用SillyTavern，让你的AI聊天体验更加丝滑。"
 ---
 
 # SillyTavern：打造你的专属AI聊天空间

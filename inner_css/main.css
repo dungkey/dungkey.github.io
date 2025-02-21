@@ -1,9 +1,11 @@
 /* 主要内容区域 */
 .container {
-    max-width: 1400px;
+    max-width: min(1400px, 95vw);
     margin: 0 auto;
-    padding: 0 2rem;
-    transition: all var(--animation-duration) cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0 clamp(1rem, 5vw, 2rem);
+    transition: transform var(--animation-duration) var(--transition-timing),
+        opacity var(--animation-duration) var(--transition-timing);
+    will-change: transform, opacity;
 }
 
 .container.shifted {
@@ -14,7 +16,7 @@
 /* 头部样式 */
 .site-header {
     background: var(--header-bg);
-    padding: 1.5rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
     box-shadow: 0 8px 24px var(--shadow-color);
     margin-bottom: 2rem;
     backdrop-filter: blur(var(--blur-amount));
@@ -23,33 +25,38 @@
     position: sticky;
     top: 0;
     z-index: 100;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .header-content {
-    max-width: 1400px;
+    max-width: min(1400px, 95vw);
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 2rem;
+    padding: 0 clamp(1rem, 5vw, 2rem);
 }
 
 .header-left {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: clamp(1rem, 3vw, 2rem);
 }
 
 .site-title {
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 5vw, 2rem);
     margin: 0;
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(45deg,
+            var(--primary-color),
+            var(--secondary-color));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: 1px;
     font-weight: 700;
     transition: transform var(--animation-duration) var(--transition-timing);
+    will-change: transform;
 }
 
 .site-title:hover {
@@ -58,7 +65,7 @@
 
 .site-nav {
     display: flex;
-    gap: 2rem;
+    gap: clamp(1rem, 3vw, 2rem);
 }
 
 .nav-link {
@@ -69,6 +76,7 @@
     border-radius: var(--border-radius);
     transition: all var(--animation-duration) var(--transition-timing);
     position: relative;
+    overflow: hidden;
 }
 
 .nav-link:hover {
@@ -83,9 +91,12 @@
     left: 50%;
     width: 0;
     height: 2px;
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(45deg,
+            var(--primary-color),
+            var(--secondary-color));
     transition: all var(--animation-duration) var(--transition-timing);
     transform: translateX(-50%);
+    will-change: width;
 }
 
 .nav-link:hover::after {
@@ -97,7 +108,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 300px;
+    width: min(300px, 80vw);
     height: 100vh;
     background: rgba(var(--card-background-rgb), 0.95);
     backdrop-filter: blur(10px);
@@ -106,12 +117,13 @@
     z-index: 1000;
     overflow-y: auto;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
-    transform: scale(0.95) translateX(-100%);
+    transform: translateX(-100%) scale(0.95);
     opacity: 0;
+    will-change: transform, opacity;
 }
 
 .sidebar.active {
-    transform: scale(1) translateX(0);
+    transform: translateX(0) scale(1);
     opacity: 1;
 }
 
@@ -133,7 +145,8 @@
     gap: 6px;
     z-index: 1001;
     box-shadow: 0 4px 12px var(--shadow-color);
-    transition: all var(--animation-duration) ease;
+    transition: all var(--animation-duration) var(--transition-timing);
+    will-change: transform;
 }
 
 .menu-toggle span {
@@ -141,7 +154,8 @@
     width: 24px;
     height: 2px;
     background: var(--text-color);
-    transition: all var(--animation-duration) ease;
+    transition: all var(--animation-duration) var(--transition-timing);
+    will-change: transform, opacity;
 }
 
 .menu-toggle:hover {
@@ -165,10 +179,12 @@
 .welcome-section {
     background: var(--card-background);
     border-radius: 15px;
-    padding: 2.5rem;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
     margin-bottom: 2.5rem;
     box-shadow: 0 4px 12px var(--shadow-color);
-    transition: transform var(--animation-duration) ease, box-shadow var(--animation-duration) ease;
+    transition: transform var(--animation-duration) var(--transition-timing),
+        box-shadow var(--animation-duration) var(--transition-timing);
+    will-change: transform;
 }
 
 .welcome-section:hover {
@@ -179,23 +195,143 @@
 /* 文章网格 */
 .post-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 2.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));
+    gap: clamp(2rem, 5vw, 3rem);
+    margin-inline: auto;
+    max-width: 1200px;
 }
 
 .post-card {
     background: var(--card-background);
-    border-radius: 15px;
-    padding: 2rem;
+    border-radius: var(--border-radius-lg);
+    padding: 0;
     box-shadow: 0 4px 12px var(--shadow-color);
-    transition: all var(--animation-duration) ease;
+    transition: all var(--animation-duration) var(--transition-timing);
     display: flex;
     flex-direction: column;
+    will-change: transform;
+    position: relative;
+    overflow: hidden;
+}
+
+.post-card .post-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: clamp(1.5rem, 5vw, 2rem);
+}
+
+.post-card .post-header {
+    margin-bottom: 1rem;
+}
+
+.post-card .post-title {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0;
+    background: linear-gradient(45deg,
+            var(--primary-color),
+            var(--secondary-color));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    transition: opacity var(--animation-duration) var(--transition-timing);
+}
+
+.post-card .post-meta {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.post-card .post-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.post-card .post-date::before {
+    content: '📅';
+    font-size: 1rem;
+}
+
+.post-card .post-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.post-card .post-excerpt {
+    font-size: clamp(0.95rem, 2vw, 1rem);
+    line-height: 1.7;
+    margin: 0;
+    opacity: 0.9;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.post-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--border-radius-lg);
+    border: 2px solid transparent;
+    background: linear-gradient(45deg,
+            var(--primary-color),
+            var(--secondary-color)) border-box;
+    -webkit-mask:
+        linear-gradient(#fff 0 0) padding-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity var(--animation-duration) var(--transition-timing);
 }
 
 .post-card:hover {
     transform: var(--card-hover-transform);
     box-shadow: var(--card-hover-shadow);
+}
+
+.post-card:hover::after {
+    opacity: 1;
+}
+
+.post-card:hover .post-title {
+    opacity: 0.9;
+}
+
+/* 精选文章标题样式 */
+.featured-posts h3 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin-bottom: clamp(1.5rem, 5vw, 2.5rem);
+    text-align: center;
+    color: var(--primary-color);
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+.featured-posts h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(45deg,
+            var(--primary-color),
+            var(--secondary-color));
+    border-radius: 3px;
 }
 
 /* 响应式设计 */
@@ -215,29 +351,29 @@
         flex-wrap: wrap;
         justify-content: center;
     }
-
-    .post-grid {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 2rem;
-    }
 }
 
 @media (max-width: 480px) {
-    .header-content {
-        padding: 0 1rem;
-    }
-
-    .site-title {
-        font-size: 1.8rem;
-    }
-
     .welcome-section {
         margin: 1rem;
-        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .post-grid {
+        gap: 1.5rem;
+        padding-inline: 1rem;
     }
 
-    .post-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
+    .post-card .post-link {
+        padding: 1.25rem;
+    }
+}
+
+/* 动画优化 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
     }
 }

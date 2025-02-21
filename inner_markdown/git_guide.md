@@ -1,11 +1,9 @@
 ---
-title: "三岁小孩也能学会的Git下载和使用指南"
-date: "2024-01-09"
-author: "里世界"
-tags: ["Git", "开源项目", "教程"]
-featured: true
-cover_image: "images/git_cover.jpg"
-description: "一份简单易懂的Git入门指南，从下载安装到基本使用，让你轻松掌握版本控制工具"
+title: "Git 入门指南"
+date: "2024-02-21"
+category: "开发工具"
+readingTime: "10分钟"
+excerpt: "Git是现代软件开发中不可或缺的版本控制工具。本文将带你了解Git的基本概念和常用命令，让你快速掌握Git的使用方法。"
 ---
 
 # 三岁小孩也能学会的Git下载和使用指南

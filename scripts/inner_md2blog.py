@@ -11,15 +11,13 @@ def load_template(template_path):
         return f.read()
 
 def extract_metadata(md_content):
-    """从Markdown内容中提取元数据，保留原始格式"""
+    """从Markdown内容中提取元数据"""
     metadata = {
         'title': '',
         'date': '',
         'category': '',
-        'tags': [],
-        'featured': False,
-        'excerpt': '',
-        'description': ''
+        'readingTime': '',
+        'excerpt': ''
     }
     
     lines = md_content.split('\n')
@@ -41,18 +39,10 @@ def extract_metadata(md_content):
                     if value.startswith('"') and value.endswith('"'):
                         value = value[1:-1]
                     
-                    if key == 'tags':
-                        # 处理标签列表
-                        tags = value.strip('[]').split(',')
-                        metadata[key] = [tag.strip().strip('"') for tag in tags]
-                    elif key == 'featured':
-                        metadata[key] = value.lower() == 'true'
-                    else:
-                        metadata[key] = value
-            
-            # 如果没有摘要，使用description作为摘要
-            if not metadata['excerpt'] and metadata['description']:
-                metadata['excerpt'] = metadata['description']
+                    if key == 'readingtime':  # 确保正确处理readingTime
+                        key = 'readingTime'
+                    
+                    metadata[key] = value
             
             return metadata, '\n'.join(lines[meta_end + 1:])
     
@@ -73,6 +63,18 @@ def convert_md_to_html(md_path, output_dir='inner_blogs'):
     if not metadata['date']:
         metadata['date'] = datetime.now().strftime('%Y-%m-%d')
     
+    # 设置默认值
+    if not metadata['readingTime']:
+        metadata['readingTime'] = '5分钟'
+    if not metadata['category']:
+        metadata['category'] = '未分类'
+    if not metadata['excerpt']:
+        # 从内容中提取第一段作为摘要
+        first_para = content.split('\n\n')[0]
+        # 移除Markdown标记
+        excerpt = re.sub(r'#+ |`|_|\*|\[|\]|\(|\)', '', first_para)
+        metadata['excerpt'] = excerpt[:200] + '...' if len(excerpt) > 200 else excerpt
+    
     # 转换Markdown为HTML
     html_content = markdown.markdown(
         content,
@@ -87,6 +89,9 @@ def convert_md_to_html(md_path, output_dir='inner_blogs'):
     template = load_template('inner_components/article_template.html')
     html_output = template.replace('{{title}}', metadata['title'])\
                          .replace('{{date}}', metadata['date'])\
+                         .replace('{{category}}', metadata['category'])\
+                         .replace('{{readingTime}}', metadata['readingTime'])\
+                         .replace('{{excerpt}}', metadata['excerpt'])\
                          .replace('{{content}}', html_content)
     
     os.makedirs(output_dir, exist_ok=True)
@@ -100,27 +105,30 @@ def convert_md_to_html(md_path, output_dir='inner_blogs'):
 
 def update_featured_posts(posts_metadata):
     """更新首页的精选文章列表"""
-    featured_posts = [post for post in posts_metadata if post.get('featured', False)]
-    featured_posts = sorted(featured_posts, key=lambda x: x['date'], reverse=True)
+    # 按日期排序
+    sorted_posts = sorted(posts_metadata, key=lambda x: x['date'], reverse=True)
     
-    featured_posts_json = []
-    for post in featured_posts:
-        excerpt = post.get('excerpt', '').strip() or post.get('description', '').strip() or '这是一篇精选文章...'
-        
+    featured_posts = {
+        "posts": []
+    }
+    
+    for post in sorted_posts:
         featured_post = {
-            'title': f'"{post["title"]}"',  # 确保标题带引号
-            'excerpt': excerpt,
-            'date': f'"{post["date"]}"',  # 确保日期带引号
-            'url': f'inner_blogs/{os.path.splitext(post["filename"])[0]}.html'
+            'title': post['title'],
+            'url': f'inner_blogs/{os.path.splitext(post["filename"])[0]}.html',
+            'date': post['date'],
+            'excerpt': post['excerpt'],
+            'category': post['category'],
+            'readingTime': post.get('readingTime', '5分钟')  # 确保获取readingTime
         }
-        featured_posts_json.append(featured_post)
+        featured_posts['posts'].append(featured_post)
     
     # 确保输出目录存在
     os.makedirs('inner_js', exist_ok=True)
     
-    # 保存为JSON，保持原有格式
+    # 保存为JSON，按日期倒序排序
     with open('inner_js/featured_posts.json', 'w', encoding='utf-8') as f:
-        json.dump(featured_posts_json, f, ensure_ascii=False, indent=2)
+        json.dump(featured_posts, f, ensure_ascii=False, indent=2)
 
 def update_sidebar(posts_metadata):
     """更新侧边栏的文章列表"""
@@ -131,8 +139,14 @@ def update_sidebar(posts_metadata):
         posts_html += f'''
         <li>
             <a href="/inner_blogs/{os.path.splitext(post['filename'])[0]}.html">
-                <span class="post-title">{post['title']}</span>
-                <span class="post-date">{post['date']}</span>
+                <div class="post-info">
+                    <span class="post-title">{post['title']}</span>
+                    <div class="post-meta">
+                        <span class="post-date">📅 {post['date']}</span>
+                        <span class="post-category">📑 {post['category']}</span>
+                        <span class="post-reading-time">⏱️ {post['readingTime']}</span>
+                    </div>
+                </div>
             </a>
         </li>
         '''

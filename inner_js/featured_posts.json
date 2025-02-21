@@ -1,8 +1,20 @@
-[
-  {
-    "title": "SillyTavern：开源AI聊天前端的新选择",
-    "excerpt": "深入了解SillyTavern这个强大的AI聊天前端，从安装部署到进阶使用的完整指南",
-    "date": "2024-01-10",
-    "url": "inner_blogs/sillytavern_guide.html"
-  }
-]
+{
+  "posts": [
+    {
+      "title": "Git 入门指南",
+      "url": "inner_blogs/git_guide.html",
+      "date": "2024-02-21",
+      "excerpt": "Git是现代软件开发中不可或缺的版本控制工具。本文将带你了解Git的基本概念和常用命令，让你快速掌握Git的使用方法。",
+      "category": "开发工具",
+      "readingTime": "10分钟"
+    },
+    {
+      "title": "SillyTavern 使用指南",
+      "url": "inner_blogs/sillytavern_guide.html",
+      "date": "2024-02-21",
+      "excerpt": "SillyTavern是一个强大的AI聊天前端，本文将详细介绍如何安装、配置和使用SillyTavern，让你的AI聊天体验更加丝滑。",
+      "category": "AI工具",
+      "readingTime": "8分钟"
+    }
+  ]
+}
