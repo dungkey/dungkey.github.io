@@ -1,0 +1,133 @@
+/* 全局样式 */
+:root {
+    --primary-color: #6a11cb;
+    --secondary-color: #2575fc;
+    --text-color: #333;
+    --background-color: #f5f5f5;
+    --card-background: #ffffff;
+    --animation-duration: 0.3s;
+    --header-bg: rgba(255, 255, 255, 0.95);
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --card-hover-transform: translateY(-5px);
+    --card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    --border-radius: 12px;
+    --spacing-unit: 1rem;
+    --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+    --blur-amount: 10px;
+}
+
+[data-theme='dark'] {
+    --primary-color: #8a2be2;
+    --secondary-color: #4169e1;
+    --text-color: #e0e0e0;
+    --background-color: #1a1a1a;
+    --card-background: #2d2d2d;
+    --header-bg: rgba(45, 45, 45, 0.95);
+    --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    overflow-x: hidden;
+    transition: background-color var(--animation-duration) var(--transition-timing),
+                color var(--animation-duration) var(--transition-timing);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 背景动画 */
+.background-animation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    opacity: 0.1;
+    animation: gradientBG 15s ease infinite;
+    background-size: 400% 400%;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* 主题切换按钮和返回按钮样式 */
+.theme-toggle, .return-outer {
+    position: fixed;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--card-background);
+    border: none;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--animation-duration) var(--transition-timing);
+    z-index: 1000;
+    backdrop-filter: blur(var(--blur-amount));
+    -webkit-backdrop-filter: blur(var(--blur-amount));
+}
+
+.theme-toggle {
+    top: 20px;
+    right: 20px;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1) rotate(15deg);
+    box-shadow: 0 12px 24px var(--shadow-color);
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    color: white;
+}
+
+.theme-toggle svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--text-color);
+    transition: fill var(--animation-duration) ease;
+}
+
+.theme-toggle:hover svg {
+    fill: white;
+}
+
+[data-theme='dark'] .theme-toggle .sun {
+    display: block;
+}
+
+[data-theme='dark'] .theme-toggle .moon {
+    display: none;
+}
+
+[data-theme='light'] .theme-toggle .sun {
+    display: none;
+}
+
+[data-theme='light'] .theme-toggle .moon {
+    display: block;
+}
+
+/* 响应式设计基础 */
+@media (max-width: 1024px) {
+    .container {
+        padding: 0 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 1rem;
+    }
+}

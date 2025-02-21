@@ -1,0 +1,249 @@
+<div class="sidebar-content">
+<div class="profile-section">
+<img alt="头像" class="profile-image" src="/images/shark.png"/>
+<h2 class="profile-name">里世界</h2>
+<p class="profile-description">记录生活的美好瞬间</p>
+</div>
+<section class="recent-posts">
+<h3 class="section-title">最新文章</h3>
+<div class="post-list">
+<div class="post-grid">
+<a href="/inner_blogs/git_guide.html" class="post-card">
+<div class="post-info">
+<h4 class="post-title">Git下载和使用指南</h4>
+<span class="post-date">2025-02-21</span>
+</div>
+</a>
+<a href="/inner_blogs/sillytavern_guide.html" class="post-card">
+<div class="post-info">
+<h4 class="post-title">SillyTavern：开源AI聊天前端的新选择</h4>
+<span class="post-date">2024-01-10</span>
+</div>
+</a>
+</div>
+</div>
+</section>
+</div>
+<style>
+.sidebar-content {
+    color: var(--text-color);
+    padding: 2.5rem;
+    background: var(--card-background);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform var(--animation-duration) ease, box-shadow var(--animation-duration) ease;
+}
+
+.sidebar-content:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 32px var(--shadow-color);
+}
+
+.profile-section {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.profile-image {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    margin-bottom: 2rem;
+    border: 4px solid transparent;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    padding: 5px;
+    transition: all var(--animation-duration) cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 25px var(--shadow-color);
+}
+
+.profile-image:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px var(--shadow-color);
+}
+
+.profile-name {
+    font-size: 1.8rem;
+    margin: 0.5rem 0;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.profile-description {
+    color: var(--text-color);
+    opacity: 0.8;
+    margin: 0.5rem 0;
+}
+
+.sidebar-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.2rem;
+    color: var(--text-color);
+    text-decoration: none;
+    border-radius: 12px;
+    transition: all var(--animation-duration) cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 0.8rem;
+    background: var(--background-color);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav-icon {
+    margin-right: 0.8rem;
+    font-size: 1.2rem;
+}
+
+.sidebar-nav a:hover {
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    transform: translateX(5px);
+}
+.post-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+}
+
+.post-card {
+    display: block;
+    text-decoration: none;
+    background: var(--background-color);
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all var(--animation-duration) cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.post-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.post-thumbnail {
+    width: 100%;
+    height: 160px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+
+.post-thumbnail::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+}
+
+.post-info {
+    padding: 1.2rem;
+}
+
+.post-title {
+    color: var(--text-color);
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    line-height: 1.4;
+}
+
+.post-date {
+    color: var(--text-color);
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+.post-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.post-title {
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+    transition: color var(--animation-duration) ease;
+}
+
+.post-date {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    opacity: 0.7;
+    transition: color var(--animation-duration) ease;
+}
+
+.social-links {
+    margin-top: 2.5rem;
+}
+
+.social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.social-icon {
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 1rem;
+    border-radius: 50%;
+    background: var(--background-color);
+    transition: all var(--animation-duration) cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.social-icon::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity var(--animation-duration) ease;
+    z-index: 0;
+}
+
+.social-icon:hover {
+    color: white;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+h3 {
+    color: var(--primary-color);
+    margin: 2rem 0 1rem;
+    font-size: 1.3rem;
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    border-radius: 3px;
+}
+</style>
