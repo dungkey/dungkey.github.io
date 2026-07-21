@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DUNGKEY favicon">
+  <style>
+    :root { color: #111111; }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #F2F0EA; }
+    }
+  </style>
+
+  <g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left interface panel -->
+    <path d="M12 13.5c0-2.4 2.5-4 4.7-2.9l10.1 5.2c1.4.7 2.2 2.1 2.2 3.6v25.2c0 1.5-.8 2.9-2.2 3.6l-10.1 5.2c-2.2 1.1-4.7-.5-4.7-2.9z"/>
+
+    <!-- Right interface panel -->
+    <path d="M52 13.5c0-2.4-2.5-4-4.7-2.9l-10.1 5.2c-1.4.7-2.2 2.1-2.2 3.6v25.2c0 1.5.8 2.9 2.2 3.6l10.1 5.2c2.2 1.1 4.7-.5 4.7-2.9z"/>
+
+    <!-- Minimal UI cues -->
+    <path d="M17.5 32h6"/>
+    <rect x="40.5" y="27.5" width="7" height="9" rx="2.2"/>
+  </g>
+</svg>

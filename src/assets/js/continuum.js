@@ -328,7 +328,10 @@
     anchors.forEach((el, i) => {
       const label = document.createElement("div");
       label.className = "visual-label";
-      label.innerHTML = `<strong>${String(i).padStart(2, "0")} / ${el.dataset.title}</strong><span>${el.dataset.subtitle || ""}</span>`;
+      const index = el.dataset.index || String(i).padStart(2, "0");
+      const title = el.dataset.title || "";
+      const subtitle = el.dataset.subtitle || "";
+      label.innerHTML = `<strong>${index} / ${title}</strong><span>${subtitle}</span>`;
       labelsHost.appendChild(label);
     });
     labelEls = [...labelsHost.children];

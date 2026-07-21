@@ -9,11 +9,12 @@ isHome: true
   data-scene
   data-kind="hero"
   data-side="right"
+  data-index="00"
   data-title="Personal blog"
-  data-subtitle="先想明白，再写清楚"
+  data-subtitle="{{ site.alias }} · {{ site.year }} · 先想明白，再写清楚"
 >
   <div class="scene-copy" data-reveal>
-    <span class="eyebrow">{{ site.alias }} / PERSONAL JOURNAL / {{ site.year }}</span>
+    <span class="eyebrow">00 / Personal blog</span>
     <h1>先想明白，<br /><span>再写清楚。</span></h1>
     <p class="hero-note">开发、设计与思考，都只为留下下一次更好的判断。</p>
   </div>
@@ -26,11 +27,12 @@ isHome: true
   data-scene
   data-kind="writing"
   data-side="left"
+  data-index="01"
   data-title="Selected writing"
   data-subtitle="写下已经理解的，也保留尚未想明白的"
 >
   <div class="scene-copy" data-reveal>
-    <span class="eyebrow">00 / Selected writing</span>
+    <span class="eyebrow">01 / Selected writing</span>
     <h2>最近关注的，<span>三个方向。</span></h2>
     <p class="scene-note">把已经理解的写清楚，也把尚未想明白的问题留在这里。不追求覆盖所有变化，只选择真正值得反复思考的主题，并留下能够继续延展的线索。</p>
   </div>
@@ -39,6 +41,7 @@ isHome: true
 {% for direction in directions %}
   {% set post = collections.posts | findByCategory(direction.key) %}
   {% set i = loop.index0 %}
+  {% set sceneNo = (loop.index + 1) | padNum(2) %}
   {% set textSide = "text-left" if (i % 2 == 0) else "text-right" %}
   {% set sceneSide = "right" if (i % 2 == 0) else "left" %}
   <article
@@ -46,11 +49,12 @@ isHome: true
     data-scene
     data-kind="{{ direction.slug }}"
     data-side="{{ sceneSide }}"
+    data-index="{{ sceneNo }}"
     data-title="{{ direction.en }}"
     data-subtitle="{{ direction.subtitle }}"
   >
     <div class="scene-copy" data-reveal>
-      <span class="eyebrow">00.{{ loop.index }} / {{ direction.en }}</span>
+      <span class="eyebrow">{{ sceneNo }} / {{ direction.en }}</span>
       <h3>{{ direction.lead }}<span>{{ direction.muted }}</span></h3>
       {% if post %}
         <div class="article-meta">
@@ -65,17 +69,19 @@ isHome: true
   </article>
 {% endfor %}
 
+{% set aboutNo = (directions.length + 2) | padNum(2) %}
 <section
   class="scene about-scene text-right page"
   id="about"
   data-scene
   data-kind="about"
   data-side="left"
+  data-index="{{ aboutNo }}"
   data-title="About"
   data-subtitle="关于{{ site.name }}，以及这个博客为什么存在"
 >
   <div class="scene-copy" data-reveal>
-    <span class="eyebrow">01 / About</span>
+    <span class="eyebrow">{{ aboutNo }} / About</span>
     <h2 class="about-title">
       <span class="name-line">{{ site.name }}</span>
       <span class="alias-line">{{ site.alias }}</span>

@@ -6,6 +6,8 @@
   <meta name="description" content="{{ description or site.description }}" />
   <meta name="theme-color" content="#f2f1ec" />
   <title>{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} · 个人博客{% endif %}</title>
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png" />
   <link rel="stylesheet" href="/assets/css/style.css" />
   {% if isHome %}<link rel="stylesheet" href="/assets/css/home.css" />{% endif %}
   {% if isPost %}
