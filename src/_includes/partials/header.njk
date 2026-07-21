@@ -30,6 +30,17 @@
 
     <div class="header-end">
       <a class="about-link" href="{% if isHome %}#about{% else %}/#about{% endif %}">About</a>
+      <button
+        class="icon-trigger music-toggle"
+        id="musicToggle"
+        aria-label="播放背景音乐"
+        aria-pressed="false"
+        type="button"
+      >
+        <span class="music-eq" aria-hidden="true">
+          <i></i><i></i><i></i>
+        </span>
+      </button>
       <button class="icon-trigger" id="themeToggle" aria-label="切换深色模式" type="button">
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>

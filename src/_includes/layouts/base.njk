@@ -29,7 +29,10 @@
     })();
   </script>
 </head>
-<body{% if isHome %} class="is-home"{% endif %}>
+<body
+  {% if isHome %}class="is-home"{% endif %}
+  data-music="{% if isHome %}home{% elif isPost %}article{% else %}catalog{% endif %}"
+>
   {% if isHome %}
     <canvas id="continuum" aria-hidden="true"></canvas>
     <div class="veil" id="veilLeft" aria-hidden="true"></div>
@@ -54,6 +57,7 @@
   {% include "partials/search.njk" %}
 
   <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/music.js"></script>
   {% if isHome %}<script src="/assets/js/continuum.js"></script>{% endif %}
 </body>
 </html>
