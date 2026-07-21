@@ -46,6 +46,14 @@ module.exports = function (eleventyConfig) {
     return `${text.slice(0, limit).trim()}…`;
   });
 
+  eleventyConfig.addFilter("findByCategory", (posts, category) =>
+    (posts || []).find((post) => post.data.category === category)
+  );
+
+  eleventyConfig.addFilter("filterByCategory", (posts, category) =>
+    (posts || []).filter((post) => post.data.category === category)
+  );
+
   return {
     dir: {
       input: "src",
