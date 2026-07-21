@@ -1,0 +1,39 @@
+---
+layout: layouts/base.njk
+pagination:
+  data: directions
+  size: 1
+  alias: direction
+permalink: "/{{ direction.slug }}/"
+eleventyComputed:
+  title: "{{ direction.key }}"
+  description: "{{ direction.description }}"
+---
+
+{% set posts = collections.posts | filterByCategory(direction.key) %}
+
+<header class="inner-hero inner-hero--quiet">
+  <span class="inner-kicker">{{ direction.en }}</span>
+  <h1 class="inner-title">{{ direction.key }}</h1>
+  <p class="inner-lede">{{ direction.description }}</p>
+  <div class="inner-meta">
+    <span>{{ posts | length }} 篇文章</span>
+  </div>
+</header>
+
+<section class="post-list" aria-label="{{ direction.key }}文章列表">
+  {% for post in posts %}
+    <a class="post-list-item" href="{{ post.url }}">
+      <h2 class="post-list-title">{{ post.data.title }}</h2>
+      <p class="post-list-excerpt">
+        {{ post.data.description or (post.templateContent | excerpt) }}
+      </p>
+      <div class="post-list-meta">
+        {{ post.date | readableDate }}
+        · {{ post.templateContent | readingTime }} min
+      </div>
+    </a>
+  {% else %}
+    <p class="empty-state">这个方向还没有文章。</p>
+  {% endfor %}
+</section>

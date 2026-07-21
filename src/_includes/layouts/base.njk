@@ -4,25 +4,54 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="{{ description or site.description }}" />
-  <meta name="theme-color" content="#f6f6f2" />
-  <title>{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} — 极简博客{% endif %}</title>
+  <meta name="theme-color" content="#f2f1ec" />
+  <title>{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} · 个人博客{% endif %}</title>
   <link rel="stylesheet" href="/assets/css/style.css" />
+  {% if isHome %}<link rel="stylesheet" href="/assets/css/home.css" />{% endif %}
+  {% if isPost %}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  {% endif %}
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem("qijue-theme");
+        if (saved === "dark" || saved === "light") {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (_) {}
+    })();
+  </script>
 </head>
-<body>
-  <div class="line-cursor" id="cursor" aria-hidden="true"></div>
+<body{% if isHome %} class="is-home"{% endif %}>
+  {% if isHome %}
+    <canvas id="continuum" aria-hidden="true"></canvas>
+    <div class="veil" id="veilLeft" aria-hidden="true"></div>
+    <div class="veil" id="veilRight" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <aside class="visual-meta" id="visualMeta" aria-hidden="true">
+      <div class="visual-labels" id="visualLabels"></div>
+      <div class="visual-progress">
+        <span class="visual-progress-line"><i id="progressBar"></i></span>
+        <output id="progressText">000</output>
+      </div>
+    </aside>
+  {% endif %}
 
-  <div class="shell">
-    {% include "partials/header.njk" %}
+  {% include "partials/header.njk" %}
 
-    <main id="top">
-      {{ content | safe }}
-    </main>
+  <main id="top"{% if not isHome %} class="inner-main page"{% endif %}>
+    {{ content | safe }}
+  </main>
 
-    {% include "partials/footer.njk" %}
-  </div>
-
+  {% include "partials/footer.njk" %}
   {% include "partials/search.njk" %}
 
   <script src="/assets/js/main.js"></script>
+  {% if isHome %}<script src="/assets/js/continuum.js"></script>{% endif %}
 </body>
 </html>

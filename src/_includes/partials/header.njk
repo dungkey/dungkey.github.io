@@ -1,42 +1,50 @@
-<header class="topbar">
-  <a class="brand" href="/" aria-label="返回首页">
-    <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-text">{{ site.name }}</span>
-  </a>
+<header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <a class="brand" href="/" aria-label="{{ site.name }} 首页">
+      <img
+        class="brand-logo brand-logo--light"
+        src="/assets/img/logo-light.png"
+        alt="{{ site.name }} · {{ site.alias }}"
+        width="160"
+        height="58"
+        decoding="async"
+      />
+      <img
+        class="brand-logo brand-logo--dark"
+        src="/assets/img/logo-dark.png"
+        alt="{{ site.name }} · {{ site.alias }}"
+        width="160"
+        height="58"
+        decoding="async"
+      />
+    </a>
 
-  <nav class="nav" aria-label="主导航">
-    <a href="/#articles">文章</a>
-    <a href="/#notes">随记</a>
-    <a href="/archive/">归档</a>
-    <a href="/#about">关于</a>
-  </nav>
+    <nav class="nav" aria-label="内容方向">
+      {% for item in directions %}
+        <a
+          href="/{{ item.slug }}/"
+          {% if page.url == "/" + item.slug + "/" %}aria-current="page"{% endif %}
+        >{{ item.key }}</a>
+      {% endfor %}
+    </nav>
 
-  <div class="actions">
-    <button class="icon-btn" id="searchOpen" aria-label="打开搜索">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="10.5" cy="10.5" r="6.5"></circle>
-        <path d="M15.5 15.5 21 21"></path>
-      </svg>
-    </button>
-
-    <button class="icon-btn" id="themeToggle" aria-label="切换深色模式">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="4"></circle>
-        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"></path>
-      </svg>
-    </button>
-
-    <button class="icon-btn menu-btn" id="menuToggle" aria-label="打开菜单" aria-expanded="false">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 7h18M3 17h18"></path>
-      </svg>
-    </button>
+    <div class="header-end">
+      <a class="about-link" href="{% if isHome %}#about{% else %}/#about{% endif %}">About</a>
+      <button class="icon-trigger" id="themeToggle" aria-label="切换深色模式" type="button">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 13.5A7.5 7.5 0 1 1 10.5 5 6 6 0 0 0 19 13.5z"></path>
+        </svg>
+      </button>
+      <button class="icon-trigger" id="searchOpen" aria-label="搜索文章标题" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5"></circle>
+          <path d="M15.5 15.5 21 21"></path>
+        </svg>
+      </button>
+    </div>
   </div>
 </header>
-
-<nav class="mobile-menu" id="mobileMenu" aria-label="移动端导航">
-  <a href="/#articles">文章 / Articles</a>
-  <a href="/#notes">随记 / Notes</a>
-  <a href="/archive/">归档 / Archive</a>
-  <a href="/#about">关于 / About</a>
-</nav>

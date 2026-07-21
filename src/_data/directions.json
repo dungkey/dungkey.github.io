@@ -1,0 +1,29 @@
+[
+  {
+    "key": "开发",
+    "slug": "dev",
+    "en": "Dev",
+    "lead": "开发，",
+    "muted": "单文件网页为什么仍然迷人。",
+    "subtitle": "结构、样式与交互如何压进清晰体验",
+    "description": "关于工程实践、工具链与实现路径的记录。"
+  },
+  {
+    "key": "设计",
+    "slug": "design",
+    "en": "Design",
+    "lead": "设计，",
+    "muted": "留白为何不是空白。",
+    "subtitle": "布局、距离与边界如何承担表达",
+    "description": "关于界面、视觉节奏与体验判断的记录。"
+  },
+  {
+    "key": "思考",
+    "slug": "thinking",
+    "en": "Thinking",
+    "lead": "思考，",
+    "muted": "如何建立一座不追逐流量的数字花园。",
+    "subtitle": "缓慢生长的个人索引，允许想法不完整",
+    "description": "关于写作、认知与长期问题的记录。"
+  }
+]

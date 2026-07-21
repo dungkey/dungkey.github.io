@@ -1,28 +1,27 @@
-<footer class="footer">
-  <div class="footer-cell">
-    <div class="footer-label">Line / Notes</div>
-    <div class="footer-brand">Ideas, reduced<br />to essentials.</div>
+{% if isHome %}
+<footer
+  class="scene closing-scene text-right"
+  data-scene
+  data-kind="closing"
+  data-side="left"
+  data-title="Continue"
+  data-subtitle="下一篇，继续把问题写清楚"
+>
+  <div class="scene-copy" data-reveal>
+    <span class="eyebrow">03 / Continue</span>
+    <h2 class="closing-title">
+      <span class="primary-line">继续探索，</span>
+      <span>也继续把问题写清楚。</span>
+    </h2>
   </div>
-
-  <div class="footer-cell">
-    <div class="footer-label">Index</div>
-    <div class="footer-links">
-      <a href="/#articles">文章</a>
-      <a href="/#notes">随记</a>
-      <a href="/#about">关于</a>
-      <a href="/archive/">归档</a>
-    </div>
-  </div>
-
-  <div class="footer-cell">
-    <div class="footer-label">System</div>
-    <div class="status">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span>All systems quiet.</span>
-    </div>
-    <div class="footer-links">
-      <span>© <span id="year"></span> {{ site.name }}</span>
-      <span>Built with Eleventy.</span>
-    </div>
+  <div class="footer-bottom">
+    <span>© <b id="year"></b> {{ site.name }}</span>
+    <span>{{ site.alias }} · Built with clarity and restraint.</span>
   </div>
 </footer>
+{% else %}
+<footer class="site-footer-simple">
+  <span>© <b id="year"></b> {{ site.name }}</span>
+  <span>{{ site.alias }} · {{ site.role }}</span>
+</footer>
+{% endif %}

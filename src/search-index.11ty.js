@@ -16,6 +16,7 @@ module.exports.render = function ({ collections }) {
     return {
       title: post.data.title,
       url: post.url,
+      category: post.data.category || "",
       excerpt,
       tags: post.data.tags || [],
     };

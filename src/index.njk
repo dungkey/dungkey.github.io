@@ -1,102 +1,104 @@
 ---
 layout: layouts/base.njk
 permalink: /
+isHome: true
 ---
 
-<section class="hero" aria-labelledby="hero-title">
-  <div class="hero-main">
-    <div>
-      <div class="eyebrow">Independent journal · Vol. {{ site.issue }}</div>
-      <h1 class="hero-title" id="hero-title">
-        <span>LESS</span>
-        <span class="outline">BUT BETTER.</span>
-      </h1>
-    </div>
-
-    <div class="hero-bottom">
-      <a class="scroll-note" href="#articles">
-        <span class="scroll-line" aria-hidden="true"></span>
-        向下阅读
-      </a>
-      <p class="intro">
-        记录设计、代码与日常观察。删去装饰，只留下结构、节奏和有意义的内容。
-      </p>
-    </div>
+<section
+  class="scene hero text-left page"
+  data-scene
+  data-kind="hero"
+  data-side="right"
+  data-title="Personal blog"
+  data-subtitle="先想明白，再写清楚"
+>
+  <div class="scene-copy" data-reveal>
+    <span class="eyebrow">{{ site.alias }} / PERSONAL JOURNAL / {{ site.year }}</span>
+    <h1>先想明白，<br /><span>再写清楚。</span></h1>
+    <p class="hero-note">开发、设计与思考，都只为留下下一次更好的判断。</p>
   </div>
-
-  <aside class="hero-side" aria-label="博客信息">
-    <div class="orbital" aria-hidden="true">
-      <span class="crosshair"></span>
-      <span class="orbital-dot"></span>
-    </div>
-
-    <div class="side-block">
-      <div class="side-label">Latest issue</div>
-      <div class="side-value">{{ site.issue }}</div>
-    </div>
-
-    <div class="side-block">
-      <div class="ticker">
-        <span>{{ site.location }}</span>
-        <span id="clock">--:--</span>
-      </div>
-    </div>
-  </aside>
+  <span class="scroll-cue">Scroll to turn the page</span>
 </section>
 
-<section class="content-section" id="articles" aria-labelledby="articles-title">
-  <div class="section-rail">
-    <div class="section-index">01 / Essays</div>
-    <h2 id="articles-title">近期文章</h2>
-  </div>
-
-  <div class="articles">
-    {% if collections.posts.length %}
-      {% for post in collections.posts %}
-        {% set index = loop.index %}
-        {% include "partials/article-row.njk" %}
-      {% endfor %}
-    {% else %}
-      <p class="empty-state">还没有文章。在 <code>src/posts/</code> 里新增 Markdown 即可。</p>
-    {% endif %}
+<section
+  class="scene text-right page"
+  data-scene
+  data-kind="intro"
+  data-side="left"
+  data-title="Introduction"
+  data-subtitle="从兴趣出发，逐渐沉淀为三个稳定的关注方向"
+>
+  <div class="scene-copy" data-reveal>
+    <span class="eyebrow">00 / Introduction</span>
+    <h2>写下已经理解的，<span>也保留尚未想明白的。</span></h2>
+    <p class="scene-note">把已经理解的写清楚，也把尚未想明白的问题留在这里。每一次记录，都是一次重新组织认知的过程。</p>
   </div>
 </section>
 
-<section class="content-section" id="notes" aria-labelledby="notes-title">
-  <div class="section-rail">
-    <div class="section-index">02 / Notes</div>
-    <h2 id="notes-title">碎片随记</h2>
-  </div>
-
-  <div class="notes-grid">
-    {% for note in collections.notes %}
-      <article class="note-card">
-        <div class="meta">N / {% if note.data.number %}{{ note.data.number }}{% else %}{{ (collections.notes.length - loop.index0) | padNum }}{% endif %} · {{ note.date | shortDate }}</div>
-        <h3>{{ note.data.title }}</h3>
-        <p>{{ note.data.description or (note.templateContent | excerpt(80)) }}</p>
-      </article>
-    {% else %}
-      <p class="empty-state">暂无随记。</p>
-    {% endfor %}
+<section
+  class="scene text-left page"
+  id="writing"
+  data-scene
+  data-kind="writing"
+  data-side="right"
+  data-title="Selected writing"
+  data-subtitle="三张文章页，对应当前最关心的三个方向"
+>
+  <div class="scene-copy" data-reveal>
+    <span class="eyebrow">01 / Selected writing</span>
+    <h2>最近关注的，<span>三个方向。</span></h2>
+    <p class="scene-note">不追求覆盖所有变化，只选择真正值得反复思考的主题，并留下能够继续延展的线索。</p>
   </div>
 </section>
 
-<section class="newsletter" id="about" aria-labelledby="newsletter-title">
-  <div class="section-rail">
-    <div class="section-index">03 / Letter</div>
-    <h2>保持联系</h2>
-  </div>
+{% for direction in directions %}
+  {% set post = collections.posts | findByCategory(direction.key) %}
+  {% set i = loop.index0 %}
+  {% set textSide = "text-right" if (i % 2 == 0) else "text-left" %}
+  {% set sceneSide = "left" if (i % 2 == 0) else "right" %}
+  <article
+    class="scene {{ textSide }} page"
+    data-scene
+    data-kind="article"
+    data-side="{{ sceneSide }}"
+    data-title="{{ direction.en }}"
+    data-subtitle="{{ direction.subtitle }}"
+  >
+    <div class="scene-copy" data-reveal>
+      <span class="eyebrow">01.{{ loop.index }} / {{ direction.en }}</span>
+      <h3>{{ direction.lead }}<span>{{ direction.muted }}</span></h3>
+      {% if post %}
+        <div class="article-meta">
+          {{ post.templateContent | readingTime }} MIN READ · {{ post.date | readableDate }}
+        </div>
+        <a class="article-link" href="{{ post.url }}">阅读全文 <span>↗</span></a>
+      {% else %}
+        <div class="article-meta">Coming soon</div>
+        <a class="article-link" href="/{{ direction.slug }}/" aria-label="查看{{ direction.key }}列表">查看列表 <span>↗</span></a>
+      {% endif %}
+    </div>
+  </article>
+{% endfor %}
 
-  <div class="newsletter-main">
-    <h2 class="newsletter-title" id="newsletter-title">
-      偶尔写信，<br />不制造噪音。
+<section
+  class="scene about-scene text-left page"
+  id="about"
+  data-scene
+  data-kind="about"
+  data-side="right"
+  data-title="About"
+  data-subtitle="关于{{ site.name }}，以及这个博客为什么存在"
+>
+  <div class="scene-copy" data-reveal>
+    <span class="eyebrow">02 / About</span>
+    <h2 class="about-title">
+      <span class="name-line">{{ site.name }}</span>
+      <span class="alias-line">{{ site.alias }}</span>
+      <span class="focus-line">开发 · 设计 · 思考</span>
     </h2>
-
-    <form class="subscribe" id="subscribeForm">
-      <label class="visually-hidden" for="email">电子邮箱</label>
-      <input id="email" name="email" type="email" placeholder="your@email.com" autocomplete="email" required />
-      <button type="submit">订阅月刊 <span>→</span></button>
-    </form>
-    <p class="form-note" id="formNote">每月最多一封。随时可以退出。</p>
+    <div class="about-bottom">
+      <p>这里收录我对系统、智能与界面的长期观察。不追求覆盖所有变化，只记录那些值得被反复思考、不断修正，并最终写清楚的问题。</p>
+      <a class="contact" href="mailto:{{ site.email }}">Say hello ↗</a>
+    </div>
   </div>
 </section>

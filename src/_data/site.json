@@ -1,9 +1,11 @@
 {
-  "name": "LINE / NOTES",
-  "description": "一个只使用线条、留白与排版构成的现代极简博客。",
-  "url": "",
+  "name": "琦珏",
+  "alias": "dungkey",
+  "role": "Dev · Design · Thinking",
+  "description": "琦珏的个人博客：先想明白，再写清楚。围绕开发、设计与思考留下判断。",
+  "url": "https://dungkey.github.io",
   "language": "zh-CN",
-  "author": "LINE / NOTES",
-  "issue": "024",
-  "location": "Tokyo / 35.6762° N"
+  "author": "琦珏",
+  "email": "hello@example.com",
+  "year": "2026"
 }

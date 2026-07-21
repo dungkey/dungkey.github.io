@@ -1,4 +1,5 @@
 {
   "layout": "layouts/post.njk",
-  "permalink": "/posts/{{ page.fileSlug }}/"
+  "permalink": "/posts/{{ page.fileSlug }}/",
+  "isPost": true
 }

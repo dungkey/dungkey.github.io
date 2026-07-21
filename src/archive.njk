@@ -1,54 +1,38 @@
 ---
 layout: layouts/base.njk
-title: 归档
-description: 全部文章与随记归档。
+title: 全部文章
+description: 开发、设计与思考方向的全部文章。
 permalink: /archive/
 ---
 
-<header class="page-hero">
-  <div class="section-rail">
-    <div class="section-index">Archive</div>
-    <h2>索引</h2>
-  </div>
-  <div class="page-hero-main">
-    <p class="page-kicker eyebrow">All essays</p>
-    <h1 class="page-title">归档</h1>
-    <div class="page-meta">
-      <span>{{ collections.posts.length }} 篇文章</span>
-      <span>{{ collections.notes.length }} 则随记</span>
-    </div>
+<header class="inner-hero inner-hero--quiet">
+  <span class="inner-kicker">Archive</span>
+  <h1 class="inner-title">全部文章</h1>
+  <div class="inner-meta">
+    <span>{{ collections.posts.length }} 篇</span>
   </div>
 </header>
 
-<section class="content-section" aria-labelledby="archive-articles">
-  <div class="section-rail">
-    <div class="section-index">01 / Essays</div>
-    <h2 id="archive-articles">全部文章</h2>
-  </div>
-  <div class="articles">
-    {% for post in collections.posts %}
-      {% set index = loop.index %}
-      {% include "partials/article-row.njk" %}
-    {% else %}
-      <p class="empty-state">暂无文章。</p>
-    {% endfor %}
-  </div>
-</section>
+<nav class="direction-pills" aria-label="按方向浏览">
+  {% for item in directions %}
+    <a href="/{{ item.slug }}/">{{ item.key }}</a>
+  {% endfor %}
+</nav>
 
-<section class="content-section" aria-labelledby="archive-notes">
-  <div class="section-rail">
-    <div class="section-index">02 / Notes</div>
-    <h2 id="archive-notes">全部随记</h2>
-  </div>
-  <div class="notes-grid">
-    {% for note in collections.notes %}
-      <article class="note-card">
-        <div class="meta">N / {% if note.data.number %}{{ note.data.number }}{% else %}{{ (collections.notes.length - loop.index0) | padNum }}{% endif %} · {{ note.date | shortDate }}</div>
-        <h3>{{ note.data.title }}</h3>
-        <p>{{ note.data.description or (note.templateContent | excerpt(80)) }}</p>
-      </article>
-    {% else %}
-      <p class="empty-state">暂无随记。</p>
-    {% endfor %}
-  </div>
+<section class="post-list" aria-labelledby="archive-articles">
+  <h2 class="visually-hidden" id="archive-articles">文章</h2>
+  {% for post in collections.posts %}
+    <a class="post-list-item" href="{{ post.url }}">
+      <h2 class="post-list-title">{{ post.data.title }}</h2>
+      <p class="post-list-excerpt">
+        {{ post.data.description or (post.templateContent | excerpt) }}
+      </p>
+      <div class="post-list-meta">
+        {{ post.data.category }}
+        · {{ post.date | readableDate }}
+      </div>
+    </a>
+  {% else %}
+    <p class="empty-state">暂无文章。</p>
+  {% endfor %}
 </section>
