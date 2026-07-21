@@ -515,7 +515,7 @@ footer .scene-copy {
 
   .hero {
     min-height: 125vh;
-    padding-top: 64px;
+    padding-top: 112px;
     padding-bottom: 13vh;
   }
 
@@ -556,13 +556,17 @@ footer .scene-copy {
   }
 
   .visual-meta {
-    top: 40px;
+    top: 108px;
     width: calc(100vw - 34px);
     transform: none;
   }
 
   .visual-labels {
-    width: 62%;
+    display: none;
+  }
+
+  .visual-progress {
+    margin-top: 0;
   }
 
   footer.scene {
@@ -613,10 +617,6 @@ footer .scene-copy {
 
   .footer-bottom {
     grid-template-columns: 1fr;
-  }
-
-  .visual-labels {
-    width: 76%;
   }
 }
 

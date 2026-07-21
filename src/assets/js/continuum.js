@@ -14,10 +14,12 @@
   const progressText = document.getElementById("progressText");
   const header = document.getElementById("siteHeader");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const IDLE_FPS = 18;
+  const IDLE_INTERVAL = 1000 / IDLE_FPS;
 
-  const N = 88;
   const PATHS = 7;
   const NODES = 7;
+  let N = 88;
   let w = 0;
   let h = 0;
   let dpr = 1;
@@ -25,6 +27,13 @@
   let currentScroll = scrollY;
   let anchorY = [];
   let last = performance.now();
+  let lastDraw = 0;
+  let rafId = 0;
+  let looping = false;
+  let states = [];
+  let labelEls = [];
+  let inkCache = "";
+  let inkCacheAt = 0;
 
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -126,19 +135,6 @@
     return s;
   }
 
-  function stateIntro(side) {
-    const s = blank(side);
-    s.paths[0] = rect(0.5, 0.49, 0.62, 0.7, 0.1);
-    s.paths[1] = polyline([point(0.71, 0.14), point(0.71, 0.24), point(0.81, 0.24)]);
-    s.paths[2] = line(0.27, 0.34, 0.68, 0.34);
-    s.paths[3] = line(0.27, 0.45, 0.73, 0.45);
-    s.paths[4] = line(0.27, 0.56, 0.61, 0.56);
-    s.paths[5] = line(0.27, 0.67, 0.51, 0.67);
-    s.paths[6] = line(0.69, 0.52, 0.69, 0.68);
-    s.nodes[0] = { x: 0.69, y: 0.69, r: 0.011, a: 1, fill: 1 };
-    return s;
-  }
-
   function stateWriting(side) {
     const s = blank(side);
     s.paths[0] = rect(0.43, 0.45, 0.54, 0.61, 0.06);
@@ -154,22 +150,82 @@
     return s;
   }
 
-  function stateArticle(side, variant = 0) {
+  // 开发：编辑器窗口 + 代码行 + 光标
+  function stateDev(side) {
     const s = blank(side);
-    const ox = (variant % 3) * 0.02;
-    const oy = ((variant + 1) % 3) * 0.015;
-    s.paths[0] = rect(0.5 + ox, 0.49 + oy, 0.58, 0.68, 0.08);
-    s.paths[1] = polyline([
-      point(0.68 + ox, 0.16 + oy),
-      point(0.68 + ox, 0.26 + oy),
-      point(0.78 + ox, 0.26 + oy),
+    s.paths[0] = rect(0.5, 0.5, 0.64, 0.66, 0);
+    s.paths[1] = line(0.18, 0.28, 0.82, 0.28);
+    s.paths[2] = line(0.3, 0.17, 0.3, 0.83);
+    s.paths[3] = polyline([
+      point(0.38, 0.38),
+      point(0.34, 0.44),
+      point(0.38, 0.5),
+      point(0.34, 0.56),
+      point(0.38, 0.62),
     ]);
-    s.paths[2] = line(0.28 + ox, 0.36 + oy, 0.7 + ox, 0.36 + oy);
-    s.paths[3] = line(0.28 + ox, 0.46 + oy, 0.74 + ox, 0.46 + oy);
-    s.paths[4] = line(0.28 + ox, 0.56 + oy, 0.62 + ox, 0.56 + oy);
-    s.paths[5] = line(0.28 + ox, 0.66 + oy, 0.54 + ox, 0.66 + oy);
-    s.paths[6] = line(0.28 + ox, 0.76 + oy, 0.48 + ox, 0.76 + oy);
-    s.nodes[0] = { x: 0.34 + ox, y: 0.28 + oy, r: 0.012, a: 1, fill: 1 };
+    s.paths[4] = line(0.46, 0.4, 0.74, 0.4);
+    s.paths[5] = line(0.46, 0.52, 0.68, 0.52);
+    s.paths[6] = line(0.46, 0.64, 0.78, 0.64);
+    s.nodes[0] = { x: 0.22, y: 0.22, r: 0.008, a: 1, fill: 1 };
+    s.nodes[1] = { x: 0.28, y: 0.22, r: 0.008, a: 1, fill: 0 };
+    s.nodes[2] = { x: 0.34, y: 0.22, r: 0.008, a: 1, fill: 0 };
+    s.nodes[3] = { x: 0.78, y: 0.64, r: 0.011, a: 1, fill: 1 };
+    return s;
+  }
+
+  // 设计：裁切框 + 焦点圆 + 对齐参考线
+  function stateDesign(side) {
+    const s = blank(side);
+    s.paths[0] = polyline([
+      point(0.18, 0.28),
+      point(0.18, 0.18),
+      point(0.3, 0.18),
+    ]);
+    s.paths[1] = polyline([
+      point(0.7, 0.18),
+      point(0.82, 0.18),
+      point(0.82, 0.28),
+    ]);
+    s.paths[2] = polyline([
+      point(0.82, 0.72),
+      point(0.82, 0.82),
+      point(0.7, 0.82),
+    ]);
+    s.paths[3] = polyline([
+      point(0.3, 0.82),
+      point(0.18, 0.82),
+      point(0.18, 0.72),
+    ]);
+    s.paths[4] = ellipse(0.42, 0.46, 0.14, 0.14);
+    s.paths[5] = line(0.18, 0.5, 0.82, 0.5);
+    s.paths[6] = rect(0.62, 0.62, 0.22, 0.18, 0);
+    s.nodes[0] = { x: 0.42, y: 0.46, r: 0.012, a: 1, fill: 1 };
+    s.nodes[1] = { x: 0.5, y: 0.5, r: 0.008, a: 1, fill: 0 };
+    s.nodes[2] = { x: 0.62, y: 0.62, r: 0.009, a: 1, fill: 0 };
+    return s;
+  }
+
+  // 思考：中心节点向外延展的关系网络
+  function stateThinking(side) {
+    const s = blank(side);
+    s.paths[0] = ellipse(0.5, 0.48, 0.07, 0.07);
+    s.paths[1] = line(0.5, 0.41, 0.5, 0.22);
+    s.paths[2] = line(0.44, 0.52, 0.22, 0.68);
+    s.paths[3] = line(0.56, 0.52, 0.78, 0.68);
+    s.paths[4] = line(0.57, 0.45, 0.78, 0.3);
+    s.paths[5] = line(0.43, 0.45, 0.22, 0.3);
+    s.paths[6] = polyline([
+      point(0.22, 0.3),
+      point(0.28, 0.24),
+      point(0.36, 0.28),
+      point(0.42, 0.22),
+    ]);
+    s.nodes[0] = { x: 0.5, y: 0.48, r: 0.014, a: 1, fill: 1 };
+    s.nodes[1] = { x: 0.5, y: 0.22, r: 0.01, a: 1, fill: 0 };
+    s.nodes[2] = { x: 0.22, y: 0.68, r: 0.01, a: 1, fill: 0 };
+    s.nodes[3] = { x: 0.78, y: 0.68, r: 0.01, a: 1, fill: 0 };
+    s.nodes[4] = { x: 0.78, y: 0.3, r: 0.01, a: 1, fill: 0 };
+    s.nodes[5] = { x: 0.22, y: 0.3, r: 0.01, a: 1, fill: 0 };
     return s;
   }
 
@@ -231,17 +287,20 @@
   }
 
   function makeStates() {
-    let articleIndex = 0;
     return anchors.map((el) => {
-      const kind = el.dataset.kind || "article";
+      const kind = el.dataset.kind || "writing";
       const side = el.dataset.side === "left" ? "left" : "right";
       switch (kind) {
         case "hero":
           return stateHero(side);
-        case "intro":
-          return stateIntro(side);
         case "writing":
           return stateWriting(side);
+        case "dev":
+          return stateDev(side);
+        case "design":
+          return stateDesign(side);
+        case "thinking":
+          return stateThinking(side);
         case "notes":
           return stateNotes(side);
         case "about":
@@ -249,31 +308,44 @@
         case "closing":
           return stateClosing(side);
         default:
-          return stateArticle(side, articleIndex++);
+          return stateWriting(side);
       }
     });
   }
 
-  const states = makeStates();
+  function sampleCountForWidth(width) {
+    return width < 980 ? 44 : 88;
+  }
 
-  anchors.forEach((el, i) => {
-    const label = document.createElement("div");
-    label.className = "visual-label";
-    label.innerHTML = `<strong>${String(i).padStart(2, "0")} / ${el.dataset.title}</strong><span>${el.dataset.subtitle || ""}</span>`;
-    labelsHost.appendChild(label);
-  });
-  const labelEls = [...labelsHost.children];
+  function rebuildStates() {
+    const nextN = sampleCountForWidth(w || innerWidth);
+    if (states.length && nextN === N) return;
+    N = nextN;
+    states = makeStates();
+  }
+
+  if (labelsHost) {
+    anchors.forEach((el, i) => {
+      const label = document.createElement("div");
+      label.className = "visual-label";
+      label.innerHTML = `<strong>${String(i).padStart(2, "0")} / ${el.dataset.title}</strong><span>${el.dataset.subtitle || ""}</span>`;
+      labelsHost.appendChild(label);
+    });
+    labelEls = [...labelsHost.children];
+  }
 
   function resize() {
     w = Math.max(1, innerWidth);
     h = Math.max(1, innerHeight);
-    dpr = Math.min(devicePixelRatio || 1, 2);
+    dpr = Math.min(devicePixelRatio || 1, w < 980 ? 1.5 : 2);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    rebuildStates();
     measure();
+    paint(performance.now(), true);
   }
 
   function measure() {
@@ -334,7 +406,13 @@
   }
 
   function inkColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#11110f";
+    const now = performance.now();
+    if (!inkCache || now - inkCacheAt > 500) {
+      inkCache =
+        getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#11110f";
+      inkCacheAt = now;
+    }
+    return inkCache;
   }
 
   function drawPath(a, b, t, index, phase) {
@@ -342,7 +420,7 @@
     ctx.beginPath();
     for (let k = 0; k < N; k++) {
       const q = morphPoint(a, b, t, a.paths[index][k], b.paths[index][k]);
-      const breathe = Math.sin(phase + k * 0.06 + index) * 0.0012;
+      const breathe = reduced ? 0 : Math.sin(phase + k * 0.06 + index) * 0.0012;
       const px = (q.x + breathe) * w;
       const py = (q.y + breathe * 0.5) * h;
       if (k === 0) ctx.moveTo(px, py);
@@ -365,10 +443,8 @@
     const q = morphPoint(a, b, t, na, nb);
     const changingSide = a.side !== b.side && a !== b;
     const shrink = changingSide ? 1 - Math.sin(Math.PI * t) * 0.48 : 1;
-    const r = Math.max(
-      0,
-      lerp(na.r, nb.r, t) * Math.min(w, h) * shrink * (1 + Math.sin(phase + index) * 0.018)
-    );
+    const pulse = reduced ? 1 : 1 + Math.sin(phase + index) * 0.018;
+    const r = Math.max(0, lerp(na.r, nb.r, t) * Math.min(w, h) * shrink * pulse);
     const alpha = lerp(na.a, nb.a, t);
     const fill = lerp(na.fill, nb.fill, t);
     if (r < 0.2 || alpha < 0.01) return;
@@ -392,7 +468,7 @@
     ctx.strokeStyle = inkColor();
     ctx.globalAlpha = 0.026;
     ctx.lineWidth = 1;
-    const spacing = w < 980 ? 64 : 82;
+    const spacing = w < 980 ? 96 : 82;
     const ox = (p * spacing * 1.5) % spacing;
     const oy = (p * spacing * 0.65) % spacing;
     for (let x = -spacing + ox; x < w + spacing; x += spacing) {
@@ -411,10 +487,11 @@
   }
 
   function updateLayout(seg) {
+    if (!visualMeta) return;
     if (w < 980) {
       visualMeta.style.left = "17px";
-      veilLeft.style.opacity = "1";
-      veilRight.style.opacity = "1";
+      if (veilLeft) veilLeft.style.opacity = "1";
+      if (veilRight) veilRight.style.opacity = "1";
       return;
     }
     const side = lerp(sideValue(states[seg.i].side), sideValue(states[seg.j].side), seg.t);
@@ -426,17 +503,18 @@
     const leftPos = pageMargin;
     const rightPos = w - pageMargin - metaWidth;
     visualMeta.style.left = `${lerp(leftPos, rightPos, side)}px`;
-    veilLeft.style.opacity = side.toFixed(3);
-    veilRight.style.opacity = (1 - side).toFixed(3);
+    if (veilLeft) veilLeft.style.opacity = side.toFixed(3);
+    if (veilRight) veilRight.style.opacity = (1 - side).toFixed(3);
   }
 
   function draw(y, now) {
+    if (!states.length) return;
     ctx.clearRect(0, 0, w, h);
     drawGrid(y);
     const seg = segmentAt(y);
     const a = states[seg.i];
     const b = states[seg.j];
-    const phase = now * 0.00018;
+    const phase = reduced ? 0 : now * 0.00018;
     for (let p = 0; p < PATHS; p++) drawPath(a, b, seg.t, p, phase);
     for (let n = 0; n < NODES; n++) drawNode(a, b, seg.t, n, phase);
     updateLayout(seg);
@@ -459,33 +537,99 @@
     });
     const total = Math.max(1, document.documentElement.scrollHeight - innerHeight);
     const gp = clamp(y / total);
-    progressBar.style.width = `${(gp * 100).toFixed(2)}%`;
-    progressText.textContent = String(Math.round(gp * 100)).padStart(3, "0");
+    if (progressBar) progressBar.style.width = `${(gp * 100).toFixed(2)}%`;
+    if (progressText) progressText.textContent = String(Math.round(gp * 100)).padStart(3, "0");
+  }
+
+  function paint(now, force = false) {
+    if (document.visibilityState !== "visible") return;
+    if (
+      !force &&
+      !reduced &&
+      now - lastDraw < IDLE_INTERVAL &&
+      Math.abs(targetScroll - currentScroll) < 0.02
+    ) {
+      return;
+    }
+    lastDraw = now;
+    draw(currentScroll, now);
+  }
+
+  function stopLoop() {
+    looping = false;
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+  }
+
+  function startLoop() {
+    if (looping || document.visibilityState !== "visible" || reduced) return;
+    looping = true;
+    last = performance.now();
+    rafId = requestAnimationFrame(frame);
   }
 
   function frame(now) {
+    if (!looping || document.visibilityState !== "visible") {
+      stopLoop();
+      return;
+    }
+
     const dt = Math.min(34, now - last);
     last = now;
-    const factor = reduced ? 1 : 1 - Math.pow(0.00055, dt / 1000);
+    const factor = 1 - Math.pow(0.00055, dt / 1000);
     currentScroll += (targetScroll - currentScroll) * factor;
-    if (Math.abs(targetScroll - currentScroll) < 0.02) currentScroll = targetScroll;
-    draw(currentScroll, now);
-    requestAnimationFrame(frame);
+    const settled = Math.abs(targetScroll - currentScroll) < 0.02;
+    if (settled) currentScroll = targetScroll;
+
+    paint(now, true);
+
+    if (settled) {
+      looping = false;
+      rafId = 0;
+      setTimeout(() => {
+        if (document.visibilityState !== "visible" || reduced) return;
+        if (Math.abs(targetScroll - scrollY) > 0.5 || Math.abs(targetScroll - currentScroll) > 0.02) {
+          targetScroll = scrollY;
+          startLoop();
+          return;
+        }
+        startLoop();
+      }, IDLE_INTERVAL);
+      return;
+    }
+
+    rafId = requestAnimationFrame(frame);
   }
 
-  addEventListener(
-    "scroll",
-    () => {
-      targetScroll = scrollY;
-      header?.classList.toggle("is-scrolled", scrollY > 8);
-    },
-    { passive: true }
-  );
+  function onScroll() {
+    targetScroll = scrollY;
+    header?.classList.toggle("is-scrolled", scrollY > 8);
+    if (reduced) {
+      currentScroll = targetScroll;
+      paint(performance.now(), true);
+      return;
+    }
+    startLoop();
+  }
+
+  addEventListener("scroll", onScroll, { passive: true });
   addEventListener("resize", resize, { passive: true });
   addEventListener("load", measure, { once: true });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      stopLoop();
+      return;
+    }
+    currentScroll = targetScroll = scrollY;
+    paint(performance.now(), true);
+    if (!reduced) startLoop();
+  });
+
   resize();
   header?.classList.toggle("is-scrolled", scrollY > 8);
-  requestAnimationFrame(frame);
+  if (!reduced) startLoop();
 
   const observer = new IntersectionObserver(
     (entries) =>

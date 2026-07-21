@@ -1,7 +1,7 @@
 :root {
   --paper: #f2f1ec;
   --ink: #11110f;
-  --muted: #77766f;
+  --muted: #6f6e67;
   --line: rgba(17, 17, 15, 0.18);
   --page: min(1520px, calc(100vw - 96px));
   --sans:

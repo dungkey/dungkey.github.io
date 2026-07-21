@@ -17,55 +17,40 @@ isHome: true
     <h1>先想明白，<br /><span>再写清楚。</span></h1>
     <p class="hero-note">开发、设计与思考，都只为留下下一次更好的判断。</p>
   </div>
-  <span class="scroll-cue">Scroll to turn the page</span>
+  <span class="scroll-cue">向下，继续阅读</span>
 </section>
 
 <section
   class="scene text-right page"
-  data-scene
-  data-kind="intro"
-  data-side="left"
-  data-title="Introduction"
-  data-subtitle="从兴趣出发，逐渐沉淀为三个稳定的关注方向"
->
-  <div class="scene-copy" data-reveal>
-    <span class="eyebrow">00 / Introduction</span>
-    <h2>写下已经理解的，<span>也保留尚未想明白的。</span></h2>
-    <p class="scene-note">把已经理解的写清楚，也把尚未想明白的问题留在这里。每一次记录，都是一次重新组织认知的过程。</p>
-  </div>
-</section>
-
-<section
-  class="scene text-left page"
   id="writing"
   data-scene
   data-kind="writing"
-  data-side="right"
+  data-side="left"
   data-title="Selected writing"
-  data-subtitle="三张文章页，对应当前最关心的三个方向"
+  data-subtitle="写下已经理解的，也保留尚未想明白的"
 >
   <div class="scene-copy" data-reveal>
-    <span class="eyebrow">01 / Selected writing</span>
+    <span class="eyebrow">00 / Selected writing</span>
     <h2>最近关注的，<span>三个方向。</span></h2>
-    <p class="scene-note">不追求覆盖所有变化，只选择真正值得反复思考的主题，并留下能够继续延展的线索。</p>
+    <p class="scene-note">把已经理解的写清楚，也把尚未想明白的问题留在这里。不追求覆盖所有变化，只选择真正值得反复思考的主题，并留下能够继续延展的线索。</p>
   </div>
 </section>
 
 {% for direction in directions %}
   {% set post = collections.posts | findByCategory(direction.key) %}
   {% set i = loop.index0 %}
-  {% set textSide = "text-right" if (i % 2 == 0) else "text-left" %}
-  {% set sceneSide = "left" if (i % 2 == 0) else "right" %}
+  {% set textSide = "text-left" if (i % 2 == 0) else "text-right" %}
+  {% set sceneSide = "right" if (i % 2 == 0) else "left" %}
   <article
     class="scene {{ textSide }} page"
     data-scene
-    data-kind="article"
+    data-kind="{{ direction.slug }}"
     data-side="{{ sceneSide }}"
     data-title="{{ direction.en }}"
     data-subtitle="{{ direction.subtitle }}"
   >
     <div class="scene-copy" data-reveal>
-      <span class="eyebrow">01.{{ loop.index }} / {{ direction.en }}</span>
+      <span class="eyebrow">00.{{ loop.index }} / {{ direction.en }}</span>
       <h3>{{ direction.lead }}<span>{{ direction.muted }}</span></h3>
       {% if post %}
         <div class="article-meta">
@@ -81,16 +66,16 @@ isHome: true
 {% endfor %}
 
 <section
-  class="scene about-scene text-left page"
+  class="scene about-scene text-right page"
   id="about"
   data-scene
   data-kind="about"
-  data-side="right"
+  data-side="left"
   data-title="About"
   data-subtitle="关于{{ site.name }}，以及这个博客为什么存在"
 >
   <div class="scene-copy" data-reveal>
-    <span class="eyebrow">02 / About</span>
+    <span class="eyebrow">01 / About</span>
     <h2 class="about-title">
       <span class="name-line">{{ site.name }}</span>
       <span class="alias-line">{{ site.alias }}</span>
@@ -98,7 +83,7 @@ isHome: true
     </h2>
     <div class="about-bottom">
       <p>这里收录我对系统、智能与界面的长期观察。不追求覆盖所有变化，只记录那些值得被反复思考、不断修正，并最终写清楚的问题。</p>
-      <a class="contact" href="mailto:{{ site.email }}">Say hello ↗</a>
+      <a class="contact" href="{{ site.github }}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
     </div>
   </div>
 </section>
