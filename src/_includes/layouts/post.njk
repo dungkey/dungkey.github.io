@@ -1,0 +1,68 @@
+---
+layout: layouts/base.njk
+---
+
+<article>
+  <header class="page-hero">
+    <div class="section-rail">
+      <div class="section-index">Essay</div>
+      <h2>{{ category or "文章" }}</h2>
+    </div>
+    <div class="page-hero-main">
+      <p class="page-kicker eyebrow">{{ date | readableDate }}</p>
+      <h1 class="page-title">{{ title }}</h1>
+      <div class="page-meta">
+        <span>{{ category or "随笔" }}</span>
+        <span>{{ content | readingTime }} 分钟阅读</span>
+        {% if tags %}
+          <span>
+            {% for tag in tags %}
+              {% if tag != "posts" %}{{ tag }}{% if not loop.last %} · {% endif %}{% endif %}
+            {% endfor %}
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="post-layout">
+    <aside class="post-rail">
+      <div class="section-index">Tags</div>
+      <div style="margin-top: 16px;">
+        {% for tag in tags %}
+          {% if tag != "posts" %}
+            <span class="tag">{{ tag }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </aside>
+
+    <div class="post-body">
+      <div class="prose">
+        {{ content | safe }}
+      </div>
+
+      {# collections.posts 按日期倒序：next = 更早，previous = 更新 #}
+      {% set newerPost = collections.posts | getPreviousCollectionItem %}
+      {% set olderPost = collections.posts | getNextCollectionItem %}
+      {% if olderPost or newerPost %}
+        <nav class="post-nav" aria-label="上下篇文章">
+          {% if olderPost %}
+            <a href="{{ olderPost.url }}">
+              <span class="post-nav-label">更早</span>
+              <span class="post-nav-title">{{ olderPost.data.title }}</span>
+            </a>
+          {% else %}
+            <div></div>
+          {% endif %}
+          {% if newerPost %}
+            <a href="{{ newerPost.url }}">
+              <span class="post-nav-label">更新</span>
+              <span class="post-nav-title">{{ newerPost.data.title }}</span>
+            </a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    </div>
+  </div>
+</article>

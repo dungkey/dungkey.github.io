@@ -1,0 +1,42 @@
+<header class="topbar">
+  <a class="brand" href="/" aria-label="返回首页">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-text">{{ site.name }}</span>
+  </a>
+
+  <nav class="nav" aria-label="主导航">
+    <a href="/#articles">文章</a>
+    <a href="/#notes">随记</a>
+    <a href="/archive/">归档</a>
+    <a href="/#about">关于</a>
+  </nav>
+
+  <div class="actions">
+    <button class="icon-btn" id="searchOpen" aria-label="打开搜索">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="6.5"></circle>
+        <path d="M15.5 15.5 21 21"></path>
+      </svg>
+    </button>
+
+    <button class="icon-btn" id="themeToggle" aria-label="切换深色模式">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"></path>
+      </svg>
+    </button>
+
+    <button class="icon-btn menu-btn" id="menuToggle" aria-label="打开菜单" aria-expanded="false">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 7h18M3 17h18"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<nav class="mobile-menu" id="mobileMenu" aria-label="移动端导航">
+  <a href="/#articles">文章 / Articles</a>
+  <a href="/#notes">随记 / Notes</a>
+  <a href="/archive/">归档 / Archive</a>
+  <a href="/#about">关于 / About</a>
+</nav>

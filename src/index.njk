@@ -1,0 +1,102 @@
+---
+layout: layouts/base.njk
+permalink: /
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-main">
+    <div>
+      <div class="eyebrow">Independent journal · Vol. {{ site.issue }}</div>
+      <h1 class="hero-title" id="hero-title">
+        <span>LESS</span>
+        <span class="outline">BUT BETTER.</span>
+      </h1>
+    </div>
+
+    <div class="hero-bottom">
+      <a class="scroll-note" href="#articles">
+        <span class="scroll-line" aria-hidden="true"></span>
+        向下阅读
+      </a>
+      <p class="intro">
+        记录设计、代码与日常观察。删去装饰，只留下结构、节奏和有意义的内容。
+      </p>
+    </div>
+  </div>
+
+  <aside class="hero-side" aria-label="博客信息">
+    <div class="orbital" aria-hidden="true">
+      <span class="crosshair"></span>
+      <span class="orbital-dot"></span>
+    </div>
+
+    <div class="side-block">
+      <div class="side-label">Latest issue</div>
+      <div class="side-value">{{ site.issue }}</div>
+    </div>
+
+    <div class="side-block">
+      <div class="ticker">
+        <span>{{ site.location }}</span>
+        <span id="clock">--:--</span>
+      </div>
+    </div>
+  </aside>
+</section>
+
+<section class="content-section" id="articles" aria-labelledby="articles-title">
+  <div class="section-rail">
+    <div class="section-index">01 / Essays</div>
+    <h2 id="articles-title">近期文章</h2>
+  </div>
+
+  <div class="articles">
+    {% if collections.posts.length %}
+      {% for post in collections.posts %}
+        {% set index = loop.index %}
+        {% include "partials/article-row.njk" %}
+      {% endfor %}
+    {% else %}
+      <p class="empty-state">还没有文章。在 <code>src/posts/</code> 里新增 Markdown 即可。</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="content-section" id="notes" aria-labelledby="notes-title">
+  <div class="section-rail">
+    <div class="section-index">02 / Notes</div>
+    <h2 id="notes-title">碎片随记</h2>
+  </div>
+
+  <div class="notes-grid">
+    {% for note in collections.notes %}
+      <article class="note-card">
+        <div class="meta">N / {% if note.data.number %}{{ note.data.number }}{% else %}{{ (collections.notes.length - loop.index0) | padNum }}{% endif %} · {{ note.date | shortDate }}</div>
+        <h3>{{ note.data.title }}</h3>
+        <p>{{ note.data.description or (note.templateContent | excerpt(80)) }}</p>
+      </article>
+    {% else %}
+      <p class="empty-state">暂无随记。</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="newsletter" id="about" aria-labelledby="newsletter-title">
+  <div class="section-rail">
+    <div class="section-index">03 / Letter</div>
+    <h2>保持联系</h2>
+  </div>
+
+  <div class="newsletter-main">
+    <h2 class="newsletter-title" id="newsletter-title">
+      偶尔写信，<br />不制造噪音。
+    </h2>
+
+    <form class="subscribe" id="subscribeForm">
+      <label class="visually-hidden" for="email">电子邮箱</label>
+      <input id="email" name="email" type="email" placeholder="your@email.com" autocomplete="email" required />
+      <button type="submit">订阅月刊 <span>→</span></button>
+    </form>
+    <p class="form-note" id="formNote">每月最多一封。随时可以退出。</p>
+  </div>
+</section>

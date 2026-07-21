@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="{{ site.language }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="{{ description or site.description }}" />
+  <meta name="theme-color" content="#f6f6f2" />
+  <title>{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} — 极简博客{% endif %}</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+  <div class="line-cursor" id="cursor" aria-hidden="true"></div>
+
+  <div class="shell">
+    {% include "partials/header.njk" %}
+
+    <main id="top">
+      {{ content | safe }}
+    </main>
+
+    {% include "partials/footer.njk" %}
+  </div>
+
+  {% include "partials/search.njk" %}
+
+  <script src="/assets/js/main.js"></script>
+</body>
+</html>
