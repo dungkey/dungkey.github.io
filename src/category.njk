@@ -21,19 +21,21 @@ eleventyComputed:
   </div>
 </header>
 
-<section class="post-list" aria-label="{{ direction.key }}文章列表">
+<ul class="post-list" aria-label="{{ direction.key }}文章列表">
   {% for post in posts %}
-    <a class="post-list-item" href="{{ post.url }}">
-      <h2 class="post-list-title">{{ post.data.title }}</h2>
-      <p class="post-list-excerpt">
-        {{ post.data.description or (post.templateContent | excerpt) }}
-      </p>
-      <div class="post-list-meta">
-        {{ post.date | readableDate }}
-        · {{ post.templateContent | readingTime }} min
-      </div>
-    </a>
+    <li>
+      <a class="post-list-item" href="{{ post.url }}">
+        <h2 class="post-list-title">{{ post.data.title }}</h2>
+        <p class="post-list-excerpt">
+          {{ post.data.description or (post.templateContent | excerpt) }}
+        </p>
+        <div class="post-list-meta">
+          {{ post.date | readableDate }}
+          · {{ post.templateContent | readingTime }} 分钟阅读
+        </div>
+      </a>
+    </li>
   {% else %}
-    <p class="empty-state">这个方向还没有文章。</p>
+    <li class="empty-state">这个方向还没有文章。</li>
   {% endfor %}
-</section>
+</ul>

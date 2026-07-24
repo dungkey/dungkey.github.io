@@ -1,0 +1,28 @@
+---
+permalink: /feed.xml
+eleventyExcludeFromCollections: true
+---
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="{{ site.language | xmlEscape }}">
+  <title>{{ site.name | xmlEscape }}</title>
+  <subtitle>{{ site.description | xmlEscape }}</subtitle>
+  <link href="{{ site.url | xmlEscape }}/" />
+  <link href="{{ site.url | xmlEscape }}/feed.xml" rel="self" type="application/atom+xml" />
+  <id>{{ site.url | xmlEscape }}/</id>
+  <updated>{{ collections.writing[0].date | isoDate }}</updated>
+  <author>
+    <name>{{ site.author | xmlEscape }}</name>
+    <uri>{{ site.github | xmlEscape }}</uri>
+  </author>
+  {% for item in collections.writing %}
+  {% set itemUrl = item.url %}
+  {% if item.data.kind == "note" %}{% set itemUrl = "/notes/#note-" ~ item.data.number %}{% endif %}
+  <entry>
+    <title>{{ item.data.title | xmlEscape }}</title>
+    <link href="{{ site.url | xmlEscape }}{{ itemUrl | xmlEscape }}" />
+    <id>{{ site.url | xmlEscape }}{{ itemUrl | xmlEscape }}</id>
+    <updated>{{ item.date | isoDate }}</updated>
+    <summary>{{ (item.data.description or (item.templateContent | excerpt)) | xmlEscape }}</summary>
+  </entry>
+  {% endfor %}
+</feed>

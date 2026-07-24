@@ -1,16 +1,36 @@
 <!doctype html>
-<html lang="{{ site.language }}">
+<html lang="{{ site.language }}"{% if isHome %} class="is-home-document"{% endif %}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="{{ description or site.description }}" />
-  <meta name="theme-color" content="#f2f1ec" />
+  <meta name="robots" content="{% if noindex %}noindex, nofollow{% else %}index, follow{% endif %}" />
+  <meta name="theme-color" content="{% if isHome %}#f9f8f6{% else %}#f2f1ec{% endif %}" />
   <title>{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} · 个人博客{% endif %}</title>
+  <link rel="canonical" href="{{ site.url }}{{ page.url }}" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:type" content="{% if isPost %}article{% else %}website{% endif %}" />
+  <meta property="og:site_name" content="{{ site.name }}" />
+  <meta property="og:title" content="{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} · 个人博客{% endif %}" />
+  <meta property="og:description" content="{{ description or site.description }}" />
+  <meta property="og:url" content="{{ site.url }}{{ page.url }}" />
+  <meta property="og:image" content="{{ site.url }}/assets/img/editorial-hero.webp" />
+  <meta property="og:image:alt" content="窗边工作台上的笔记本、铅笔与图纸" />
+  {% if isPost %}
+    <meta property="article:published_time" content="{{ date | isoDate }}" />
+    <meta property="article:author" content="{{ site.author }}" />
+    {% for tag in tags | publicTags %}<meta property="article:tag" content="{{ tag }}" />{% endfor %}
+  {% endif %}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{% if title %}{{ title }} — {{ site.name }}{% else %}{{ site.name }} · 个人博客{% endif %}" />
+  <meta name="twitter:description" content="{{ description or site.description }}" />
+  <meta name="twitter:image" content="{{ site.url }}/assets/img/editorial-hero.webp" />
   <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png" />
+  <link rel="alternate" type="application/atom+xml" title="{{ site.name }}的内容订阅" href="/feed.xml" />
   <link rel="stylesheet" href="/assets/css/style.css" />
   {% if isHome %}<link rel="stylesheet" href="/assets/css/home.css" />{% endif %}
-  {% if isPost %}
+  {% if isPost or isHome %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,12 +40,15 @@
   {% endif %}
   <script>
     (() => {
+      let saved = null;
       try {
-        const saved = localStorage.getItem("qijue-theme");
-        if (saved === "dark" || saved === "light") {
-          document.documentElement.dataset.theme = saved;
-        }
+        saved = localStorage.getItem("qijue-theme");
       } catch (_) {}
+      const preferred = window.matchMedia?.("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+      document.documentElement.dataset.theme =
+        saved === "dark" || saved === "light" ? saved : preferred;
     })();
   </script>
 </head>
@@ -33,20 +56,6 @@
   {% if isHome %}class="is-home"{% endif %}
   data-music="{% if isHome %}home{% elif isPost %}article{% else %}catalog{% endif %}"
 >
-  {% if isHome %}
-    <canvas id="continuum" aria-hidden="true"></canvas>
-    <div class="veil" id="veilLeft" aria-hidden="true"></div>
-    <div class="veil" id="veilRight" aria-hidden="true"></div>
-    <div class="grain" aria-hidden="true"></div>
-    <aside class="visual-meta" id="visualMeta" aria-hidden="true">
-      <div class="visual-labels" id="visualLabels"></div>
-      <div class="visual-progress">
-        <span class="visual-progress-line"><i id="progressBar"></i></span>
-        <output id="progressText">000</output>
-      </div>
-    </aside>
-  {% endif %}
-
   {% include "partials/header.njk" %}
 
   <main id="top"{% if not isHome %} class="inner-main page"{% endif %}>
@@ -56,8 +65,7 @@
   {% include "partials/footer.njk" %}
   {% include "partials/search.njk" %}
 
-  <script src="/assets/js/main.js"></script>
-  <script src="/assets/js/music.js"></script>
-  {% if isHome %}<script src="/assets/js/continuum.js"></script>{% endif %}
+  <script src="/assets/js/main.js" defer></script>
+  <script src="/assets/js/music.js" defer></script>
 </body>
 </html>

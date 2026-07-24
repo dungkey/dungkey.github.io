@@ -4,16 +4,17 @@ layout: layouts/base.njk
 
 <article class="article-page">
   <header class="article-hero">
-    <span class="inner-kicker">{{ category or "Essay" }} · {{ date | readableDate }}</span>
+    <span class="inner-kicker">
+      {% set direction = directions | directionByKey(category) %}
+      {% if direction %}<a href="/{{ direction.slug }}/">{{ category }}</a>{% else %}{{ category or "文章" }}{% endif %}
+      · {{ date | readableDate }}
+    </span>
     <h1 class="article-title">{{ title }}</h1>
     <div class="inner-meta">
       <span>{{ content | readingTime }} 分钟阅读</span>
       {% if tags %}
-        <span>
-          {% for tag in tags %}
-            {% if tag != "posts" %}{{ tag }}{% if not loop.last %} · {% endif %}{% endif %}
-          {% endfor %}
-        </span>
+        {% set visibleTags = tags | publicTags %}
+        {% if visibleTags.length %}<span>{{ visibleTags | join(" · ") }}</span>{% endif %}
       {% endif %}
     </div>
   </header>

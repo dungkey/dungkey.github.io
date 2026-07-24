@@ -1,7 +1,7 @@
-<div class="search-overlay" id="searchOverlay" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+<div class="search-overlay" id="searchOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="searchTitle" inert>
   <div class="search-box">
     <div class="search-head">
-      <span id="searchTitle">Search archive</span>
+      <span id="searchTitle">搜索内容</span>
       <button class="search-close" id="searchClose" aria-label="关闭搜索" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 5l14 14M19 5 5 19"></path>
@@ -14,11 +14,19 @@
         <circle cx="10.5" cy="10.5" r="6.5"></circle>
         <path d="M15.5 15.5 21 21"></path>
       </svg>
-        <input class="search-input" id="searchInput" type="search" placeholder="搜索文章标题…" />
+      <input
+        class="search-input"
+        id="searchInput"
+        type="search"
+        aria-label="搜索标题、主题或摘要"
+        autocomplete="off"
+        enterkeyhint="search"
+        placeholder="搜索标题、主题或摘要…"
+      />
     </div>
 
-    <div class="search-results" id="searchResults">
-      输入文章标题关键词…
+    <div class="search-results" id="searchResults" role="status" aria-live="polite" aria-atomic="true">
+      输入标题、主题或摘要关键词…
     </div>
   </div>
 </div>

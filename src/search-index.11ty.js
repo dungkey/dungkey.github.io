@@ -4,21 +4,22 @@ module.exports.data = () => ({
 });
 
 module.exports.render = function ({ collections }) {
-  const items = (collections.posts || []).map((post) => {
-    const raw = String(post.templateContent || "")
+  const items = (collections.writing || []).map((item) => {
+    const isNote = item.data.kind === "note";
+    const raw = String(item.templateContent || "")
       .replace(/<[^>]*>/g, "")
       .replace(/\s+/g, " ")
       .trim();
     const excerpt =
-      post.data.description ||
+      item.data.description ||
       (raw.length > 120 ? `${raw.slice(0, 120).trim()}…` : raw);
 
     return {
-      title: post.data.title,
-      url: post.url,
-      category: post.data.category || "",
+      title: item.data.title,
+      url: isNote ? `/notes/#note-${item.data.number}` : item.url,
+      category: isNote ? "短记" : item.data.category || "",
       excerpt,
-      tags: post.data.tags || [],
+      tags: item.data.tags || [],
     };
   });
 

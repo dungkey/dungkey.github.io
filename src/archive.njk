@@ -6,7 +6,7 @@ permalink: /archive/
 ---
 
 <header class="inner-hero inner-hero--quiet">
-  <span class="inner-kicker">Archive</span>
+  <span class="inner-kicker">归档</span>
   <h1 class="inner-title">全部文章</h1>
   <div class="inner-meta">
     <span>{{ collections.posts.length }} 篇</span>
@@ -19,20 +19,24 @@ permalink: /archive/
   {% endfor %}
 </nav>
 
-<section class="post-list" aria-labelledby="archive-articles">
+<section aria-labelledby="archive-articles">
   <h2 class="visually-hidden" id="archive-articles">文章</h2>
+  <ul class="post-list">
   {% for post in collections.posts %}
-    <a class="post-list-item" href="{{ post.url }}">
-      <h2 class="post-list-title">{{ post.data.title }}</h2>
-      <p class="post-list-excerpt">
-        {{ post.data.description or (post.templateContent | excerpt) }}
-      </p>
-      <div class="post-list-meta">
-        {{ post.data.category }}
-        · {{ post.date | readableDate }}
-      </div>
-    </a>
+    <li>
+      <a class="post-list-item" href="{{ post.url }}">
+        <h3 class="post-list-title">{{ post.data.title }}</h3>
+        <p class="post-list-excerpt">
+          {{ post.data.description or (post.templateContent | excerpt) }}
+        </p>
+        <div class="post-list-meta">
+          {{ post.data.category }}
+          · {{ post.date | readableDate }}
+        </div>
+      </a>
+    </li>
   {% else %}
-    <p class="empty-state">暂无文章。</p>
+    <li class="empty-state">暂无文章。</li>
   {% endfor %}
+  </ul>
 </section>

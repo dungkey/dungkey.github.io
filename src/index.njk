@@ -4,92 +4,158 @@ permalink: /
 isHome: true
 ---
 
-<section
-  class="scene hero text-left page"
-  data-scene
-  data-kind="hero"
-  data-side="right"
-  data-index="00"
-  data-title="Personal blog"
-  data-subtitle="{{ site.alias }} · {{ site.year }} · 先想明白，再写清楚"
->
-  <div class="scene-copy" data-reveal>
-    <span class="eyebrow">00 / Personal blog</span>
-    <h1>先想明白，<br /><span>再写清楚。</span></h1>
-    <p class="hero-note">开发、设计与思考，都只为留下下一次更好的判断。</p>
-  </div>
-  <span class="scroll-cue">向下，继续阅读</span>
-</section>
+{% set featured = collections.posts[0] %}
 
-<section
-  class="scene text-right page"
-  id="writing"
-  data-scene
-  data-kind="writing"
-  data-side="left"
-  data-index="01"
-  data-title="Selected writing"
-  data-subtitle="写下已经理解的，也保留尚未想明白的"
->
-  <div class="scene-copy" data-reveal>
-    <span class="eyebrow">01 / Selected writing</span>
-    <h2>最近关注的，<span>三个方向。</span></h2>
-    <p class="scene-note">把已经理解的写清楚，也把尚未想明白的问题留在这里。不追求覆盖所有变化，只选择真正值得反复思考的主题，并留下能够继续延展的线索。</p>
-  </div>
-</section>
+<div class="editorial-shell">
+  <section class="editorial-hero page" aria-labelledby="cover-title">
+    <div class="cover-folio" aria-label="博客信息">
+      <span>个人博客 · 持续更新</span>
+      <span>始于 {{ site.year }}</span>
+    </div>
 
-{% for direction in directions %}
-  {% set post = collections.posts | findByCategory(direction.key) %}
-  {% set i = loop.index0 %}
-  {% set sceneNo = (loop.index + 1) | padNum(2) %}
-  {% set textSide = "text-left" if (i % 2 == 0) else "text-right" %}
-  {% set sceneSide = "right" if (i % 2 == 0) else "left" %}
-  <article
-    class="scene {{ textSide }} page"
-    data-scene
-    data-kind="{{ direction.slug }}"
-    data-side="{{ sceneSide }}"
-    data-index="{{ sceneNo }}"
-    data-title="{{ direction.en }}"
-    data-subtitle="{{ direction.subtitle }}"
-  >
-    <div class="scene-copy" data-reveal>
-      <span class="eyebrow">{{ sceneNo }} / {{ direction.en }}</span>
-      <h3>{{ direction.lead }}<span>{{ direction.muted }}</span></h3>
-      {% if post %}
-        <div class="article-meta">
-          {{ post.templateContent | readingTime }} MIN READ · {{ post.date | readableDate }}
+    <div class="cover-grid">
+      <h1 id="cover-title">
+        先<em>想明白</em>，<br />
+        再写清楚。
+      </h1>
+      <div class="cover-deck">
+        <p>记录开发、设计，以及那些需要时间才能想明白的问题。</p>
+        <span>{{ site.name }} 写作与维护</span>
+      </div>
+    </div>
+
+    <figure class="cover-visual">
+      <div class="cover-image-reveal">
+        <img
+          src="/assets/img/editorial-hero.webp"
+          alt="窗边工作台上的空白笔记本、铅笔与图纸"
+          width="1799"
+          height="874"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </div>
+      <figcaption>
+        <span>关于清晰、克制与动手实践</span>
+        <span>文章与短记 · {{ currentYear }}</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  {% if featured %}
+    <section class="feature-section page" aria-labelledby="feature-title">
+      <div class="section-index" aria-hidden="true">01</div>
+      <article class="feature-story">
+        <div class="feature-meta">
+          <span>本期首选</span>
+          <span>{{ featured.data.category }} · {{ featured.date | readableDate }}</span>
+          <span>{{ featured.templateContent | readingTime }} 分钟阅读</span>
         </div>
-        <a class="article-link" href="{{ post.url }}">阅读全文 <span>↗</span></a>
-      {% else %}
-        <div class="article-meta">Coming soon</div>
-        <a class="article-link" href="/{{ direction.slug }}/" aria-label="查看{{ direction.key }}列表">查看列表 <span>↗</span></a>
-      {% endif %}
-    </div>
-  </article>
-{% endfor %}
+        <div class="feature-copy">
+          <h2 id="feature-title">
+            <a href="{{ featured.url }}">{{ featured.data.title }}</a>
+          </h2>
+          <p>{{ featured.data.description }}</p>
+          <a class="text-link" href="{{ featured.url }}">阅读全文 <span aria-hidden="true">↗</span></a>
+        </div>
+      </article>
+    </section>
+  {% endif %}
 
-{% set aboutNo = (directions.length + 2) | padNum(2) %}
-<section
-  class="scene about-scene text-right page"
-  id="about"
-  data-scene
-  data-kind="about"
-  data-side="left"
-  data-index="{{ aboutNo }}"
-  data-title="About"
-  data-subtitle="关于{{ site.name }}，以及这个博客为什么存在"
->
-  <div class="scene-copy" data-reveal>
-    <span class="eyebrow">{{ aboutNo }} / About</span>
-    <h2 class="about-title">
-      <span class="name-line">{{ site.name }}</span>
-      <span class="alias-line">{{ site.alias }}</span>
-      <span class="focus-line">开发 · 设计 · 思考</span>
-    </h2>
-    <div class="about-bottom">
-      <p>这里收录我对系统、智能与界面的长期观察。不追求覆盖所有变化，只记录那些值得被反复思考、不断修正，并最终写清楚的问题。</p>
-      <a class="contact" href="{{ site.github }}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+  <section class="latest-section page" aria-labelledby="latest-title">
+    <header class="section-heading">
+      <div>
+        <span class="section-index" aria-hidden="true">02</span>
+        <h2 id="latest-title">近期文章</h2>
+      </div>
+      <a class="text-link" href="/archive/">查看全部文章 <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <ol class="story-list">
+      {% for post in collections.posts %}
+        <li>
+          <a class="story-row" href="{{ post.url }}">
+            <span class="story-number">{{ loop.index | padNum(2) }}</span>
+            <span class="story-main">
+              <span class="story-category">{{ post.data.category }}</span>
+              <strong>{{ post.data.title }}</strong>
+              <span class="story-description">{{ post.data.description }}</span>
+            </span>
+            <span class="story-date">
+              {{ post.date | shortDate }}
+              <i aria-hidden="true">↗</i>
+            </span>
+          </a>
+        </li>
+      {% else %}
+        <li class="empty-state">文章正在整理中。</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="notes-editorial page" aria-labelledby="notes-title">
+    <header class="section-heading">
+      <div>
+        <span class="section-index" aria-hidden="true">03</span>
+        <h2 id="notes-title">短记</h2>
+      </div>
+      <p>一些还没写成文章、但值得先记下的判断。</p>
+    </header>
+
+    <ol class="note-grid">
+      {% for note in collections.notes %}
+        <li>
+          <a class="note-card" href="/notes/#note-{{ note.data.number }}">
+            <div class="note-card__meta">
+              <span>{{ note.data.number or (loop.index | padNum(3)) }}</span>
+              <time datetime="{{ note.date | htmlDate }}">{{ note.date | shortDate }}</time>
+            </div>
+            <h3>{{ note.data.title }}</h3>
+            <p>{{ note.data.description }}</p>
+          </a>
+        </li>
+      {% else %}
+        <li class="empty-state">短记正在整理中。</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="directions-section page" aria-labelledby="directions-title">
+    <header class="section-heading">
+      <div>
+        <span class="section-index" aria-hidden="true">04</span>
+        <h2 id="directions-title">三个方向</h2>
+      </div>
+      <p>不追每个变化，只记录那些值得反复回看的问题。</p>
+    </header>
+
+    <div class="direction-grid">
+      {% for direction in directions %}
+        {% set posts = collections.posts | filterByCategory(direction.key) %}
+        <a class="direction-item" href="/{{ direction.slug }}/">
+          <span class="direction-count">{{ posts.length | padNum(2) }} 篇</span>
+          <h3>{{ direction.key }}<i>{{ direction.en }}</i></h3>
+          <p>{{ direction.description }}</p>
+          <span class="direction-action">浏览主题 <i aria-hidden="true">↗</i></span>
+        </a>
+      {% endfor %}
     </div>
-  </div>
-</section>
+  </section>
+
+  <section class="about-editorial page" id="about" aria-labelledby="about-title">
+    <div class="about-aside">
+      <span class="section-index" aria-hidden="true">05</span>
+      <span>关于本站</span>
+    </div>
+    <div class="about-content">
+      <h2 id="about-title">“写作不只是交付结论，<em>也在记录判断如何形成。</em>”</h2>
+      <div class="about-body">
+        <p>这里收录我对系统、智能与界面的长期观察。文章可以持续生长，旧判断也允许被新的理解修正。</p>
+        <p>我更关心：一个问题为什么值得提出，以及它如何在实践中变得清晰。</p>
+      </div>
+      <a class="editorial-button" href="{{ site.github }}" target="_blank" rel="noopener noreferrer">
+        在 GitHub 找到我 <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </section>
+</div>

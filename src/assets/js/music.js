@@ -26,23 +26,64 @@
   const toggle = document.getElementById("musicToggle");
   if (!toggle) return;
 
+  const getStorage = (name) => {
+    try {
+      return window[name];
+    } catch {
+      return null;
+    }
+  };
+
+  const localStore = getStorage("localStorage");
+  const sessionStore = getStorage("sessionStorage");
+
+  const safeRead = (storage, key) => {
+    if (!storage) return null;
+    try {
+      return storage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+
+  const safeWrite = (storage, key, value) => {
+    if (!storage) return;
+    try {
+      storage.setItem(key, value);
+    } catch {
+      // Playback should remain usable when browser storage is unavailable.
+    }
+  };
+
+  const safeRemove = (storage, key) => {
+    if (!storage) return;
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Ignore storage restrictions just like reads and writes.
+    }
+  };
+
   const pageScene = document.body.dataset.music || "catalog";
   const root = document.documentElement;
   const audio = new Audio();
   audio.loop = true;
-  audio.preload = "auto";
+  audio.preload = "none";
   audio.volume = 0;
 
-  let wanted = localStorage.getItem(STORAGE_KEY) !== "off";
+  // Music is opt-in on a first visit. A previous explicit choice is respected.
+  let wanted = safeRead(localStore, STORAGE_KEY) === "on";
   let unlocked = false;
   let currentKey = "";
   let currentSrc = "";
+  let failedSrc = "";
   let fadeGen = 0;
+  let operationGen = 0;
   let switching = false;
   let navigating = false;
 
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
-  const volumeFor = (key) => VOLUMES[key] ?? 0.42;
+  const volumeFor = (key) => VOLUMES[key] ?? 0.25;
 
   const sceneKey = () => {
     if (pageScene === "home") {
@@ -60,18 +101,17 @@
     return "catalog";
   };
 
-  const setUi = (playing) => {
+  const setUi = (playing, label) => {
+    const action = label || (playing ? "暂停背景音乐" : "播放背景音乐");
     toggle.classList.toggle("is-playing", playing);
     toggle.setAttribute("aria-pressed", playing ? "true" : "false");
-    toggle.setAttribute(
-      "aria-label",
-      playing ? "暂停背景音乐" : "播放背景音乐"
-    );
+    toggle.setAttribute("aria-label", action);
+    toggle.setAttribute("title", action);
   };
 
   const readSession = () => {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      const raw = safeRead(sessionStore, SESSION_KEY);
       if (!raw) return null;
       const data = JSON.parse(raw);
       if (!data?.key || !data?.src) return null;
@@ -83,18 +123,15 @@
 
   const writeSession = () => {
     if (!currentKey || !currentSrc) return;
-    try {
-      sessionStorage.setItem(
-        SESSION_KEY,
-        JSON.stringify({
-          key: currentKey,
-          src: currentSrc,
-          time: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
-        })
-      );
-    } catch {
-      /* ignore */
-    }
+    safeWrite(
+      sessionStore,
+      SESSION_KEY,
+      JSON.stringify({
+        key: currentKey,
+        src: currentSrc,
+        time: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
+      })
+    );
   };
 
   const fadeTo = (to, ms = FADE_MS) => {
@@ -112,10 +149,10 @@
           resolve(false);
           return;
         }
-        const t = Math.min(1, (now - start) / ms);
-        const eased = t * t * (3 - 2 * t);
+        const progress = Math.min(1, (now - start) / ms);
+        const eased = progress * progress * (3 - 2 * progress);
         audio.volume = from + (to - from) * eased;
-        if (t < 1) {
+        if (progress < 1) {
           requestAnimationFrame(tick);
           return;
         }
@@ -126,79 +163,66 @@
     });
   };
 
-  const waitCanPlay = () =>
-    new Promise((resolve) => {
-      if (audio.readyState >= 2) {
-        resolve();
-        return;
-      }
-      const done = () => {
-        audio.removeEventListener("canplay", done);
-        resolve();
-      };
-      audio.addEventListener("canplay", done, { once: true });
-      // 兜底：避免个别浏览器卡住
-      setTimeout(done, 2500);
-    });
-
   const resolveTrack = (key) => {
     const list = TRACKS[key];
     if (!list?.length) return null;
 
     const session = readSession();
-    if (session?.key === key && list.includes(session.src)) {
+    if (
+      session?.key === key &&
+      list.includes(session.src) &&
+      session.src !== failedSrc
+    ) {
       return {
         src: session.src,
         time: Number(session.time) || 0,
-        continued: true,
       };
     }
 
-    return { src: pick(list), time: 0, continued: false };
+    const available = list.filter((src) => src !== failedSrc);
+    return { src: pick(available.length ? available : list), time: 0 };
+  };
+
+  const setTrack = (src, key, time) => {
+    audio.pause();
+    audio.src = src;
+    audio.load();
+    currentKey = key;
+    currentSrc = src;
+
+    if (time > 0) {
+      const restoreTime = () => {
+        try {
+          audio.currentTime = Math.max(0, time);
+        } catch {
+          // Some browsers reject seeking before metadata is available.
+        }
+      };
+      restoreTime();
+      audio.addEventListener("loadedmetadata", restoreTime, { once: true });
+    }
   };
 
   const applyTrack = async (src, key, { time = 0, fadeIn = true } = {}) => {
+    const operation = ++operationGen;
     switching = true;
-    const target = volumeFor(key);
+    toggle.setAttribute("aria-busy", "true");
+    const targetVolume = volumeFor(key);
     const sameTrack = src === currentSrc && key === currentKey;
 
     if (!sameTrack && currentSrc && (!audio.paused || audio.volume > 0.01)) {
-      const ok = await fadeTo(0);
-      if (!ok) {
-        switching = false;
-        return false;
-      }
+      const completed = await fadeTo(0);
+      if (!completed || operation !== operationGen) return false;
     }
 
-    if (!sameTrack) {
-      audio.pause();
-      audio.src = src;
-      audio.load();
-      await waitCanPlay();
-      try {
-        audio.currentTime = Math.max(0, time || 0);
-      } catch {
-        /* ignore seek errors */
-      }
-      currentKey = key;
-      currentSrc = src;
-    } else {
-      currentKey = key;
-      currentSrc = src;
-      if (time > 0 && Math.abs((audio.currentTime || 0) - time) > 1.5) {
-        try {
-          audio.currentTime = time;
-        } catch {
-          /* ignore */
-        }
-      }
-    }
+    if (!sameTrack) setTrack(src, key, time);
+    if (operation !== operationGen) return false;
 
     writeSession();
-    switching = false;
-
     if (!wanted) {
-      audio.volume = target;
+      audio.volume = 0;
+      switching = false;
+      toggle.removeAttribute("aria-busy");
       setUi(false);
       return true;
     }
@@ -206,90 +230,82 @@
     try {
       if (fadeIn) audio.volume = 0;
       await audio.play();
+      if (operation !== operationGen) return false;
       unlocked = true;
+      failedSrc = "";
       setUi(true);
-      if (fadeIn) await fadeTo(target);
-      else audio.volume = target;
+      if (fadeIn) await fadeTo(targetVolume);
+      else audio.volume = targetVolume;
+      if (operation !== operationGen) return false;
+      writeSession();
+      switching = false;
+      toggle.removeAttribute("aria-busy");
       return true;
     } catch {
-      setUi(false);
+      if (operation === operationGen) {
+        switching = false;
+        toggle.removeAttribute("aria-busy");
+        setUi(false);
+      }
       return false;
     }
   };
 
   const play = async () => {
     wanted = true;
-    unlocked = true;
-    localStorage.setItem(STORAGE_KEY, "on");
+    safeWrite(localStore, STORAGE_KEY, "on");
 
-    if (!currentSrc) {
-      const key = sceneKey();
+    const key = sceneKey();
+    if (!currentSrc || currentKey !== key) {
       const track = resolveTrack(key);
-      if (!track) return false;
-      return applyTrack(track.src, key, { time: track.time, fadeIn: true });
+      if (!track) {
+        setUi(false, "音乐暂时无法播放");
+        return false;
+      }
+      return applyTrack(track.src, key, {
+        time: track.time,
+        fadeIn: true,
+      });
     }
 
+    const operation = ++operationGen;
+    switching = true;
+    toggle.setAttribute("aria-busy", "true");
     try {
       audio.volume = 0;
       await audio.play();
+      if (operation !== operationGen) return false;
+      unlocked = true;
+      failedSrc = "";
       setUi(true);
       await fadeTo(volumeFor(currentKey));
+      if (operation !== operationGen) return false;
       writeSession();
+      switching = false;
+      toggle.removeAttribute("aria-busy");
       return true;
     } catch {
-      setUi(false);
+      if (operation === operationGen) {
+        switching = false;
+        toggle.removeAttribute("aria-busy");
+        setUi(false);
+      }
       return false;
     }
   };
 
   const pause = async () => {
     wanted = false;
-    localStorage.setItem(STORAGE_KEY, "off");
+    safeWrite(localStore, STORAGE_KEY, "off");
+    const operation = ++operationGen;
     writeSession();
     await fadeTo(0);
-    if (!wanted) {
+    if (operation === operationGen && !wanted) {
       audio.pause();
+      switching = false;
+      toggle.removeAttribute("aria-busy");
       setUi(false);
     }
-  };
-
-  const bootstrap = async () => {
-    const key = sceneKey();
-    const track = resolveTrack(key);
-    if (!track) {
-      setUi(false);
-      return;
-    }
-
-    currentKey = key;
-    currentSrc = track.src;
-    audio.src = track.src;
-    audio.load();
-    await waitCanPlay();
-    try {
-      audio.currentTime = track.time;
-    } catch {
-      /* ignore */
-    }
-
-    if (!wanted) {
-      audio.volume = volumeFor(key);
-      setUi(false);
-      writeSession();
-      return;
-    }
-
-    try {
-      audio.volume = 0;
-      await audio.play();
-      unlocked = true;
-      setUi(true);
-      await fadeTo(volumeFor(key));
-    } catch {
-      audio.volume = volumeFor(key);
-      setUi(false);
-    }
-    writeSession();
   };
 
   toggle.addEventListener("click", () => {
@@ -300,28 +316,15 @@
     play();
   });
 
-  const unlockOnce = () => {
-    if (unlocked || !wanted || !audio.paused) return;
-    play();
-  };
-
-  ["pointerdown", "keydown", "touchstart"].forEach((eventName) => {
-    document.addEventListener(eventName, unlockOnce, {
-      once: true,
-      passive: true,
-    });
-  });
-
   window.addEventListener("themechange", () => {
-    if (pageScene !== "home") return;
+    if (pageScene !== "home" || !wanted || audio.paused || !unlocked) return;
     const key = sceneKey();
     const list = TRACKS[key];
     if (!list?.length) return;
-    // 主题切换属于场景变化：淡出后换曲再淡入
     applyTrack(pick(list), key, { time: 0, fadeIn: true });
   });
 
-  // 站内跳转：同场景保持曲目；跨场景先淡出再离开
+  // Preserve a track within the same section; fade only when the scene changes.
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -337,20 +340,13 @@
     }
 
     if (url.origin !== location.origin) return;
-    if (url.pathname === location.pathname && url.search === location.search) {
-      // 仅 hash 跳转，不动音乐
-      return;
-    }
+    if (url.pathname === location.pathname && url.search === location.search) return;
 
     const nextKey = keyFromPath(url.pathname);
-    const curKey = sceneKey();
+    const currentSceneKey = sceneKey();
     writeSession();
 
-    if (nextKey === curKey) {
-      // 目录↔目录 / 正文↔正文：不换曲，直接跳转，新页从进度续播
-      return;
-    }
-
+    if (nextKey === currentSceneKey) return;
     if (!wanted || audio.paused || audio.volume < 0.01) return;
 
     event.preventDefault();
@@ -371,14 +367,39 @@
     if (!wanted && !switching) setUi(false);
   });
 
+  audio.addEventListener("error", () => {
+    operationGen += 1;
+    fadeGen += 1;
+    unlocked = false;
+    switching = false;
+    audio.pause();
+    failedSrc = currentSrc;
+    currentKey = "";
+    currentSrc = "";
+    safeRemove(sessionStore, SESSION_KEY);
+    try {
+      audio.removeAttribute("src");
+      audio.load();
+    } catch {
+      // The next explicit click will create a fresh media request.
+    }
+    toggle.removeAttribute("aria-busy");
+    setUi(false, "音乐暂时无法播放，点击重试");
+  });
+
   audio.addEventListener("timeupdate", () => {
     if (!audio.paused) writeSession();
   });
 
   document.addEventListener("visibilitychange", () => {
     writeSession();
-    if (document.visibilityState === "hidden") return;
-    if (wanted && unlocked && audio.paused && !navigating) {
+    if (
+      document.visibilityState === "visible" &&
+      wanted &&
+      unlocked &&
+      audio.paused &&
+      !navigating
+    ) {
       play();
     }
   });
@@ -386,5 +407,6 @@
   addEventListener("pagehide", writeSession);
   addEventListener("beforeunload", writeSession);
 
-  bootstrap();
+  setUi(false);
+  if (wanted) play();
 })();

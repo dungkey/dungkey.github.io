@@ -1,0 +1,32 @@
+---
+layout: layouts/base.njk
+title: 短记
+description: 还没写成文章，但值得先记下来的想法。
+permalink: /notes/
+---
+
+<header class="inner-hero inner-hero--quiet">
+  <span class="inner-kicker">短记</span>
+  <h1 class="inner-title">先记下来，再慢慢想。</h1>
+  <p class="inner-lede">这里放的是较短的观察和判断。它们不必急着长成文章，也可能在之后被修改。</p>
+  <div class="inner-meta">
+    <span>{{ collections.notes.length }} 则</span>
+  </div>
+</header>
+
+<ol class="notes-list" aria-label="短记列表">
+  {% for note in collections.notes %}
+    <li class="note-row" id="note-{{ note.data.number }}">
+      <article>
+        <div class="meta">
+          <a class="note-anchor" href="#note-{{ note.data.number }}" aria-label="短记 {{ note.data.number }} 的固定链接">#{{ note.data.number }}</a>
+          <time datetime="{{ note.date | htmlDate }}">{{ note.date | readableDate }}</time>
+        </div>
+        <h2>{{ note.data.title }}</h2>
+        <p>{{ note.data.description }}</p>
+      </article>
+    </li>
+  {% else %}
+    <li class="empty-state">还没有短记。</li>
+  {% endfor %}
+</ol>

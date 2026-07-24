@@ -1,22 +1,29 @@
 <header class="site-header" id="siteHeader">
   <div class="header-inner">
     <a class="brand" href="/" aria-label="{{ site.name }} 首页">
-      <img
-        class="brand-logo brand-logo--light"
-        src="/assets/img/logo-light.png"
-        alt="{{ site.name }} · {{ site.alias }}"
-        width="160"
-        height="58"
-        decoding="async"
-      />
-      <img
-        class="brand-logo brand-logo--dark"
-        src="/assets/img/logo-dark.png"
-        alt="{{ site.name }} · {{ site.alias }}"
-        width="160"
-        height="58"
-        decoding="async"
-      />
+      {% if isHome %}
+        <span class="editorial-brand">
+          <span class="editorial-brand__name">{{ site.name }}</span>
+          <span class="editorial-brand__edition">笔记 / {{ currentYear }}</span>
+        </span>
+      {% else %}
+        <img
+          class="brand-logo brand-logo--light"
+          src="/assets/img/logo-light.png"
+          alt="{{ site.name }} · {{ site.alias }}"
+          width="160"
+          height="58"
+          decoding="async"
+        />
+        <img
+          class="brand-logo brand-logo--dark"
+          src="/assets/img/logo-dark.png"
+          alt="{{ site.name }} · {{ site.alias }}"
+          width="160"
+          height="58"
+          decoding="async"
+        />
+      {% endif %}
     </a>
 
     <nav class="nav" aria-label="内容方向">
@@ -29,19 +36,20 @@
     </nav>
 
     <div class="header-end">
-      <a class="about-link" href="{% if isHome %}#about{% else %}/#about{% endif %}">About</a>
+      <a class="about-link" href="{% if isHome %}#about{% else %}/#about{% endif %}">关于</a>
       <button
         class="icon-trigger music-toggle"
         id="musicToggle"
         aria-label="播放背景音乐"
         aria-pressed="false"
+        title="播放背景音乐"
         type="button"
       >
         <span class="music-eq" aria-hidden="true">
           <i></i><i></i><i></i>
         </span>
       </button>
-      <button class="icon-trigger" id="themeToggle" aria-label="切换深色模式" type="button">
+      <button class="icon-trigger" id="themeToggle" aria-label="切换深色模式" title="切换深色模式" type="button">
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>
           <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"></path>
@@ -50,7 +58,15 @@
           <path d="M19 13.5A7.5 7.5 0 1 1 10.5 5 6 6 0 0 0 19 13.5z"></path>
         </svg>
       </button>
-      <button class="icon-trigger" id="searchOpen" aria-label="搜索文章标题" type="button">
+      <button
+        class="icon-trigger"
+        id="searchOpen"
+        aria-label="搜索内容"
+        aria-controls="searchOverlay"
+        aria-expanded="false"
+        title="搜索内容（Ctrl/⌘ K）"
+        type="button"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6.5"></circle>
           <path d="M15.5 15.5 21 21"></path>
