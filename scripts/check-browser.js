@@ -369,7 +369,7 @@ async function run() {
       client,
       `(() => {
         const input = document.getElementById('searchInput');
-        input.value = '留白';
+        input.value = '焦点';
         input.dispatchEvent(new Event('input', { bubbles: true }));
       })()`
     );
@@ -378,13 +378,13 @@ async function run() {
       client,
       `document.querySelector('#searchResults a')?.getAttribute('href') || ''`
     );
-    assert.equal(resultUrl, "/posts/silence-in-ui/");
+    assert.equal(resultUrl, "/posts/search-overlay-focus/");
 
     await evaluate(
       client,
       `(() => {
         const input = document.getElementById('searchInput');
-        input.value = '1px';
+        input.value = '少的设计';
         input.dispatchEvent(new Event('input', { bubbles: true }));
       })()`
     );
@@ -429,7 +429,7 @@ async function run() {
     screenshots.push(await capture(client, "blog-notes-375.png"));
 
     await setViewport(client, 320, 900);
-    await navigate(client, `${siteUrl}/posts/silence-in-ui/`);
+    await navigate(client, `${siteUrl}/posts/search-overlay-focus/`);
     const articleLayout = await evaluate(
       client,
       `({ width: document.documentElement.clientWidth,
@@ -441,7 +441,7 @@ async function run() {
     screenshots.push(await capture(client, "blog-article-320.png"));
 
     await client.send("Emulation.setScriptExecutionDisabled", { value: true });
-    await navigate(client, `${siteUrl}/posts/silence-in-ui/`);
+    await navigate(client, `${siteUrl}/posts/search-overlay-focus/`);
     await client.send("Emulation.setScriptExecutionDisabled", { value: false });
     const noScript = await evaluate(
       client,
@@ -449,7 +449,7 @@ async function run() {
           prose: document.querySelector('.prose')?.textContent.trim().length || 0,
           links: document.querySelectorAll('a[href]').length })`
     );
-    assert.equal(noScript.title, "界面中的沉默：留白为何不是空白");
+    assert.equal(noScript.title, "搜索框打开以后，页面其余部分应该退场");
     assert.ok(noScript.prose > 100, "Article prose should remain available without JS");
     assert.ok(noScript.links > 5, "Navigation should remain available without JS");
 
