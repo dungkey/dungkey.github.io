@@ -1,4 +1,8 @@
 module.exports = function (eleventyConfig) {
+  eleventyConfig.addGlobalData("currentYear", () =>
+    String(new Date().getFullYear())
+  );
+
   eleventyConfig.addPassthroughCopy("src/assets");
   eleventyConfig.addPassthroughCopy({ "src/favicon.ico": "favicon.ico" });
 
@@ -10,20 +14,56 @@ module.exports = function (eleventyConfig) {
     collectionApi.getFilteredByGlob("src/notes/*.md").sort((a, b) => b.date - a.date)
   );
 
-  eleventyConfig.addFilter("readableDate", (dateObj) => {
+  eleventyConfig.addCollection("writing", (collectionApi) =>
+    [
+      ...collectionApi.getFilteredByGlob("src/posts/*.md"),
+      ...collectionApi.getFilteredByGlob("src/notes/*.md"),
+    ].sort((a, b) => b.date - a.date)
+  );
+
+  const dateParts = (dateObj) => {
     const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    return {
+      year: d.getUTCFullYear(),
+      month: String(d.getUTCMonth() + 1).padStart(2, "0"),
+      day: String(d.getUTCDate()).padStart(2, "0"),
+    };
+  };
+
+  eleventyConfig.addFilter("readableDate", (dateObj) => {
+    const { year, month, day } = dateParts(dateObj);
+    const y = year;
+    const m = month;
     return `${y}.${m}.${day}`;
   });
 
   eleventyConfig.addFilter("shortDate", (dateObj) => {
-    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${m}.${day}`;
+    const { month, day } = dateParts(dateObj);
+    return `${month}.${day}`;
   });
+
+  eleventyConfig.addFilter("htmlDate", (dateObj) => {
+    const { year, month, day } = dateParts(dateObj);
+    return `${year}-${month}-${day}`;
+  });
+
+  eleventyConfig.addFilter("isoDate", (dateObj) => {
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    return d.toISOString();
+  });
+
+  eleventyConfig.addFilter("xmlEscape", (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;")
+  );
+
+  eleventyConfig.addFilter("publicTags", (tags) =>
+    (tags || []).filter((tag) => tag !== "posts")
+  );
 
   eleventyConfig.addFilter("padNum", (num, size = 3) =>
     String(num).padStart(size, "0")
@@ -53,6 +93,10 @@ module.exports = function (eleventyConfig) {
 
   eleventyConfig.addFilter("filterByCategory", (posts, category) =>
     (posts || []).filter((post) => post.data.category === category)
+  );
+
+  eleventyConfig.addFilter("directionByKey", (items, key) =>
+    (items || []).find((item) => item.key === key)
   );
 
   return {
