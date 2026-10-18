@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper" data-font="serif">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2ecdf">
+<title>灯下 · 本地阅读</title>
+<meta name="description" content="灯下，一个安静、私密的本地小说阅读器。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f2ecdf'/%3E%3Cpath d='M18 20h28v4H18zm0 12h20v4H18zm0 12h28v4H18z' fill='%232b261f'/%3E%3Ccircle cx='46' cy='34' r='4' fill='%23b94a2f'/%3E%3C/svg%3E">
+<script>
+  (function () {
+    var theme = 'paper';
+    var isWindows = /Windows/i.test(
+      (navigator.userAgentData && navigator.userAgentData.platform) ||
+      navigator.platform ||
+      navigator.userAgent ||
+      ''
+    );
+    var defaultFont = isWindows ? 'sans' : 'serif';
+    var font = defaultFont;
+    var fontExplicit = false;
+    try {
+      var saved = JSON.parse(localStorage.getItem('dengxia.settings.v1') || '{}') || {};
+      if (saved.theme === 'paper' || saved.theme === 'sepia' || saved.theme === 'night') theme = saved.theme;
+      fontExplicit = saved.fontExplicit === true;
+      if (saved.font === 'serif' || saved.font === 'sans' || saved.font === 'kai') {
+        font = saved.font;
+        if (isWindows && !fontExplicit && saved.font === 'serif') font = 'sans';
+      }
+    } catch (e) {}
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.font = font;
+    document.documentElement.dataset.os = isWindows ? 'windows' : 'other';
+  })();
+</script>
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#mainContent">跳到主要内容</a>
+
+<section id="libraryView" class="library-view">
+  <header class="library-header">
+    <a class="brand" href="#/" aria-label="灯下，返回书架">
+      <span class="brand-mark" aria-hidden="true"><span></span></span>
+      <span class="brand-copy">
+        <strong>灯下</strong>
+        <small>DENG XIA</small>
+      </span>
+    </a>
+    <div class="library-header-end">
+      <span class="library-status" id="libraryStatus">正在整理书架</span>
+      <button class="icon-button theme-cycle" id="themeCycleBtn" type="button" aria-label="切换外观" title="切换外观">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.64 5.64l1.56 1.56M16.8 16.8l1.56 1.56M18.36 5.64 16.8 7.2M7.2 16.8l-1.56 1.56"/><circle cx="12" cy="12" r="4.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="library-main" id="mainContent">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow hero-kicker"><span></span>PRIVATE LIBRARY · 本地藏书</p>
+        <h1>把故事，<br><em>留在灯下。</em></h1>
+      </div>
+      <div class="hero-aside">
+        <p class="hero-note">没有账号，没有推荐流。书在硬盘里，痕迹只留在这台电脑上。</p>
+        <div class="hero-rule" aria-hidden="true"></div>
+        <p class="hero-formats">支持 EPUB · TXT<span>自动分章</span></p>
+      </div>
+    </section>
+
+    <section class="shelf" aria-labelledby="shelfHeading">
+      <div class="shelf-head">
+        <div>
+          <p class="eyebrow"><span></span>YOUR SHELF</p>
+          <h2 id="shelfHeading">书架</h2>
+          <p class="shelf-summary" id="shelfSummary">正在读取本地书库…</p>
+        </div>
+        <div class="shelf-tools">
+          <label class="search-box" for="bookSearch">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+            <input id="bookSearch" type="search" placeholder="搜索书名或作者" autocomplete="off" spellcheck="false">
+            <kbd>/</kbd>
+          </label>
+          <button class="icon-button refresh-button" id="refreshBooksBtn" type="button" aria-label="重新扫描书库" title="重新扫描书库">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.9 4.8M20 4v7h-7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="libraryLoading" class="book-grid book-grid-skeleton" aria-label="正在加载书库">
+        <div class="skeleton-card">
+          <div class="skeleton-cover shimmer"></div>
+          <div class="skeleton-line wide shimmer"></div>
+          <div class="skeleton-line shimmer"></div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-cover shimmer"></div>
+          <div class="skeleton-line wide shimmer"></div>
+          <div class="skeleton-line shimmer"></div>
+        </div>
+      </div>
+
+      <div id="bookGrid" class="book-grid" aria-live="polite" hidden></div>
+
+      <div id="libraryEmpty" class="library-state" hidden>
+        <div class="state-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M14 14h27a9 9 0 0 1 9 9v27H23a9 9 0 0 1-9-9z"/><path d="M20 44V21h22M20 35h16"/></svg>
+        </div>
+        <p class="eyebrow">EMPTY SHELF</p>
+        <h3 id="libraryEmptyTitle">书架还是空的</h3>
+        <p id="libraryEmptyText">把 <code>.epub</code> 或 <code>.txt</code> 文件放进 <code>book/</code> 目录，再刷新书架。</p>
+        <button class="text-button" id="emptyRefreshBtn" type="button">重新扫描书库</button>
+      </div>
+
+      <div id="libraryError" class="library-state library-error" hidden>
+        <p class="eyebrow">SOMETHING WENT WRONG</p>
+        <h3>暂时读不到书库</h3>
+        <p id="libraryErrorText">请确认本地服务仍在运行，然后重试。</p>
+        <button class="text-button" id="retryBooksBtn" type="button">再试一次</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="library-footer">
+    <span>灯下 · 本地阅读</span>
+    <span>书与阅读痕迹，都留在这台电脑上</span>
+  </footer>
+</section>
+
+<section id="readerView" class="reader-view" hidden>
+  <div class="book-progress" aria-hidden="true"><span id="bookProgressBar"></span></div>
+
+  <header class="reader-bar">
+    <div class="reader-bar-start">
+      <button class="icon-button back-button" id="backToLibraryBtn" type="button" aria-label="返回书架" title="返回书架（Esc）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+      </button>
+      <div class="bar-book">
+        <strong id="readerBookTitle">正在打开</strong>
+        <span id="readerBookMeta" class="bar-book-meta"></span>
+      </div>
+    </div>
+
+    <div class="reader-bar-actions">
+      <div class="chapter-steps" role="group" aria-label="章节切换">
+        <button class="icon-button" id="chapterPrevTop" type="button" aria-label="上一章" title="上一章（←）">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+        </button>
+        <button class="icon-button" id="chapterNextTop" type="button" aria-label="下一章" title="下一章（→）">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+      <span class="bar-divider" aria-hidden="true"></span>
+      <button class="bar-button" id="openTocBtn" type="button" aria-haspopup="dialog" title="目录（T）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
+        <span>目录</span>
+      </button>
+      <button class="bar-button bookmark-bar-button" id="openBookmarksBtn" type="button" aria-haspopup="dialog" title="书签（B）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h11v16l-5.5-3.7-5.5 3.7z"/></svg>
+        <span>书签</span>
+        <span class="bookmark-count" id="bookmarkCount" hidden>0</span>
+      </button>
+      <button class="bar-button" id="openSettingsBtn" type="button" aria-haspopup="dialog" title="阅读格式（S）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg>
+        <span>格式</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="reader-main" id="readerMain">
+    <div class="reader-loading" id="readerLoading">
+      <p class="eyebrow">OPENING THE BOOK</p>
+      <div class="reader-loading-lines" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <p>正在打开书页…</p>
+    </div>
+
+    <div class="reader-error" id="readerError" hidden>
+      <p class="eyebrow">CANNOT OPEN</p>
+      <h1>这一页没有打开</h1>
+      <p id="readerErrorText">请稍后重试，或返回书架。</p>
+      <div class="reader-error-actions">
+        <button class="text-button" id="retryChapterBtn" type="button">重试</button>
+        <button class="text-button subtle" id="errorBackBtn" type="button">返回书架</button>
+      </div>
+    </div>
+
+    <article class="chapter" id="chapterArticle" aria-labelledby="chapterTitle" hidden>
+      <header class="chapter-header">
+        <p class="chapter-eyebrow">
+          <span id="chapterKicker">CHAPTER 001</span>
+          <span class="eyebrow-dot" aria-hidden="true"></span>
+          <span id="chapterStats"></span>
+        </p>
+        <h1 id="chapterTitle"></h1>
+      </header>
+
+      <div class="chapter-body" id="chapterBody" tabindex="-1"></div>
+
+      <div class="chapter-end" aria-hidden="true"><span></span><em>本章完</em><span></span></div>
+
+      <footer class="chapter-footer">
+        <div class="chapter-footer-meta">
+          <span id="chapterProgressLabel"></span>
+          <span class="footer-meta-rule" aria-hidden="true"></span>
+          <span id="chapterArcLabel">灯下阅读</span>
+        </div>
+
+        <nav class="chapter-nav" aria-label="章节导航">
+          <button class="chapter-nav-card previous" id="chapterPrevBottom" type="button">
+            <span class="nav-direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>上一章</span>
+            <span class="nav-chapter-title" id="prevChapterTitle">已是开篇</span>
+          </button>
+          <button class="chapter-nav-card next" id="chapterNextBottom" type="button">
+            <span class="nav-direction">下一章<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+            <span class="nav-chapter-title" id="nextChapterTitle">已是终章</span>
+          </button>
+        </nav>
+
+        <form class="chapter-jump" id="chapterJumpForm">
+          <label for="chapterJumpInput">跳至</label>
+          <div class="jump-field">
+            <span>第</span>
+            <input id="chapterJumpInput" type="number" min="1" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="章节序号">
+            <span>章</span>
+          </div>
+          <button type="submit">跳转</button>
+          <span class="jump-total" id="jumpTotal"></span>
+        </form>
+      </footer>
+    </article>
+  </main>
+</section>
+
+<dialog class="drawer drawer-left" id="tocDialog" aria-labelledby="tocHeading">
+  <div class="drawer-panel">
+    <header class="drawer-head">
+      <div>
+        <p class="eyebrow">CONTENTS</p>
+        <h2 id="tocHeading">目录</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close-dialog="tocDialog" aria-label="关闭目录">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="toc-meta" id="tocBookName"></div>
+    <label class="toc-search search-box" for="tocSearch">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+      <input id="tocSearch" type="search" placeholder="搜索章节" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="toc-count" id="tocCount"></div>
+    <div class="toc-list" id="tocList" role="navigation" aria-label="章节目录"></div>
+    <div class="toc-empty" id="tocEmpty" hidden>没有找到匹配的章节</div>
+  </div>
+</dialog>
+
+<dialog class="drawer drawer-right" id="settingsDialog" aria-labelledby="settingsHeading">
+  <div class="drawer-panel">
+    <header class="drawer-head">
+      <div>
+        <p class="eyebrow">APPEARANCE</p>
+        <h2 id="settingsHeading">阅读格式</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close-dialog="settingsDialog" aria-label="关闭格式设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="settings-scroll">
+      <section class="setting-group">
+        <div class="setting-title"><span>纸色</span><small>THEME</small></div>
+        <div class="theme-grid" role="group" aria-label="主题">
+          <button class="theme-swatch theme-paper" type="button" data-set-theme="paper" aria-label="纸张主题">
+            <span class="swatch-preview"><i></i><i></i><i></i></span>
+            <span>纸</span>
+          </button>
+          <button class="theme-swatch theme-sepia" type="button" data-set-theme="sepia" aria-label="茶色主题">
+            <span class="swatch-preview"><i></i><i></i><i></i></span>
+            <span>茶</span>
+          </button>
+          <button class="theme-swatch theme-night" type="button" data-set-theme="night" aria-label="夜间主题">
+            <span class="swatch-preview"><i></i><i></i><i></i></span>
+            <span>夜</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><span>正文字体</span><small>TYPE</small></div>
+        <div class="segmented" role="group" aria-label="正文字体">
+          <button type="button" data-set-font="serif" class="font-serif">宋体</button>
+          <button type="button" data-set-font="sans" class="font-sans">黑体</button>
+          <button type="button" data-set-font="kai" class="font-kai">楷体</button>
+        </div>
+        <p class="setting-hint win-only">Windows 默认使用「黑体」，屏幕笔画更清晰。若文字仍然发虚，请确认浏览器缩放为 100%。</p>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><label for="fontSizeRange">字号</label><output id="fontSizeValue" for="fontSizeRange">19 px</output></div>
+        <div class="range-row">
+          <span class="range-min">A</span>
+          <input type="range" id="fontSizeRange" min="16" max="30" step="1" value="19">
+          <span class="range-max">A</span>
+        </div>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><label for="lineHeightRange">行距</label><output id="lineHeightValue" for="lineHeightRange">1.95</output></div>
+        <div class="range-row single">
+          <input type="range" id="lineHeightRange" min="1.4" max="2.4" step="0.05" value="1.95">
+        </div>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><label for="widthRange">版心宽度</label><output id="widthValue" for="widthRange">760 px</output></div>
+        <div class="range-row single">
+          <input type="range" id="widthRange" min="560" max="1120" step="20" value="760">
+        </div>
+      </section>
+
+      <section class="setting-group setting-toggle">
+        <div class="setting-title"><label for="indentToggle">段落首行缩进</label><small>INDENT</small></div>
+        <label class="switch">
+          <input type="checkbox" id="indentToggle" checked>
+          <span aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <button class="reset-settings" id="resetSettingsBtn" type="button">恢复默认格式</button>
+      <p class="settings-note">格式设置会保存在此浏览器中，下次打开仍然有效。</p>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="bookmarks-dialog" id="bookmarksDialog" aria-labelledby="bookmarksHeading">
+  <div class="bookmarks-panel">
+    <header class="drawer-head">
+      <div>
+        <p class="eyebrow">BOOKMARKS</p>
+        <h2 id="bookmarksHeading">书签</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close-dialog="bookmarksDialog" aria-label="关闭书签">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="bookmark-current">
+      <div>
+        <p class="eyebrow">CURRENT CHAPTER</p>
+        <h3 id="currentBookmarkTitle">当前章节</h3>
+        <p id="currentBookmarkMeta"></p>
+      </div>
+      <button class="bookmark-toggle" id="toggleBookmarkBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h11v16l-5.5-3.7-5.5 3.7z"/></svg>
+        <span>收藏本章</span>
+      </button>
+    </div>
+
+    <div class="bookmark-list-head">
+      <span>已收藏</span>
+      <span id="bookmarkListCount"></span>
+    </div>
+    <ul class="bookmark-list" id="bookmarkList"></ul>
+    <div class="bookmark-empty" id="bookmarkEmpty" hidden>
+      <span class="empty-bookmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M6.5 4.5h11v16l-5.5-3.7-5.5 3.7z"/></svg>
+      </span>
+      <p>还没有书签</p>
+      <small>收藏当前章节，或阅读时按 <kbd>B</kbd> 快速添加。</small>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span class="toast-dot" aria-hidden="true"></span>
+  <span id="toastText"></span>
+</div>
+</body>
+</html>

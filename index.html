@@ -1,0 +1,1748 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作台 · Workbench</title>
+<meta name="description" content="个人极简效率工作台：专注当下，保持秩序，静心构建。">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff5722'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    var mode = 'auto';
+    try {
+      var saved = localStorage.getItem('desk-theme');
+      if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
+    } catch (e) {}
+    var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    document.documentElement.setAttribute('data-theme-mode', mode);
+    document.documentElement.setAttribute('data-theme', mode === 'auto' ? (light ? 'light' : 'dark') : mode);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #0c0d10;
+    --surface: #14161b;
+    --surface-hover: #1a1d24;
+    --surface-active: #21252e;
+    --surface-glass: rgba(20, 22, 27, 0.78);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-subtle: rgba(255, 255, 255, 0.04);
+    --line-focus: rgba(255, 255, 255, 0.22);
+    --ink: #f4f5f7;
+    --ink-dim: #9aa1b0;
+    --ink-faint: #626978;
+    --track: #262933;
+    
+    --accent: #ff5722;
+    --accent-hover: #ff7043;
+    --accent-glow: rgba(255, 87, 34, 0.25);
+    --accent-wash: rgba(255, 87, 34, 0.08);
+    --accent-ink: #ffffff;
+
+    --sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f8f9fb;
+    --surface: #ffffff;
+    --surface-hover: #f1f3f7;
+    --surface-active: #e7ebf2;
+    --surface-glass: rgba(255, 255, 255, 0.85);
+    --line: #e3e6ed;
+    --line-subtle: #edf0f5;
+    --line-focus: #b2b9c7;
+    --ink: #11151c;
+    --ink-dim: #525a6a;
+    --ink-faint: #858f9f;
+    --track: #dce0e8;
+
+    --accent: #ea580c;
+    --accent-hover: #f97316;
+    --accent-glow: rgba(234, 88, 12, 0.2);
+    --accent-wash: rgba(234, 88, 12, 0.07);
+    --accent-ink: #ffffff;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 6px 20px -3px rgba(0, 0, 0, 0.07);
+
+    color-scheme: light;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100svh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* 细腻雅致的环境背景光晕，告别生硬纯黑 */
+  body::before {
+    content: "";
+    position: fixed;
+    top: -20%;
+    left: -10%;
+    width: 60vw;
+    height: 60vh;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-wash) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(80px);
+    opacity: 0.6;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 16px;
+    z-index: 50;
+    padding: 10px 18px;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+  }
+  .skip:focus { left: 24px; }
+
+  /* ---------- 主布局网格 ---------- */
+
+  .frame {
+    position: relative;
+    z-index: 1;
+    width: min(1200px, 100%);
+    margin: 0 auto;
+    padding: 48px 44px 72px;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 60px;
+    align-items: start;
+  }
+
+  /* ---------- 左栏 (Sidebar Rail) ---------- */
+
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    position: sticky;
+    top: 48px;
+  }
+
+  .brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    box-shadow: var(--shadow-sm);
+    width: fit-content;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: breathing 3s ease-in-out infinite;
+  }
+
+  @keyframes breathing {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.35); opacity: 1; }
+  }
+
+  h1 {
+    margin: 16px 0 10px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+
+  .motto {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+  }
+
+  /* 时钟模块 */
+  .clock-card {
+    padding: 18px 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .clock-time {
+    display: block;
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clock-date {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    letter-spacing: 0.01em;
+  }
+
+  /* 音乐播放器卡片 */
+  .player-card {
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .player-card:hover {
+    border-color: var(--line-focus);
+  }
+
+  .track-meta {
+    margin-bottom: 14px;
+  }
+
+  .track-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .track-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+
+  .track-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .track-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-artist {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 进度条与时间 */
+  .track-seek-wrap {
+    margin-top: 14px;
+  }
+
+  .seek-bar-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 24px;
+    cursor: pointer;
+  }
+
+  .seek {
+    --p: 0%;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    margin: 0;
+    background: var(--track);
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+    transition: height 0.15s ease;
+  }
+  .seek-bar-container:hover .seek {
+    height: 7px;
+  }
+  .seek:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  /* Chrome/Safari 轨道与滑块 */
+  .seek::-webkit-slider-runnable-track {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) 0 var(--p), transparent var(--p) 100%);
+  }
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2.5px solid var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    margin-top: -3.5px;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .seek-bar-container:hover .seek::-webkit-slider-thumb {
+    transform: scale(1.2);
+  }
+
+  /* Firefox 轨道与滑块 */
+  .seek::-moz-range-track {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--track);
+  }
+  .seek::-moz-range-progress {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+  .seek::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2.5px solid var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .seek-bar-container:hover .seek::-moz-range-thumb {
+    transform: scale(1.2);
+  }
+
+  .track-time-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 播放器按键组 */
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-subtle);
+  }
+
+  .btn-step {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .btn-step:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--surface-hover);
+    border-color: var(--line);
+  }
+  .btn-step:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .btn-step svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  .btn-play {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    cursor: pointer;
+    box-shadow: 0 3px 12px var(--accent-glow);
+    transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.16s ease;
+  }
+  .btn-play:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: var(--accent-hover);
+  }
+  .btn-play:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+  .btn-play:disabled {
+    opacity: 0.35;
+    cursor: default;
+    box-shadow: none;
+  }
+  .btn-play svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  /* 状态切换：播放与暂停矢量切换 */
+  .icon-pause { display: none; }
+  .track.is-playing .icon-play { display: none; }
+  .track.is-playing .icon-pause { display: block; }
+
+  /* 主题切换开关 */
+  .theme-toggle-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .theme-toggle-wrap button {
+    appearance: none;
+    flex: 1;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    text-align: center;
+  }
+  .theme-toggle-wrap button:hover {
+    color: var(--ink);
+  }
+  .theme-toggle-wrap button[aria-pressed="true"] {
+    background: var(--surface-active);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  /* ---------- 右侧内容区 (Main Content) ---------- */
+
+  .main-column {
+    min-width: 0;
+  }
+
+  /* 搜索命令栏 */
+  .search-shell {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .search-shell:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash), var(--shadow-md);
+  }
+
+  .search-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+  }
+
+  .search-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--ink-faint);
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+  }
+  .search-shell:focus-within .search-icon {
+    color: var(--accent);
+  }
+
+  #q {
+    flex: 1 1 auto;
+    min-width: 0;
+    appearance: none;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    caret-color: var(--accent);
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  #q::placeholder {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .search-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .kbd-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 0 7px;
+    background: var(--surface-hover);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-dim);
+  }
+
+  .count-badge {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .count-badge .slash {
+    margin: 0 3px;
+    color: var(--ink-faint);
+  }
+
+  /* 快捷键提示条 */
+  .keys-hint-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin: 12px 6px 0;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .keys-hint-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .keys-hint-row kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--surface);
+    color: var(--ink-dim);
+  }
+
+  /* 搜索空状态 */
+  .empty-state {
+    margin: 40px 0;
+    padding: 36px 20px;
+    text-align: center;
+    background: var(--surface);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-lg);
+  }
+  .empty-text {
+    font-size: 14px;
+    color: var(--ink-dim);
+    margin: 0 0 12px;
+  }
+  .btn-reset {
+    appearance: none;
+    padding: 6px 14px;
+    background: var(--accent-wash);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-reset:hover {
+    background: var(--accent);
+    color: #ffffff;
+  }
+
+  /* 分组板块 */
+  .groups-container {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  .group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px 4px;
+  }
+
+  .group-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  .group-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .group-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* 链接网格卡片系统 */
+  .link-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .link-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .link-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transform: scaleY(0.4);
+    transition: all 0.18s ease;
+  }
+
+  .link-card:hover,
+  .link-card.is-active {
+    background: var(--surface-hover);
+    border-color: var(--line-focus);
+    transform: translateY(-1.5px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .link-card:hover::before,
+  .link-card.is-active::before {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  .link-main-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .link-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-active);
+    border: 1px solid var(--line);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .link-texts {
+    min-width: 0;
+  }
+
+  .link-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .link-domain {
+    display: inline-block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: var(--ink-faint);
+    flex-shrink: 0;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
+  }
+  .link-arrow svg {
+    width: 14px;
+    height: 14px;
+  }
+  .link-card:hover .link-arrow,
+  .link-card.is-active .link-arrow {
+    color: var(--accent);
+    transform: translate(2px, -2px);
+  }
+
+  /* ---------- 响应式断点适配 ---------- */
+
+  @media (max-width: 960px) {
+    .frame {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 40px;
+      padding: 32px 24px 56px;
+    }
+    .rail {
+      position: static;
+    }
+    .link-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .link-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .keys-hint-row, .search-meta .kbd-pill {
+      display: none;
+    }
+    h1 {
+      font-size: 28px;
+    }
+    .clock-time {
+      font-size: 24px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到主内容</a>
+
+<div class="frame">
+  <!-- 左栏：品牌概览、时钟与播放器 -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-badge">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span>WORKBENCH · V2</span>
+      </div>
+      <h1>工作台</h1>
+      <p class="motto">专注当下，保持秩序，静心构建。</p>
+    </div>
+
+    <!-- 时钟卡片 -->
+    <div class="clock-card">
+      <time class="clock-time" id="clock">00:00:00</time>
+      <p class="clock-date" id="date">—</p>
+    </div>
+
+    <!-- 音乐播放器卡片 -->
+    <div class="player-card" id="track">
+      <audio id="audio" preload="metadata"></audio>
+
+      <div class="track-meta">
+        <div class="track-header-row">
+          <span class="track-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            Music
+          </span>
+          <span class="track-count" id="trackCount">– / –</span>
+        </div>
+        <p class="track-title" id="trackTitle">正在加载音乐库…</p>
+        <p class="track-artist" id="trackArtist">读取 music/ 目录</p>
+      </div>
+
+      <!-- 进度条与播放时间 -->
+      <div class="track-seek-wrap">
+        <div class="seek-bar-container">
+          <input class="seek" id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度">
+        </div>
+        <div class="track-time-row">
+          <span id="cur">0:00</span>
+          <span id="dur">--:--</span>
+        </div>
+      </div>
+
+      <!-- 播放器按键组 -->
+      <div class="player-controls">
+        <button class="btn-step" id="prev" type="button" aria-label="上一首" disabled>
+          <svg viewBox="0 0 24 24">
+            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+          </svg>
+        </button>
+
+        <button class="btn-play" id="play" type="button" aria-label="播放" disabled>
+          <!-- 播放图标 -->
+          <svg class="icon-play" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <!-- 暂停图标 -->
+          <svg class="icon-pause" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+
+        <button class="btn-step" id="next" type="button" aria-label="下一首" disabled>
+          <svg viewBox="0 0 24 24">
+            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 主题配色切换 -->
+    <div class="theme-toggle-wrap" role="group" aria-label="界面配色">
+      <button type="button" data-set-theme="dark" aria-pressed="false">DARK</button>
+      <button type="button" data-set-theme="light" aria-pressed="false">LIGHT</button>
+      <button type="button" data-set-theme="auto" aria-pressed="true">AUTO</button>
+    </div>
+  </aside>
+
+  <!-- 右栏：搜索与分类链接 -->
+  <main class="main-column" id="main" tabindex="-1">
+    <!-- 命令式搜索栏 -->
+    <div class="search-shell" role="search">
+      <div class="search-inner">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <label class="sr-only" for="q">筛选入口</label>
+        <input id="q" type="text" placeholder="快速筛选：github、文档、regex…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="search-meta">
+          <kbd class="kbd-pill" aria-hidden="true">/</kbd>
+          <span class="count-badge" aria-hidden="true">
+            <span id="count">12</span><span class="slash">/</span><span id="total">12</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="keys-hint-row">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 移动选择</span>
+      <span><kbd>Enter</kbd> 立即打开</span>
+      <span><kbd>Esc</kbd> 清除过滤</span>
+    </div>
+
+    <!-- 搜索空状态 -->
+    <div class="empty-state" id="empty" hidden>
+      <p class="empty-text">未检索到与关键字匹配的入口</p>
+      <button class="btn-reset" type="button" id="reset">重置筛选</button>
+    </div>
+    <p class="sr-only" aria-live="polite" id="status"></p>
+
+    <!-- 分组链接区 -->
+    <div class="groups-container">
+      <!-- 01 代码 Code -->
+      <section class="group" data-group>
+        <header class="group-header">
+          <span class="group-num">01</span>
+          <span class="group-title">代码工程</span>
+          <span class="group-sub">Code & Dev</span>
+        </header>
+        <ul class="link-grid">
+          <li>
+            <a class="link-card" href="https://github.com" target="_blank" rel="noopener noreferrer" data-key="github 代码 仓库 提交 repo code git">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">GH</span>
+                <div class="link-texts">
+                  <h3 class="link-title">GitHub</h3>
+                  <span class="link-domain">github.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://developer.mozilla.org" target="_blank" rel="noopener noreferrer" data-key="mdn 文档 前端 web docs javascript css html">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">MD</span>
+                <div class="link-texts">
+                  <h3 class="link-title">MDN Web Docs</h3>
+                  <span class="link-domain">developer.mozilla.org</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://nodejs.org/docs/latest/api/" target="_blank" rel="noopener noreferrer" data-key="node 文档 服务端 runtime docs backend">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">ND</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Node.js Docs</h3>
+                  <span class="link-domain">nodejs.org</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://www.npmjs.com" target="_blank" rel="noopener noreferrer" data-key="npm 包 依赖 package registry">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">NP</span>
+                <div class="link-texts">
+                  <h3 class="link-title">npm Registry</h3>
+                  <span class="link-domain">npmjs.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 02 资讯与阅读 Read -->
+      <section class="group" data-group>
+        <header class="group-header">
+          <span class="group-num">02</span>
+          <span class="group-title">阅读与社区</span>
+          <span class="group-sub">Read & Digest</span>
+        </header>
+        <ul class="link-grid">
+          <li>
+            <a class="link-card" href="https://news.ycombinator.com" target="_blank" rel="noopener noreferrer" data-key="hacker news hn 社区 新闻 技术 创业">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">HN</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Hacker News</h3>
+                  <span class="link-domain">news.ycombinator.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://lobste.rs" target="_blank" rel="noopener noreferrer" data-key="lobsters 社区 技术 链接 讨论">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">LB</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Lobsters</h3>
+                  <span class="link-domain">lobste.rs</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://sspai.com" target="_blank" rel="noopener noreferrer" data-key="少数派 数码 效率 中文 文章 生产力">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">SS</span>
+                <div class="link-texts">
+                  <h3 class="link-title">少数派</h3>
+                  <span class="link-domain">sspai.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://www.are.na" target="_blank" rel="noopener noreferrer" data-key="arena 灵感 收藏 设计 图片 审美">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">AR</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Are.na</h3>
+                  <span class="link-domain">are.na</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 03 效能工具 Tools -->
+      <section class="group" data-group>
+        <header class="group-header">
+          <span class="group-num">03</span>
+          <span class="group-title">开发与灵感工具</span>
+          <span class="group-sub">Utility & Tools</span>
+        </header>
+        <ul class="link-grid">
+          <li>
+            <a class="link-card" href="https://caniuse.com" target="_blank" rel="noopener noreferrer" data-key="caniuse 兼容性 浏览器 支持 feature css html">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">CI</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Can I Use</h3>
+                  <span class="link-domain">caniuse.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://regex101.com" target="_blank" rel="noopener noreferrer" data-key="regex101 正则 测试 表达式 tester">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">R1</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Regex101</h3>
+                  <span class="link-domain">regex101.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://excalidraw.com" target="_blank" rel="noopener noreferrer" data-key="excalidraw 画图 白板 草图 架构 diagram">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">EX</span>
+                <div class="link-texts">
+                  <h3 class="link-title">Excalidraw</h3>
+                  <span class="link-domain">excalidraw.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="http://localhost:3000" target="_blank" rel="noopener noreferrer" data-key="localhost 本地 服务 端口 dev server local 3000">
+              <div class="link-main-info">
+                <span class="link-avatar" aria-hidden="true">LH</span>
+                <div class="link-texts">
+                  <h3 class="link-title">本地开发服务</h3>
+                  <span class="link-domain">localhost:3000</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    var root = document.documentElement;
+    function $(sel) { return document.querySelector(sel); }
+
+    /* ---------------- 配色控制 ---------------- */
+
+    var scheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+    var themeBtns = Array.prototype.slice.call(document.querySelectorAll('[data-set-theme]'));
+
+    function resolveTheme(mode) {
+      if (mode === 'dark' || mode === 'light') return mode;
+      return scheme && scheme.matches ? 'light' : 'dark';
+    }
+
+    function paintTheme(mode, remember) {
+      root.setAttribute('data-theme-mode', mode);
+      root.setAttribute('data-theme', resolveTheme(mode));
+      themeBtns.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
+      });
+      if (remember) {
+        try { localStorage.setItem('desk-theme', mode); } catch (e) {}
+      }
+    }
+
+    themeBtns.forEach(function (b) {
+      b.addEventListener('click', function () { paintTheme(b.dataset.setTheme, true); });
+    });
+
+    paintTheme(root.getAttribute('data-theme-mode') || 'auto', false);
+
+    if (scheme) {
+      var onSchemeChange = function () {
+        if ((root.getAttribute('data-theme-mode') || 'auto') === 'auto') paintTheme('auto', false);
+      };
+      if (scheme.addEventListener) scheme.addEventListener('change', onSchemeChange);
+      else if (scheme.addListener) scheme.addListener(onSchemeChange);
+    }
+
+    /* ---------------- 搜索与键盘导航 ---------------- */
+
+    var input = $('#q');
+    var links = Array.prototype.slice.call(document.querySelectorAll('[data-key]'));
+    var groups = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
+    var countEl = $('#count');
+    var totalEl = $('#total');
+    var emptyEl = $('#empty');
+    var statusEl = $('#status');
+    var resetEl = $('#reset');
+    var total = links.length;
+    var active = -1;
+
+    totalEl.textContent = String(total).padStart(2, '0');
+
+    function norm(s) {
+      return String(s).toLowerCase()
+        .replace(/[.\-_/]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    links.forEach(function (a) {
+      var name = a.querySelector('.link-title');
+      var hint = a.querySelector('.link-domain');
+      a._index = norm([
+        name ? name.textContent : '',
+        hint ? hint.textContent : '',
+        a.dataset.key
+      ].join(' '));
+    });
+
+    function visibleLinks() {
+      return links.filter(function (a) { return !a.closest('li').hidden; });
+    }
+
+    function setActive(i) {
+      var vis = visibleLinks();
+      links.forEach(function (a) { a.classList.remove('is-active'); });
+      active = i;
+
+      if (i >= 0 && vis[i]) {
+        vis[i].classList.add('is-active');
+        vis[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+
+    function filter() {
+      var tokens = norm(input.value).split(' ').filter(Boolean);
+      var shown = 0;
+
+      groups.forEach(function (group) {
+        var n = 0;
+        Array.prototype.forEach.call(group.querySelectorAll('[data-key]'), function (a) {
+          var hit = tokens.every(function (t) { return a._index.indexOf(t) !== -1; });
+          a.closest('li').hidden = !hit;
+          if (hit) n++;
+        });
+        group.hidden = n === 0;
+        shown += n;
+      });
+
+      countEl.textContent = String(shown).padStart(2, '0');
+      emptyEl.hidden = shown !== 0;
+      statusEl.textContent = shown === 0
+        ? '没有匹配的入口'
+        : shown + ' 个入口，共 ' + total + ' 个';
+      setActive(-1);
+    }
+
+    input.addEventListener('input', filter);
+    resetEl.addEventListener('click', function () {
+      input.value = '';
+      filter();
+      input.focus();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === '/' && document.activeElement !== input) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+        return;
+      }
+
+      if (e.key === 'Escape' && document.activeElement === input) {
+        input.value = '';
+        filter();
+        input.blur();
+        return;
+      }
+
+      if (document.activeElement !== input) return;
+
+      var vis = visibleLinks();
+      if (!vis.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActive(active + 1 >= vis.length ? 0 : active + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActive(active - 1 < 0 ? vis.length - 1 : active - 1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        (vis[active] || vis[0]).click();
+      }
+    });
+
+    /* ---------------- 音乐播放器 ---------------- */
+
+    var audio = $('#audio');
+    var trackEl = $('#track');
+    var playBtn = $('#play');
+    var prevBtn = $('#prev');
+    var nextBtn = $('#next');
+    var seekEl = $('#seek');
+    var curEl = $('#cur');
+    var durEl = $('#dur');
+    var titleEl = $('#trackTitle');
+    var artistEl = $('#trackArtist');
+    var trackCountEl = $('#trackCount');
+
+    var MUSIC_DIR = 'music/';
+    var AUDIO_RE = /\.(flac|mp3|m4a|aac|ogg|oga|opus|wav|webm)$/i;
+    var STORE_KEY = 'desk-track';
+
+    var playlist = [];
+    var current = 0;
+    var dragging = false;
+    var pendingSeek = 0;
+    var saveTimer = 0;
+
+    function decodeName(s) {
+      try { return decodeURIComponent(s); } catch (e) { return s; }
+    }
+
+    function parseName(file) {
+      var base = file.replace(AUDIO_RE, '').trim();
+      base = base.replace(/^\s*\d{1,3}\s*[._)\-–—]\s*/, '');
+      var parts = base.split(/\s+[–—−-]\s+/);
+      if (parts.length > 1) {
+        return { artist: parts[0].trim(), title: parts.slice(1).join(' – ').trim() };
+      }
+      return { artist: '精选音乐', title: base };
+    }
+
+    function makeTrack(src, file, extra) {
+      var meta = parseName(file);
+      return {
+        src: src,
+        file: file,
+        title: (extra && extra.title) || meta.title,
+        artist: (extra && extra.artist) || meta.artist
+      };
+    }
+
+    function loadFromListing() {
+      return fetch(MUSIC_DIR, { cache: 'no-store' }).then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      }).then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var base = new URL(MUSIC_DIR, location.href);
+        var seen = Object.create(null);
+        var out = [];
+
+        Array.prototype.forEach.call(doc.querySelectorAll('a[href]'), function (a) {
+          var href = a.getAttribute('href');
+          if (!href) return;
+          var url;
+          try { url = new URL(href, base); } catch (e) { return; }
+          if (url.origin !== base.origin) return;
+          var file = decodeName(url.pathname.split('/').pop() || '');
+          if (!AUDIO_RE.test(file) || seen[url.href]) return;
+          seen[url.href] = true;
+          out.push(makeTrack(url.href, file));
+        });
+
+        if (!out.length) throw new Error('目录里没有音频');
+        return out;
+      });
+    }
+
+    function loadFromManifest() {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = MUSIC_DIR + 'tracks.js';
+        s.onload = function () {
+          var list = window.__MUSIC__;
+          if (!Array.isArray(list) || !list.length) { reject(new Error('清单为空')); return; }
+          var out = [];
+          list.forEach(function (item) {
+            var raw = typeof item === 'string' ? item : (item && item.file) || '';
+            if (!raw) return;
+            var file = decodeName(raw);
+            var src = MUSIC_DIR + file.split('/').map(encodeURIComponent).join('/');
+            out.push(makeTrack(src, file, typeof item === 'string' ? null : item));
+          });
+          resolve(out);
+        };
+        s.onerror = function () { reject(new Error('没有 tracks.js')); };
+        document.head.appendChild(s);
+      });
+    }
+
+    function sortTracks(list) {
+      return list.sort(function (a, b) {
+        return a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+      });
+    }
+
+    function loadPlaylist() {
+      var first = /^https?:$/.test(location.protocol)
+        ? loadFromListing()
+        : Promise.reject(new Error('file:// 不能列目录'));
+      return first.catch(loadFromManifest).then(sortTracks);
+    }
+
+    function stampTime(sec) {
+      if (!isFinite(sec) || sec < 0) sec = 0;
+      var m = Math.floor(sec / 60);
+      var s = Math.floor(sec % 60);
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function paintTrack() {
+      var d = audio.duration;
+      var known = isFinite(d) && d > 0;
+      var p = known ? Math.min(audio.currentTime / d, 1) : 0;
+
+      if (!dragging) seekEl.value = String(Math.round(p * 1000));
+      seekEl.style.setProperty('--p', (p * 100).toFixed(2) + '%');
+      curEl.textContent = stampTime(audio.currentTime);
+
+      if (known) {
+        durEl.textContent = stampTime(d);
+        seekEl.setAttribute('aria-valuetext', stampTime(audio.currentTime) + ' / ' + stampTime(d));
+      }
+
+      paintPositionState();
+    }
+
+    function paintPositionState() {
+      if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+      var d = audio.duration;
+      if (!isFinite(d) || d <= 0) return;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: d,
+          position: Math.min(Math.max(audio.currentTime, 0), d),
+          playbackRate: audio.playbackRate || 1
+        });
+      } catch (e) {}
+    }
+
+    function paintMetadata() {
+      if (!('mediaSession' in navigator) || typeof window.MediaMetadata !== 'function') return;
+      if (!playlist.length) return;
+      var t = playlist[current];
+      try {
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: t.title,
+          artist: t.artist,
+          album: '工作台 · Workbench'
+        });
+      } catch (e) {}
+    }
+
+    function setPlaying(on) {
+      trackEl.classList.toggle('is-playing', on);
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+      if (!playlist.length) return;
+      var t = playlist[current];
+      playBtn.setAttribute('aria-label', (on ? '暂停：' : '播放：') + t.title + (t.artist ? ' — ' + t.artist : ''));
+    }
+
+    function applyTrack() {
+      var t = playlist[current];
+      if (!t) return;
+      titleEl.textContent = t.title;
+      artistEl.textContent = t.artist || '本地音频';
+      trackCountEl.textContent = (current + 1) + ' / ' + playlist.length;
+      durEl.textContent = '--:--';
+      curEl.textContent = '0:00';
+      seekEl.value = '0';
+      seekEl.style.setProperty('--p', '0%');
+      paintMetadata();
+    }
+
+    function enableControls(on) {
+      playBtn.disabled = !on;
+      prevBtn.disabled = !on;
+      nextBtn.disabled = !on;
+      seekEl.disabled = !on;
+    }
+
+    function safePlay() {
+      var attempt = audio.play();
+      if (attempt && attempt.catch) attempt.catch(function () { setPlaying(false); });
+    }
+
+    function loadTrack(index, autoplay, startAt) {
+      if (!playlist.length) return;
+      current = (index + playlist.length) % playlist.length;
+      pendingSeek = typeof startAt === 'number' && startAt > 0.5 ? startAt : 0;
+      applyTrack();
+      audio.src = playlist[current].src;
+      audio.load();
+      setPlaying(false);
+      if (autoplay) safePlay();
+    }
+
+    playBtn.addEventListener('click', function () {
+      if (!playlist.length) return;
+      if (audio.paused) safePlay(); else audio.pause();
+    });
+
+    prevBtn.addEventListener('click', function () {
+      if (playlist.length) loadTrack(current - 1, !audio.paused);
+    });
+
+    nextBtn.addEventListener('click', function () {
+      if (playlist.length) loadTrack(current + 1, !audio.paused);
+    });
+
+    seekEl.addEventListener('pointerdown', function () { dragging = true; });
+    window.addEventListener('pointerup', function () { dragging = false; });
+    window.addEventListener('pointercancel', function () { dragging = false; });
+
+    seekEl.addEventListener('input', function () {
+      var d = audio.duration;
+      if (!isFinite(d) || d <= 0) return;
+      var p = Number(seekEl.value) / 1000;
+      audio.currentTime = p * d;
+      seekEl.style.setProperty('--p', (p * 100).toFixed(2) + '%');
+      curEl.textContent = stampTime(audio.currentTime);
+    });
+
+    audio.addEventListener('play', function () { setPlaying(true); });
+    audio.addEventListener('pause', function () { setPlaying(false); savePosition(); });
+    audio.addEventListener('timeupdate', function () { paintTrack(); scheduleSave(); });
+    audio.addEventListener('durationchange', paintTrack);
+    audio.addEventListener('loadedmetadata', function () {
+      if (pendingSeek > 0) {
+        var d = audio.duration;
+        var t = isFinite(d) && d > 0 ? Math.min(pendingSeek, Math.max(0, d - 1)) : pendingSeek;
+        try { audio.currentTime = t; } catch (e) {}
+        pendingSeek = 0;
+      }
+      paintTrack();
+    });
+    audio.addEventListener('ended', function () {
+      if (current < playlist.length - 1) {
+        loadTrack(current + 1, true);
+      } else {
+        setPlaying(false);
+        audio.currentTime = 0;
+        paintTrack();
+        savePosition();
+      }
+    });
+    audio.addEventListener('error', function () {
+      if (!audio.src) return;
+      setPlaying(false);
+      curEl.textContent = '—';
+      durEl.textContent = '无法读取';
+    });
+
+    function savePosition() {
+      if (!playlist.length) return;
+      if (audio.currentTime <= 0 && audio.paused) return;
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          file: playlist[current].file,
+          time: audio.currentTime || 0
+        }));
+      } catch (e) {}
+    }
+
+    function scheduleSave() {
+      if (saveTimer) return;
+      saveTimer = setTimeout(function () { saveTimer = 0; savePosition(); }, 5000);
+    }
+
+    function readPosition() {
+      try {
+        var v = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+        if (v && typeof v.file === 'string' && typeof v.time === 'number') return v;
+      } catch (e) {}
+      return null;
+    }
+
+    window.addEventListener('pagehide', savePosition);
+
+    function initMediaSession() {
+      if (!('mediaSession' in navigator)) return;
+      var ms = navigator.mediaSession;
+      function on(action, fn) { try { ms.setActionHandler(action, fn); } catch (e) {} }
+
+      on('play', safePlay);
+      on('pause', function () { audio.pause(); });
+      on('previoustrack', function () { loadTrack(current - 1, true); });
+      on('nexttrack', function () { loadTrack(current + 1, true); });
+      on('seekbackward', function (d) {
+        audio.currentTime = Math.max(0, audio.currentTime - ((d && d.seekOffset) || 10));
+      });
+      on('seekforward', function (d) {
+        var limit = isFinite(audio.duration) ? audio.duration : audio.currentTime + 10;
+        audio.currentTime = Math.min(limit, audio.currentTime + ((d && d.seekOffset) || 10));
+      });
+      on('seekto', function (d) {
+        if (d && typeof d.seekTime === 'number') audio.currentTime = d.seekTime;
+      });
+    }
+
+    function bootMusic() {
+      loadPlaylist().then(function (list) {
+        if (!list.length) throw new Error('没有可播放的曲目');
+        playlist = list;
+        enableControls(true);
+
+        var saved = readPosition();
+        var idx = 0;
+        var startAt = 0;
+        if (saved) {
+          for (var i = 0; i < playlist.length; i++) {
+            if (playlist[i].file === saved.file) { idx = i; startAt = saved.time; break; }
+          }
+        }
+        loadTrack(idx, false, startAt);
+      }).catch(function (err) {
+        enableControls(false);
+        titleEl.textContent = '暂无本地音频';
+        artistEl.textContent = '可放入 music/ 目录';
+        trackCountEl.textContent = '0 / 0';
+        curEl.textContent = '0:00';
+        durEl.textContent = '--:--';
+        if (window.console) {
+          console.warn('[music] ' + (err && err.message ? err.message : '列表读取失败'));
+        }
+      });
+    }
+
+    /* ---------------- 拟真时钟 ---------------- */
+
+    var clockEl = document.getElementById('clock');
+    var dateEl = document.getElementById('date');
+    var weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+    function tick() {
+      var d = new Date();
+      clockEl.textContent = d.toLocaleTimeString('zh-CN', { hour12: false });
+      clockEl.setAttribute('datetime', d.toISOString());
+      dateEl.textContent = d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日 · ' + weekdays[d.getDay()];
+    }
+
+    tick();
+    setInterval(tick, 1000);
+
+    filter();
+    initMediaSession();
+    bootMusic();
+  })();
+</script>
+</body>
+</html>
