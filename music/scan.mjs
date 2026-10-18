@@ -10,10 +10,11 @@ import { fileURLToPath } from 'node:url';
 const dir = new URL('./', import.meta.url);
 const AUDIO = /\.(flac|mp3|m4a|aac|ogg|oga|opus|wav|webm)$/i;
 
-// 和页面里的排序保持同一套规则（按码位），换机器、换 locale 顺序都不变
+// 和页面里的 sortTracks 保持同一套规则（zh-CN + numeric）
+const collate = new Intl.Collator('zh-CN', { numeric: true });
 const files = (await readdir(dir))
   .filter((name) => AUDIO.test(name))
-  .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  .sort(collate.compare);
 
 const body = [
   '/* 由 scan.mjs 生成，勿手改：node music/scan.mjs */',

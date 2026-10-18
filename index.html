@@ -9,7 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff5722'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <script>
   (function () {
     var mode = 'auto';
@@ -34,10 +35,11 @@
     --line-focus: rgba(255, 255, 255, 0.22);
     --ink: #f4f5f7;
     --ink-dim: #9aa1b0;
-    --ink-faint: #626978;
+    --ink-faint: #818a9b;
     --track: #262933;
     
     --accent: #ff5722;
+    --accent-text: #ff5722;
     --accent-hover: #ff7043;
     --accent-glow: rgba(255, 87, 34, 0.25);
     --accent-wash: rgba(255, 87, 34, 0.08);
@@ -66,10 +68,11 @@
     --line-focus: #b2b9c7;
     --ink: #11151c;
     --ink-dim: #525a6a;
-    --ink-faint: #858f9f;
+    --ink-faint: #666f7f;
     --track: #dce0e8;
 
     --accent: #ea580c;
+    --accent-text: #b83c0a;
     --accent-hover: #f97316;
     --accent-glow: rgba(234, 88, 12, 0.2);
     --accent-wash: rgba(234, 88, 12, 0.07);
@@ -96,7 +99,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     position: relative;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   /* 细腻雅致的环境背景光晕，告别生硬纯黑 */
@@ -177,6 +180,13 @@
     gap: 32px;
     position: sticky;
     top: 48px;
+    max-height: calc(100vh - 64px);
+    max-height: calc(100svh - 64px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
   }
 
   .brand-badge {
@@ -287,7 +297,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .track-count {
@@ -335,16 +345,11 @@
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 5px;
+    height: 24px;
     margin: 0;
-    background: var(--track);
-    border-radius: 999px;
-    outline: none;
+    padding: 0;
+    background: transparent;
     cursor: pointer;
-    transition: height 0.15s ease;
-  }
-  .seek-bar-container:hover .seek {
-    height: 7px;
   }
   .seek:disabled {
     opacity: 0.4;
@@ -353,9 +358,13 @@
 
   /* Chrome/Safari 轨道与滑块 */
   .seek::-webkit-slider-runnable-track {
-    height: 100%;
+    height: 5px;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent) 0 var(--p), transparent var(--p) 100%);
+    background: linear-gradient(90deg, var(--accent) 0 var(--p), var(--track) var(--p) 100%);
+    transition: height 0.15s ease;
+  }
+  .seek-bar-container:hover .seek::-webkit-slider-runnable-track {
+    height: 7px;
   }
   .seek::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -365,23 +374,32 @@
     background: #ffffff;
     border: 2.5px solid var(--accent);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-    margin-top: -3.5px;
+    margin-top: -4px;
     transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .seek-bar-container:hover .seek::-webkit-slider-thumb {
     transform: scale(1.2);
+    margin-top: -3px;
   }
 
   /* Firefox 轨道与滑块 */
   .seek::-moz-range-track {
-    height: 100%;
+    height: 5px;
     border-radius: 999px;
     background: var(--track);
+    transition: height 0.15s ease;
+  }
+  .seek-bar-container:hover .seek::-moz-range-track {
+    height: 7px;
   }
   .seek::-moz-range-progress {
-    height: 100%;
+    height: 5px;
     border-radius: 999px;
     background: var(--accent);
+    transition: height 0.15s ease;
+  }
+  .seek-bar-container:hover .seek::-moz-range-progress {
+    height: 7px;
   }
   .seek::-moz-range-thumb {
     width: 13px;
@@ -481,8 +499,8 @@
 
   /* 状态切换：播放与暂停矢量切换 */
   .icon-pause { display: none; }
-  .track.is-playing .icon-play { display: none; }
-  .track.is-playing .icon-pause { display: block; }
+  .player-card.is-playing .icon-play { display: none; }
+  .player-card.is-playing .icon-pause { display: block; }
 
   /* 主题切换开关 */
   .theme-toggle-wrap {
@@ -662,7 +680,7 @@
     background: var(--accent-wash);
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
-    color: var(--accent);
+    color: var(--accent-text);
     font-family: var(--mono);
     font-size: 12px;
     font-weight: 500;
@@ -670,8 +688,9 @@
     transition: all 0.15s ease;
   }
   .btn-reset:hover {
-    background: var(--accent);
-    color: #ffffff;
+    background: var(--accent-text);
+    border-color: var(--accent-text);
+    color: var(--bg);
   }
 
   /* 分组板块 */
@@ -693,11 +712,12 @@
     font-family: var(--mono);
     font-size: 11px;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text);
     letter-spacing: 0.05em;
   }
 
   .group-title {
+    margin: 0;
     font-size: 15px;
     font-weight: 600;
     color: var(--ink);
@@ -785,7 +805,7 @@
     font-family: var(--mono);
     font-size: 13px;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text);
     flex-shrink: 0;
   }
 
@@ -845,6 +865,8 @@
     }
     .rail {
       position: static;
+      max-height: none;
+      overflow-y: visible;
     }
     .link-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -917,7 +939,7 @@
       <!-- 进度条与播放时间 -->
       <div class="track-seek-wrap">
         <div class="seek-bar-container">
-          <input class="seek" id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度">
+          <input class="seek" id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度" disabled>
         </div>
         <div class="track-time-row">
           <span id="cur">0:00</span>
@@ -999,7 +1021,7 @@
       <section class="group" data-group>
         <header class="group-header">
           <span class="group-num">01</span>
-          <span class="group-title">代码工程</span>
+          <h2 class="group-title">代码工程</h2>
           <span class="group-sub">Code & Dev</span>
         </header>
         <ul class="link-grid">
@@ -1078,7 +1100,7 @@
       <section class="group" data-group>
         <header class="group-header">
           <span class="group-num">02</span>
-          <span class="group-title">阅读与社区</span>
+          <h2 class="group-title">阅读与社区</h2>
           <span class="group-sub">Read & Digest</span>
         </header>
         <ul class="link-grid">
@@ -1157,7 +1179,7 @@
       <section class="group" data-group>
         <header class="group-header">
           <span class="group-num">03</span>
-          <span class="group-title">开发与灵感工具</span>
+          <h2 class="group-title">开发与灵感工具</h2>
           <span class="group-sub">Utility & Tools</span>
         </header>
         <ul class="link-grid">
@@ -1357,12 +1379,21 @@
     document.addEventListener('keydown', function (e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      if (e.key === '/' && document.activeElement !== input) {
+      var activeEl = document.activeElement;
+      var tag = (activeEl && activeEl.tagName) || '';
+      var isInputActive = tag === 'TEXTAREA' || tag === 'SELECT' ||
+        (tag === 'INPUT' && !/^(range|button|checkbox|radio|submit|reset|file|color|image)$/.test(activeEl.type)) ||
+        (activeEl && activeEl.isContentEditable);
+
+      if (e.key === '/' && !isInputActive) {
         e.preventDefault();
         input.focus();
         input.select();
         return;
       }
+
+      // 输入法正在进行输入合成（如拼音选词），忽略回车跳转
+      if (e.isComposing || e.keyCode === 229) return;
 
       if (e.key === 'Escape' && document.activeElement === input) {
         input.value = '';
@@ -1418,12 +1449,12 @@
 
     function parseName(file) {
       var base = file.replace(AUDIO_RE, '').trim();
-      base = base.replace(/^\s*\d{1,3}\s*[._)\-–—]\s*/, '');
-      var parts = base.split(/\s+[–—−-]\s+/);
+      var clean = base.replace(/^\s*\d{1,3}\s*[._)\-–—]\s*/, '').trim() || base || file;
+      var parts = clean.split(/\s+[–—−-]\s+/);
       if (parts.length > 1) {
         return { artist: parts[0].trim(), title: parts.slice(1).join(' – ').trim() };
       }
-      return { artist: '精选音乐', title: base };
+      return { artist: '精选音乐', title: clean };
     }
 
     function makeTrack(src, file, extra) {
@@ -1487,7 +1518,7 @@
 
     function sortTracks(list) {
       return list.sort(function (a, b) {
-        return a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+        return a.file.localeCompare(b.file, 'zh-CN', { numeric: true });
       });
     }
 
@@ -1506,13 +1537,16 @@
     }
 
     function paintTrack() {
+      if (audio.error && audio.error.code !== 1) return;
       var d = audio.duration;
       var known = isFinite(d) && d > 0;
       var p = known ? Math.min(audio.currentTime / d, 1) : 0;
 
-      if (!dragging) seekEl.value = String(Math.round(p * 1000));
-      seekEl.style.setProperty('--p', (p * 100).toFixed(2) + '%');
-      curEl.textContent = stampTime(audio.currentTime);
+      if (!dragging) {
+        seekEl.value = String(Math.round(p * 1000));
+        seekEl.style.setProperty('--p', (p * 100).toFixed(2) + '%');
+        curEl.textContent = stampTime(audio.currentTime);
+      }
 
       if (known) {
         durEl.textContent = stampTime(d);
@@ -1566,6 +1600,7 @@
       curEl.textContent = '0:00';
       seekEl.value = '0';
       seekEl.style.setProperty('--p', '0%');
+      seekEl.setAttribute('aria-valuetext', '0:00');
       paintMetadata();
     }
 
@@ -1577,15 +1612,17 @@
     }
 
     function safePlay() {
+      if (playBtn.disabled) return;
       var attempt = audio.play();
       if (attempt && attempt.catch) attempt.catch(function () { setPlaying(false); });
     }
 
     function loadTrack(index, autoplay, startAt) {
       if (!playlist.length) return;
-      current = (index + playlist.length) % playlist.length;
+      current = ((index % playlist.length) + playlist.length) % playlist.length;
       pendingSeek = typeof startAt === 'number' && startAt > 0.5 ? startAt : 0;
       applyTrack();
+      enableControls(true);
       audio.src = playlist[current].src;
       audio.load();
       setPlaying(false);
@@ -1605,17 +1642,35 @@
       if (playlist.length) loadTrack(current + 1, !audio.paused);
     });
 
+    function endDrag() { dragging = false; }
+
     seekEl.addEventListener('pointerdown', function () { dragging = true; });
-    window.addEventListener('pointerup', function () { dragging = false; });
-    window.addEventListener('pointercancel', function () { dragging = false; });
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    window.addEventListener('blur', function () {
+      if (!dragging) return;
+      dragging = false;
+      paintTrack();
+    });
+    seekEl.addEventListener('lostpointercapture', endDrag);
 
     seekEl.addEventListener('input', function () {
       var d = audio.duration;
       if (!isFinite(d) || d <= 0) return;
       var p = Number(seekEl.value) / 1000;
-      audio.currentTime = p * d;
       seekEl.style.setProperty('--p', (p * 100).toFixed(2) + '%');
-      curEl.textContent = stampTime(audio.currentTime);
+      curEl.textContent = stampTime(p * d);
+      seekEl.setAttribute('aria-valuetext', stampTime(p * d) + ' / ' + stampTime(d));
+    });
+
+    seekEl.addEventListener('change', function () {
+      dragging = false;
+      var d = audio.duration;
+      if (!isFinite(d) || d <= 0) return;
+      var p = Number(seekEl.value) / 1000;
+      audio.currentTime = p * d;
+      paintTrack();
+      savePosition();
     });
 
     audio.addEventListener('play', function () { setPlaying(true); });
@@ -1632,29 +1687,44 @@
       paintTrack();
     });
     audio.addEventListener('ended', function () {
-      if (current < playlist.length - 1) {
-        loadTrack(current + 1, true);
-      } else {
-        setPlaying(false);
-        audio.currentTime = 0;
-        paintTrack();
-        savePosition();
-      }
+      // 播完自动进入下一首；最后一首由 loadTrack 取模回到第一首
+      loadTrack(current + 1, true);
     });
     audio.addEventListener('error', function () {
       if (!audio.src) return;
+      var mediaError = audio.error;
+      // code 1 是主动中止（切歌/load() 抢占），不代表文件本身不能播
+      if (!mediaError || mediaError.code === 1) return;
+      var code = mediaError.code;
+      var reason = code === 2 ? '读取失败'
+        : code === 3 ? '解码失败'
+        : code === 4 ? '格式不支持'
+        : '无法播放';
+
+      // 失败原因基本都是确定性的（格式/文件/解码），重试同一个文件没有意义：
+      // 停在这里，只保留上一首/下一首作为用户主动换曲的入口。
       setPlaying(false);
+      artistEl.textContent = '无法播放 · ' + reason;
       curEl.textContent = '—';
-      durEl.textContent = '无法读取';
+      durEl.textContent = '—';
+      seekEl.value = '0';
+      seekEl.style.setProperty('--p', '0%');
+      seekEl.removeAttribute('aria-valuetext');
+      seekEl.disabled = true;
+      playBtn.disabled = true;
+      if (window.console) {
+        console.warn('[music] ' + reason + '（code ' + (code || 0) + '）：' + audio.src);
+      }
     });
 
     function savePosition() {
-      if (!playlist.length) return;
-      if (audio.currentTime <= 0 && audio.paused) return;
+      if (!playlist.length || !playlist[current]) return;
+      // 元数据未就绪时 currentTime 恒为 0，写入会把续播点清掉
+      if (!isFinite(audio.duration) || audio.duration <= 0) return;
       try {
         localStorage.setItem(STORE_KEY, JSON.stringify({
           file: playlist[current].file,
-          time: audio.currentTime || 0
+          time: Math.max(0, audio.currentTime || 0)
         }));
       } catch (e) {}
     }
@@ -1681,8 +1751,8 @@
 
       on('play', safePlay);
       on('pause', function () { audio.pause(); });
-      on('previoustrack', function () { loadTrack(current - 1, true); });
-      on('nexttrack', function () { loadTrack(current + 1, true); });
+      on('previoustrack', function () { loadTrack(current - 1, !audio.paused); });
+      on('nexttrack', function () { loadTrack(current + 1, !audio.paused); });
       on('seekbackward', function (d) {
         audio.currentTime = Math.max(0, audio.currentTime - ((d && d.seekOffset) || 10));
       });
@@ -1699,7 +1769,6 @@
       loadPlaylist().then(function (list) {
         if (!list.length) throw new Error('没有可播放的曲目');
         playlist = list;
-        enableControls(true);
 
         var saved = readPosition();
         var idx = 0;
@@ -1737,7 +1806,10 @@
     }
 
     tick();
-    setInterval(tick, 1000);
+    setTimeout(function () {
+      tick();
+      setInterval(tick, 1000);
+    }, 1000 - (Date.now() % 1000));
 
     filter();
     initMediaSession();

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f2ecdf">
+  <meta name="description" content="弈间：五路与六路网页围棋，支持终局复盘、逐手胜率折线图与 AI 停一手判断。">
+  <title>弈间 · 小棋盘围棋</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b1482e'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23fff7eb'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%231e2a23'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-texture" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand-seal" aria-hidden="true">弈</span>
+        <div class="brand-copy">
+          <h1>弈间</h1>
+          <p>小棋盘围棋 · 五路 / 六路</p>
+        </div>
+      </div>
+      <div class="masthead-aside">
+        <p class="rule-tag">中国规则 · 数子法</p>
+      </div>
+    </header>
+
+    <main class="game-layout">
+      <section class="board-stage" aria-label="对局区域">
+        <div class="stage-head">
+          <div>
+            <p class="eyebrow" id="boardKicker">五路棋盘</p>
+            <h2 id="boardTitle">5 × 5 对局</h2>
+          </div>
+          <div class="turn-pill" id="turnPill">
+            <span class="mini-stone black" id="turnPillStone" aria-hidden="true"></span>
+            <span id="turnPillText">你执黑</span>
+          </div>
+        </div>
+
+        <div class="board-frame" id="boardFrame">
+          <canvas id="goBoard" width="760" height="760" role="img" aria-label="五路围棋棋盘"></canvas>
+
+          <div class="result-layer" id="resultLayer" hidden>
+            <div class="result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+              <p class="result-kicker">终局</p>
+              <span class="result-stone" id="resultStone" aria-hidden="true"></span>
+              <h2 id="resultTitle">你赢了</h2>
+              <p class="result-detail" id="resultDetail"></p>
+              <p class="result-caption" id="resultCaption"></p>
+              <div class="result-actions">
+                <button class="primary-btn result-primary" id="againBtn" type="button">再来一局</button>
+                <button class="ghost-btn" id="reviewGameBtn" type="button">复盘本局</button>
+                <button class="ghost-btn" id="reviewBtn" type="button">查看棋盘</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-foot">
+          <p id="boardHint">点击交叉点落子</p>
+          <p id="lastMoveInfo">静候第一手</p>
+          <div class="stage-foot-actions">
+            <button class="result-chip" id="reviewChipBtn" type="button" hidden>复盘</button>
+            <button class="result-chip" id="showResultBtn" type="button" hidden>查看结果</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel setup-panel">
+          <div class="panel-title">
+            <span class="section-index" aria-hidden="true">一</span>
+            <div>
+              <h2>手谈一局</h2>
+              <p>选择棋盘与执子</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span>棋盘</span>
+              <span class="field-hint" id="sizeHint">5 × 5</span>
+            </div>
+            <div class="segmented" id="sizeControl" role="group" aria-label="选择棋盘大小">
+              <button type="button" class="is-active" data-size="5" aria-pressed="true">
+                <span class="variant-title">五路</span>
+                <span class="variant-sub">5 × 5</span>
+              </button>
+              <button type="button" data-size="6" aria-pressed="false">
+                <span class="variant-title">六路</span>
+                <span class="variant-sub">6 × 6</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span>选择执子</span>
+              <span class="field-hint">黑先白后</span>
+            </div>
+            <div class="color-grid" id="colorControl" role="group" aria-label="选择执黑或执白">
+              <button type="button" class="color-option is-active" data-color="1" aria-pressed="true">
+                <span class="choice-stone black" aria-hidden="true"></span>
+                <span class="choice-copy"><strong>执黑</strong><small>先行</small></span>
+                <span class="choice-check" aria-hidden="true">✓</span>
+              </button>
+              <button type="button" class="color-option" data-color="2" aria-pressed="false">
+                <span class="choice-stone white" aria-hidden="true"></span>
+                <span class="choice-copy"><strong>执白</strong><small>后行</small></span>
+                <span class="choice-check" aria-hidden="true">✓</span>
+              </button>
+            </div>
+          </div>
+
+          <button class="primary-btn new-game-btn" id="newGameBtn" type="button">
+            <span>开始新对局</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
+          <p class="setup-note">更换设置后，点击按钮重新开局</p>
+          <button class="ghost-btn history-review-btn" id="historyReviewBtn" type="button" hidden>
+            复盘历史对局
+          </button>
+        </section>
+
+        <section class="panel game-panel">
+          <div class="panel-title">
+            <span class="section-index" aria-hidden="true">二</span>
+            <div>
+              <h2>当前棋局</h2>
+              <p id="gameMeta">中国规则 · 白贴 3.5 目</p>
+            </div>
+          </div>
+
+          <div class="turn-status">
+            <span class="status-stone black" id="statusStone" aria-hidden="true"></span>
+            <div class="turn-copy">
+              <p class="status-label">轮次</p>
+              <p class="status-text" id="statusText">轮到你落子</p>
+            </div>
+            <span class="status-side" id="statusSide">黑棋</span>
+          </div>
+
+          <div class="metrics">
+            <div class="metric"><strong id="moveMetric">0</strong><span>手数</span></div>
+            <div class="metric"><strong id="blackCapMetric">0</strong><span>黑提子</span></div>
+            <div class="metric"><strong id="whiteCapMetric">0</strong><span>白提子</span></div>
+          </div>
+
+          <div class="game-actions">
+            <button class="secondary-btn" id="passBtn" type="button">停一手</button>
+            <button class="ghost-btn" id="resignBtn" type="button">认输</button>
+          </div>
+        </section>
+
+        <section class="rules-note">
+          <p class="rules-title">小棋盘规则</p>
+          <p>禁止自杀，遵循打劫规则。双方连续停一手后终局，按中国规则数子，白棋贴 3.5 目。</p>
+        </section>
+      </aside>
+    </main>
+
+    <section class="panel review-panel" id="reviewPanel" hidden aria-labelledby="reviewTitle">
+      <div class="review-head">
+        <div class="panel-title review-title">
+          <span class="section-index" aria-hidden="true">复</span>
+          <div>
+            <p class="eyebrow">复盘</p>
+            <h2 id="reviewTitle">逐手胜率与推荐点</h2>
+            <p id="reviewMeta">对局结束后，可以在这里逐手查看 AI 的判断。</p>
+          </div>
+        </div>
+        <div class="review-actions">
+          <label class="review-select-label" for="reviewGameSelect" hidden>
+            <span>对局</span>
+            <select id="reviewGameSelect"></select>
+          </label>
+          <button class="secondary-btn" id="reviewRefreshBtn" type="button">重新分析</button>
+          <button class="ghost-btn" id="reviewCloseBtn" type="button">收起复盘</button>
+        </div>
+      </div>
+
+      <div class="review-progress" id="reviewProgress">
+        <span class="review-progress-track" aria-hidden="true">
+          <i id="reviewProgressBar"></i>
+        </span>
+        <span id="reviewProgressText">准备分析…</span>
+      </div>
+
+      <div class="review-layout">
+        <div class="review-board-card">
+          <div class="review-board-head">
+            <p><strong id="reviewBoardMove">第 0 手之后</strong></p>
+            <span id="reviewBoardSide">轮到黑棋</span>
+          </div>
+          <svg id="reviewBoardSvg" class="review-board-svg" viewBox="0 0 320 320"
+               role="img" aria-label="复盘棋盘"></svg>
+          <p class="review-board-note" id="reviewBoardNote">点击下方表格或折线节点切换局面。</p>
+        </div>
+
+        <div class="review-chart-card">
+          <div class="review-chart-head">
+            <p>黑棋实时胜率</p>
+            <span>点击折线节点切换手数</span>
+          </div>
+          <svg id="reviewChart" class="review-chart" viewBox="0 0 620 250"
+               role="img" aria-label="黑棋胜率折线图"></svg>
+          <div class="review-chart-legend">
+            <span class="legend-item legend-black"><i></i>黑棋胜率</span>
+            <span class="legend-item legend-mid"><i></i>五成均势</span>
+            <span class="legend-item legend-pick"><i></i>当前局面</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="review-table-wrap">
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th scope="col">手数</th>
+              <th scope="col">落子</th>
+              <th scope="col">实战（行棋方）</th>
+              <th scope="col">下之前推荐前三</th>
+              <th scope="col">实战排名</th>
+            </tr>
+          </thead>
+          <tbody id="reviewTableBody"></tbody>
+        </table>
+      </div>
+      <p class="review-footnote" id="reviewFootnote">
+        每个局面会对棋盘上所有合法点各做若干次推演；胜率为行棋方视角。
+      </p>
+    </section>
+
+    <footer class="footer">
+      <span>弈间 · 一方小棋盘</span>
+      <span class="footer-dot" aria-hidden="true"></span>
+      <span>无禁手 · 简单劫 · 数子终局</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <p class="sr-only" id="liveRegion" aria-live="polite"></p>
+
+  <script src="engine.js"></script>
+  <script src="ai.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
