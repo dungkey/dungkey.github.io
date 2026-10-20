@@ -106,6 +106,7 @@
     },
     gameId: 0,
     hover: null,
+    kbCursor: null,
     stoneAnimation: null,
     drawFrame: null,
     aiTimer: null,
@@ -336,6 +337,9 @@
    * --------------------------------------------------------------------- */
 
   function startNewGame() {
+    const inProgress = (state.phase === 'playing' || state.phase === 'ai') && state.moveNumber > 0;
+    if (inProgress && !window.confirm('当前对局将被清空，确定重新开局？')) return;
+
     state.gameId += 1;
     stopAITasks();
     stopReviewTasks();
@@ -351,6 +355,7 @@
     state.passes = 0;
     state.lastMove = -1;
     state.lastAction = null;
+    state.kbCursor = null;
     state.phase = 'playing';
     state.result = null;
     state.aiStats = null;
@@ -572,6 +577,7 @@
 
   function handleResign() {
     if (state.phase === 'over') return;
+    if (!window.confirm('确定认输？本局将结束。')) return;
     finishGame('resign');
   }
 
@@ -605,12 +611,8 @@
     return row * state.size + col;
   }
 
-  function handleCanvasPointerDown(event) {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (!canHumanPlay()) return;
-
-    const idx = pointFromPointer(event);
-    if (idx === null) return;
+  function attemptHumanMove(idx) {
+    if (idx === null || !canHumanPlay()) return;
     if (state.board[idx] !== Go.EMPTY) {
       rejectMove('这里已经有棋子了');
       return;
@@ -627,6 +629,54 @@
     }
 
     placeStone(state.humanColor, idx, result);
+  }
+
+  function handleCanvasPointerDown(event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (state.kbCursor !== null) {
+      state.kbCursor = null;
+      drawBoard();
+    }
+    attemptHumanMove(pointFromPointer(event));
+  }
+
+  function handleCanvasKeyDown(event) {
+    if (!canHumanPlay()) return;
+
+    const size = state.size;
+    if (state.kbCursor === null) {
+      state.kbCursor = Math.floor(size / 2) * size + Math.floor(size / 2);
+    }
+
+    let row = Math.floor(state.kbCursor / size);
+    let col = state.kbCursor % size;
+
+    switch (event.key) {
+      case 'ArrowUp':
+        row = (row - 1 + size) % size;
+        break;
+      case 'ArrowDown':
+        row = (row + 1) % size;
+        break;
+      case 'ArrowLeft':
+        col = (col - 1 + size) % size;
+        break;
+      case 'ArrowRight':
+        col = (col + 1) % size;
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        attemptHumanMove(state.kbCursor);
+        return;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    state.kbCursor = row * size + col;
+    drawBoard();
+    announce(`光标 ${Go.pointLabel(state.kbCursor, size)}，${state.board[state.kbCursor] === Go.EMPTY ? '空位' : '已有棋子'}`);
   }
 
   function handlePointerMove(event) {
@@ -715,8 +765,8 @@
     if (winner === Go.EMPTY) {
       els.resultTitle.textContent = '双方和棋';
       els.resultDetail.textContent =
-        `黑 ${judge.black} 子 · 白 ${judge.white} 子 + 贴目 ${judge.komi} 目 = ${judge.whiteTotal} 目`;
-      els.resultCaption.textContent = '双方目数相同，平局 · 双方连续停一手，数子终局';
+        `黑 ${judge.black} 子 · 白 ${judge.white} 子 + 贴 ${judge.komi} 子 = ${judge.whiteTotal} 子`;
+      els.resultCaption.textContent = '双方子数相同，平局 · 双方连续停一手，数子终局';
       return;
     }
 
@@ -727,9 +777,9 @@
 
     els.resultTitle.textContent = title;
     els.resultDetail.textContent =
-      `黑 ${judge.black} 子 · 白 ${judge.white} 子 + 贴目 ${judge.komi} 目 = ${judge.whiteTotal} 目`;
+      `黑 ${judge.black} 子 · 白 ${judge.white} 子 + 贴 ${judge.komi} 子 = ${judge.whiteTotal} 子`;
     els.resultCaption.textContent =
-      `${blackWon ? '黑' : '白'}胜 ${margin} 目 · 双方连续停一手，数子终局`;
+      `${blackWon ? '黑' : '白'}胜 ${margin} 子 · 双方连续停一手，数子终局`;
   }
 
   function resultAnnouncement() {
@@ -740,10 +790,10 @@
     }
     const judge = result.judge;
     if (result.winner === Go.EMPTY) {
-      return `终局，双方和棋。黑棋 ${judge.black} 子，白棋 ${judge.whiteTotal} 目。`;
+      return `终局，双方和棋。黑棋 ${judge.black} 子，白棋 ${judge.whiteTotal} 子。`;
     }
     const side = result.winner === Go.BLACK ? '黑棋' : '白棋';
-    return `终局，${side}胜 ${judge.margin.toFixed(1)} 目。黑棋 ${judge.black} 子，白棋 ${judge.whiteTotal} 目。`;
+    return `终局，${side}胜 ${judge.margin.toFixed(1)} 子。黑棋 ${judge.black} 子，白棋 ${judge.whiteTotal} 子。`;
   }
 
   /* -----------------------------------------------------------------------
@@ -1097,8 +1147,8 @@
     }
 
     for (let i = 0; i < size; i += 1) {
-      svg += `<text x="${pad + i * cell}" y="${width - pad * 0.34}" text-anchor="middle" font-size="8" fill="rgba(71,45,20,0.55)">${Go.LETTERS[i]}</text>`;
-      svg += `<text x="${pad * 0.34}" y="${pad + i * cell + 3}" text-anchor="middle" font-size="8" fill="rgba(71,45,20,0.55)">${size - i}</text>`;
+      svg += `<text x="${pad + i * cell}" y="${width - pad * 0.34}" text-anchor="middle" font-size="9.5" fill="rgba(71,45,20,0.64)">${Go.LETTERS[i]}</text>`;
+      svg += `<text x="${pad * 0.34}" y="${pad + i * cell + 3}" text-anchor="middle" font-size="9.5" fill="rgba(71,45,20,0.64)">${size - i}</text>`;
     }
 
     position.board.forEach((color, idx) => {
@@ -1132,7 +1182,7 @@
         svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="#b1482e" stroke-width="2.2" stroke-dasharray="4 3"/>`;
       }
       svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="rgba(255,252,245,0.88)" stroke="${color}" stroke-width="2.4"/>`;
-      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(9, cell * 0.2)}" font-weight="600" fill="${color}">${rank + 1}</text>`;
+      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="600" fill="${color}">${rank + 1}</text>`;
     });
 
     els.reviewBoardSvg.innerHTML = svg;
@@ -1238,7 +1288,7 @@
       const y = yFor(value);
       const isMid = value === 0.5;
       svg += `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="${isMid ? 'rgba(177,72,46,0.32)' : 'rgba(58,72,60,0.12)'}" stroke-width="1" ${isMid ? 'stroke-dasharray="4 4"' : ''}/>`;
-      svg += `<text x="${padLeft - 9}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="#8b9188">${Math.round(value * 100)}%</text>`;
+      svg += `<text x="${padLeft - 9}" y="${y + 3.5}" text-anchor="end" font-size="10.5" fill="var(--ink-faint)">${Math.round(value * 100)}%</text>`;
     }
 
     const tickStep = Math.max(1, Math.ceil(Math.max(1, total - 1) / 6));
@@ -1248,9 +1298,9 @@
     for (const index of Array.from(ticks).sort((a, b) => a - b)) {
       const x = xFor(index);
       svg += `<line x1="${x}" y1="${height - padBottom}" x2="${x}" y2="${height - padBottom + 4}" stroke="rgba(58,72,60,0.2)"/>`;
-      svg += `<text x="${x}" y="${height - padBottom + 16}" text-anchor="middle" font-size="9" fill="#8b9188">${index}</text>`;
+      svg += `<text x="${x}" y="${height - padBottom + 16}" text-anchor="middle" font-size="10.5" fill="var(--ink-faint)">${index}</text>`;
     }
-    svg += `<text x="${width - padRight}" y="${height - 5}" text-anchor="end" font-size="9" fill="#8b9188">手数</text>`;
+    svg += `<text x="${width - padRight}" y="${height - 5}" text-anchor="end" font-size="10.5" fill="var(--ink-faint)">手数</text>`;
 
     for (const current of segments) {
       if (current.length === 0) continue;
@@ -1334,7 +1384,7 @@
       }
 
       rows.push(`
-        <tr data-index="${index}" class="${selected ? 'is-selected' : ''}">
+        <tr data-index="${index}" tabindex="0" aria-label="查看第 ${entry.moveNumber} 手之后的局面" class="${selected ? 'is-selected' : ''}">
           <td><span class="review-move-no">${entry.moveNumber}</span></td>
           <td>
             <span class="review-move">
@@ -1358,11 +1408,11 @@
       } else if (archive.result.reason === 'resign') {
         finalOutcome = `${colorName(archive.result.winner)}中盘胜`;
       } else {
-        finalOutcome = `${colorName(archive.result.winner)}胜 ${archive.result.judge.margin.toFixed(1)} 目`;
+        finalOutcome = `${colorName(archive.result.winner)}胜 ${archive.result.judge.margin.toFixed(1)} 子`;
       }
 
       rows.push(`
-        <tr data-index="${finalIndex}" class="review-final-row ${finalSelected ? 'is-selected' : ''}">
+        <tr data-index="${finalIndex}" tabindex="0" aria-label="查看终局盘面" class="review-final-row ${finalSelected ? 'is-selected' : ''}">
           <td><span class="review-move-no">终</span></td>
           <td>
             <span class="review-move">
@@ -1370,7 +1420,7 @@
             </span>
           </td>
           <td class="review-rate"><strong>${finalOutcome}</strong></td>
-          <td colspan="2"><div class="review-points"><span class="review-point rank-1">终局数子完毕</span></div></td>
+          <td colspan="2"><div class="review-points"><span class="review-point rank-final">终局数子完毕</span></div></td>
         </tr>
       `);
     }
@@ -1425,11 +1475,13 @@
 
     els.boardKicker.textContent = `${CHINESE_NUMERALS[state.size]}路棋盘`;
     els.boardTitle.textContent = `${state.size} × ${state.size} 对局`;
+    canvas.setAttribute('aria-label', `${CHINESE_NUMERALS[state.size]}路围棋棋盘：方向键移动光标，回车落子`);
     setStoneClass(els.turnPillStone, state.humanColor, 'mini-stone');
     els.turnPillText.textContent = `你执${humanColorName}`;
 
-    els.gameMeta.textContent = `中国规则 · 白贴 ${KOMI} 目`;
+    els.gameMeta.textContent = `中国规则 · 白贴 ${KOMI} 子`;
     setStoneClass(els.statusStone, displayColor, 'status-stone');
+    els.statusStone.classList.toggle('is-thinking', isThinking);
 
     if (isOver) {
       const humanWon = state.result && state.result.winner === state.humanColor;
@@ -1545,9 +1597,9 @@
       size * 0.2, size * 0.13, size * 0.02,
       size * 0.23, size * 0.19, size * 0.78,
     );
-    sheen.addColorStop(0, 'rgba(255, 245, 219, 0.35)');
-    sheen.addColorStop(0.46, 'rgba(255, 243, 214, 0.06)');
-    sheen.addColorStop(1, 'rgba(77, 44, 16, 0.13)');
+    sheen.addColorStop(0, 'rgba(255, 245, 219, 0.24)');
+    sheen.addColorStop(0.46, 'rgba(255, 243, 214, 0.04)');
+    sheen.addColorStop(1, 'rgba(77, 44, 16, 0.10)');
     ctx.fillStyle = sheen;
     ctx.fillRect(0, 0, size, size);
 
@@ -1568,8 +1620,8 @@
 
       if (state.stoneAnimation && state.stoneAnimation.idx === idx) {
         const elapsed = performance.now() - state.stoneAnimation.startedAt;
-        const t = Math.min(1, elapsed / 190);
-        scale = 0.55 + 0.45 * easeOutBack(t);
+        const t = Math.min(1, elapsed / 170);
+        scale = 0.72 + 0.28 * easeOutBack(t);
         if (t >= 1) {
           state.stoneAnimation = null;
         } else {
@@ -1587,13 +1639,25 @@
     if (state.lastMove >= 0 && state.board[state.lastMove] !== Go.EMPTY) {
       const x = gridStart + (state.lastMove % n) * view.cell;
       const y = gridStart + Math.floor(state.lastMove / n) * view.cell;
-      drawLastMarker(x, y, lastMoveScale);
+      drawLastMarker(x, y, lastMoveScale, state.board[state.lastMove]);
     }
 
     if (state.hover !== null && canHumanPlay() && state.board[state.hover] === Go.EMPTY) {
       const x = gridStart + (state.hover % n) * view.cell;
       const y = gridStart + Math.floor(state.hover / n) * view.cell;
       drawStone(x, y, view.cell * 0.42, state.humanColor, { alpha: 0.34, ghost: true });
+    }
+
+    if (state.kbCursor !== null && state.kbCursor >= 0 && state.kbCursor < state.board.length) {
+      const x = gridStart + (state.kbCursor % n) * view.cell;
+      const y = gridStart + Math.floor(state.kbCursor / n) * view.cell;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(177, 72, 46, 0.85)';
+      ctx.lineWidth = Math.max(1.4, view.cell * 0.022);
+      ctx.beginPath();
+      ctx.arc(x, y, view.cell * 0.47, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
     }
 
     if (needsAnimationFrame) {
@@ -1607,7 +1671,7 @@
 
   function drawGrain(size) {
     ctx.save();
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.35;
     for (let i = 0; i < 11; i += 1) {
       const baseY = (i / 11) * size + 8;
       ctx.beginPath();
@@ -1678,9 +1742,9 @@
 
   function drawCoordinates() {
     const n = state.size;
-    const fontSize = Math.max(8.5, Math.min(12, view.cssSize * 0.017));
+    const fontSize = Math.max(9.5, Math.min(12, view.cssSize * 0.017));
     ctx.save();
-    ctx.fillStyle = 'rgba(71, 45, 20, 0.55)';
+    ctx.fillStyle = 'rgba(71, 45, 20, 0.72)';
     ctx.font = `500 ${fontSize}px "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1706,10 +1770,10 @@
 
     if (!ghost) {
       ctx.shadowColor = color === Go.BLACK
-        ? 'rgba(22, 16, 9, 0.4)'
-        : 'rgba(64, 44, 21, 0.31)';
-      ctx.shadowBlur = radius * 0.42;
-      ctx.shadowOffsetY = radius * 0.18;
+        ? 'rgba(22, 16, 9, 0.32)'
+        : 'rgba(64, 44, 21, 0.24)';
+      ctx.shadowBlur = radius * 0.26;
+      ctx.shadowOffsetY = radius * 0.12;
     }
 
     const gradient = ctx.createRadialGradient(
@@ -1718,17 +1782,17 @@
     );
 
     if (color === Go.BLACK) {
-      gradient.addColorStop(0, '#81847b');
-      gradient.addColorStop(0.22, '#4a4c47');
-      gradient.addColorStop(0.62, '#22241f');
-      gradient.addColorStop(0.9, '#0c0d0b');
-      gradient.addColorStop(1, '#030403');
+      gradient.addColorStop(0, '#66695f');
+      gradient.addColorStop(0.25, '#3a3d37');
+      gradient.addColorStop(0.65, '#1c1e1a');
+      gradient.addColorStop(0.9, '#0a0b09');
+      gradient.addColorStop(1, '#050604');
     } else {
-      gradient.addColorStop(0, '#ffffff');
-      gradient.addColorStop(0.3, '#fbf7ef');
-      gradient.addColorStop(0.72, '#e7dfd2');
-      gradient.addColorStop(0.94, '#c9c0b1');
-      gradient.addColorStop(1, '#b3a997');
+      gradient.addColorStop(0, '#fffdf8');
+      gradient.addColorStop(0.3, '#f8f3e9');
+      gradient.addColorStop(0.72, '#e8e0d3');
+      gradient.addColorStop(0.94, '#d1c8b8');
+      gradient.addColorStop(1, '#c0b6a5');
     }
 
     ctx.beginPath();
@@ -1749,11 +1813,11 @@
         -radius * 0.35, -radius * 0.4, radius * 0.65,
       );
       highlight.addColorStop(0, color === Go.BLACK
-        ? 'rgba(255, 255, 255, 0.17)'
-        : 'rgba(255, 255, 255, 0.6)');
+        ? 'rgba(255, 255, 255, 0.11)'
+        : 'rgba(255, 255, 255, 0.42)');
       highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.beginPath();
-      ctx.arc(-radius * 0.24, -radius * 0.28, radius * 0.48, 0, TAU);
+      ctx.arc(-radius * 0.24, -radius * 0.28, radius * 0.42, 0, TAU);
       ctx.fillStyle = highlight;
       ctx.fill();
     }
@@ -1761,16 +1825,14 @@
     ctx.restore();
   }
 
-  function drawLastMarker(x, y, scale = 1) {
-    const radius = Math.max(2.2, view.cell * 0.075) * scale;
+  function drawLastMarker(x, y, scale = 1, color = Go.BLACK) {
+    const radius = Math.max(2.4, view.cell * 0.062) * scale;
     ctx.save();
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, TAU);
-    ctx.fillStyle = '#b54930';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 0.45, 0, TAU);
-    ctx.fillStyle = 'rgba(255, 246, 230, 0.78)';
+    ctx.fillStyle = color === Go.BLACK
+      ? 'rgba(255, 246, 230, 0.9)'
+      : 'rgba(30, 42, 35, 0.82)';
     ctx.fill();
     ctx.restore();
   }
@@ -1807,6 +1869,21 @@
     els.reviewBtn.addEventListener('click', hideResult);
     els.showResultBtn.addEventListener('click', showResult);
 
+    els.resultLayer.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const focusables = [...els.resultLayer.querySelectorAll('button:not(:disabled)')];
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
     els.reviewGameBtn.addEventListener('click', () => openReview());
     els.reviewChipBtn.addEventListener('click', () => openReview());
     els.historyReviewBtn.addEventListener('click', () => openReview());
@@ -1819,6 +1896,14 @@
     els.reviewTableBody.addEventListener('click', (event) => {
       const row = event.target.closest('tr[data-index]');
       if (!row) return;
+      selectReviewPosition(Number(row.dataset.index));
+    });
+
+    els.reviewTableBody.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const row = event.target.closest('tr[data-index]');
+      if (!row) return;
+      event.preventDefault();
       selectReviewPosition(Number(row.dataset.index));
     });
 
@@ -1853,6 +1938,13 @@
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerleave', clearHover);
     canvas.addEventListener('pointercancel', clearHover);
+    canvas.addEventListener('keydown', handleCanvasKeyDown);
+    canvas.addEventListener('blur', () => {
+      if (state.kbCursor !== null) {
+        state.kbCursor = null;
+        drawBoard();
+      }
+    });
 
     window.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
