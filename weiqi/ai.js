@@ -95,10 +95,14 @@
     const { geo } = ctx;
     const atari = analyseAtari(board, geo, color);
     const candidates = [];
+    const opp = Go.opponent(color);
 
     for (let idx = 0; idx < geo.n; idx += 1) {
       if (board[idx] !== Go.EMPTY || idx === ko) continue;
-      if (skipEyes && Go.isSimpleEye(board, geo, idx, color)) continue;
+      // 过滤己方单点真眼与封闭的安全眼域实地，防止终局自填眼/自填目自残
+      if (skipEyes && (Go.isSimpleEye(board, geo, idx, color) || Go.isSafeTerritory(board, geo, idx, color))) {
+        continue;
+      }
 
       const result = Go.play(board, geo, idx, color, ko);
       if (!result) continue;
@@ -107,24 +111,52 @@
       const liberties = result.liberties;
       Go.unplay(board, idx, color, result.captured);
 
-      const counts = neighborCounts(board, geo, idx, color);
+      // 自叫吃判定：落子后未吃子且自身只剩 1 气
+      const isSelfAtari = captured === 0 && liberties === 1;
       let weight = geo.positional[idx];
-      weight += counts.friendly * 0.5 + counts.enemy * 0.32;
-      if (captured > 0) weight += 4.5 + captured * 2.5;
-      if (atari.attacks[idx]) weight += 1.8 + atari.attacks[idx] * 0.9;
-      if (atari.defends[idx]) weight += 2.4 + atari.defends[idx] * 0.75;
 
-      if (captured === 0 && liberties === 1) weight *= 0.18;
-      else if (captured === 0 && liberties === 2) weight *= 0.72;
+      if (isSelfAtari) {
+        // 仅当为有意义的“扑”（能将敌方紧缩至 2 气以内）时才赋予一定权重，否则极度惩罚（避免无谓送吃）
+        let isThrowIn = false;
+        const ns = geo.neighbors[idx];
+        for (let i = 0; i < ns.length; i += 1) {
+          if (board[ns[i]] === opp) {
+            const oppGroup = Go.groupAt(board, geo, ns[i]);
+            if (oppGroup.liberties.length <= 2) {
+              isThrowIn = true;
+              break;
+            }
+          }
+        }
+        if (!isThrowIn) {
+          weight = 0.005;
+        } else {
+          weight = 1.2;
+        }
+      } else {
+        const counts = neighborCounts(board, geo, idx, color);
+        weight += counts.friendly * 0.45 + counts.enemy * 0.35;
+        if (captured > 0) weight += 5.0 + captured * 3.0;
+        if (atari.attacks[idx]) weight += 2.5 + atari.attacks[idx] * 1.2;
+        if (atari.defends[idx]) weight += 3.0 + atari.defends[idx] * 1.0;
+        if (captured === 0 && liberties === 2) weight *= 0.75;
 
-      if (node.lastMove >= 0) {
-        const distance = Math.abs(geo.xs[idx] - geo.xs[node.lastMove])
-          + Math.abs(geo.ys[idx] - geo.ys[node.lastMove]);
-        if (distance === 1) weight += 0.28;
-        else if (distance === 2) weight += 0.12;
+        // 5x5 与 6x6 开局天元/中心点优先
+        if (node.depth === 0) {
+          if (geo.size === 5 && idx === 12) weight += 4.0;
+          if (geo.size === 6 && (idx === 14 || idx === 15 || idx === 20 || idx === 21)) weight += 2.5;
+        }
+
+        if (node.lastMove >= 0) {
+          const distance = Math.abs(geo.xs[idx] - geo.xs[node.lastMove])
+            + Math.abs(geo.ys[idx] - geo.ys[node.lastMove]);
+          if (distance === 1) weight += 0.32;
+          else if (distance === 2) weight += 0.15;
+        }
+
+        weight *= 0.85 + Math.random() * 0.3;
       }
 
-      weight *= 0.82 + Math.random() * 0.36;
       candidates.push({ idx, weight, captured, liberties });
     }
 
@@ -133,16 +165,21 @@
 
   /**
    * 停一手也是合法着法。
-   * 根节点上始终参与搜索；对手刚停一手且当前形势领先时给予极高先验，
-   * 让 AI 立刻选择停一手终局。其余情况用较低先验，交给 UCT 判断。
    */
   function addPassCandidate(candidates, ctx, node, isRoot) {
-    let weight = isRoot ? 1.15 : 0.72;
+    const nonPass = candidates.filter((c) => c.idx !== -1);
+    let weight = isRoot ? 1.0 : 0.6;
 
-    if (isRoot && ctx.opponentPassed) {
-      const result = Go.judge(node.board, ctx.geo, ctx.komi);
-      const passingWins = result.winner === ctx.aiColor;
-      weight = passingWins ? 40 : 0.08;
+    if (nonPass.length === 0) {
+      weight = 50.0;
+    } else {
+      const bestNonPass = nonPass.reduce((m, c) => Math.max(m, c.weight), 0);
+      if (bestNonPass < 0.05) {
+        // 全盘其他点均为自杀式送吃
+        weight = 30.0;
+      } else if (isRoot && ctx.opponentPassed) {
+        weight = 2.0;
+      }
     }
 
     candidates.push({
@@ -259,13 +296,13 @@
 
     for (let idx = 0; idx < geo.n; idx += 1) {
       if (board[idx] !== Go.EMPTY || idx === ko) continue;
-      if (Go.isSimpleEye(board, geo, idx, color)) continue;
+      if (Go.isSimpleEye(board, geo, idx, color) || Go.isSafeTerritory(board, geo, idx, color)) continue;
 
       const counts = neighborCounts(board, geo, idx, color);
       let weight = geo.positional[idx];
       weight += counts.friendly * 0.48 + counts.enemy * 0.3;
-      if (atari.attacks[idx]) weight += 2.1 + atari.attacks[idx] * 0.7;
-      if (atari.defends[idx]) weight += 2.6 + atari.defends[idx] * 0.8;
+      if (atari.attacks[idx]) weight += 2.5 + atari.attacks[idx] * 0.9;
+      if (atari.defends[idx]) weight += 3.0 + atari.defends[idx] * 1.0;
 
       if (lastMove >= 0) {
         const distance = Math.abs(geo.xs[idx] - geo.xs[lastMove])
@@ -309,8 +346,8 @@
         const result = Go.play(board, ctx.geo, candidate.idx, color, ko);
         if (!result) continue;
 
-        // 不进自己的单气，除非这一手能提子。
-        if (result.captured.length === 0 && result.liberties === 1 && Math.random() < 0.82) {
+        // 绝不进入自己的单气（拒绝自杀式送吃），除非这一手能提子。
+        if (result.captured.length === 0 && result.liberties === 1) {
           Go.unplay(board, candidate.idx, color, result.captured);
           continue;
         }
@@ -389,25 +426,35 @@
     if (rootNode.children.length === 0) return null;
 
     const directPass = rootNode.children.find((child) => child.move === -1);
-    if (directPass && ctx.opponentPassed) {
-      const result = Go.judge(rootNode.board, ctx.geo, ctx.komi);
-      if (result.winner === ctx.aiColor) return directPass;
-    }
-
-    // 停一手与普通着法一起比较。访问次数足够多时，胜率高的着法会自然获得
-    // 更多访问；这里以访问次数为主，避免只试过几次的停一手凭运气胜出。
     const sorted = rootNode.children.slice().sort((a, b) => {
       if (b.visits !== a.visits) return b.visits - a.visits;
       return (b.wins / b.visits) - (a.wins / a.visits);
     });
-    return sorted[0];
+
+    const best = sorted[0];
+
+    // 如果对手刚停一手，且经过搜索，停一手终局确能获胜：
+    if (directPass && ctx.opponentPassed) {
+      const passRate = directPass.visits > 0 ? directPass.wins / directPass.visits : 0;
+      if (passRate >= 0.75) {
+        return directPass;
+      }
+    }
+
+    // 当 AI 处于完全败势时（全盘没有胜率高于 3% 的着法），不要盲目向对手死地喂子自撞，优雅选择停一手
+    if (best && directPass && best.move !== -1) {
+      const bestWinRate = best.visits > 0 ? best.wins / best.visits : 0;
+      if (bestWinRate < 0.03) {
+        return directPass;
+      }
+    }
+
+    return best;
   }
 
   /**
    * 复盘用：评估当前局面下每一个合法点（以及停一手）的胜率。
-   *
-   * 每个候选点固定做若干次随机推演，保证每个点都有可比较的样本；
-   * 返回胜率最高的若干点，供界面展示“推荐前三”。
+   * 基于蒙特卡洛树搜索（MCTS）评估各着法，保证胜率稳定准确，杜绝随机一线下沉昏招。
    */
   function analyzePosition(options) {
     const startedAt = now();
@@ -422,10 +469,6 @@
     const passes = Number.isInteger(options.passes) ? options.passes : 0;
     const lastMove = Number.isInteger(options.lastMove) ? options.lastMove : -1;
     const playedMove = Number.isInteger(options.playedMove) ? options.playedMove : null;
-    const playouts = Math.max(
-      4,
-      Math.min(240, Math.round(Number(options.playoutsPerMove) || 24)),
-    );
     const topN = Math.max(1, Math.min(12, Math.round(Number(options.topN) || 3)));
 
     const ctx = {
@@ -448,63 +491,46 @@
         playedRank: null,
         evaluated: 0,
         playouts: 0,
-        elapsedMs: now() - startedAt,
+        elapsedMs: Math.round(now() - startedAt),
         candidates: [],
       };
     }
 
-    const evaluate = (child) => {
-      let wins = 0;
-      for (let i = 0; i < playouts; i += 1) {
-        wins += simulate(child, ctx).win;
-      }
-      return wins / playouts;
-    };
+    const rootNode = createNode({
+      board,
+      color: toMove,
+      ko,
+      passes,
+      lastMove,
+      depth: 0,
+      terminal: false,
+    });
+
+    const iterations = Math.max(200, Math.min(600, (Number(options.playoutsPerMove) || 20) * 16));
+    for (let i = 0; i < iterations; i += 1) {
+      runIteration(rootNode, ctx);
+    }
 
     const candidates = [];
+    let passRate = 0.5;
 
-    for (let idx = 0; idx < geo.n; idx += 1) {
-      if (board[idx] !== Go.EMPTY || idx === ko) continue;
-
-      const trial = board.slice();
-      const result = Go.play(trial, geo, idx, toMove, ko);
-      if (!result) continue;
-
-      const child = {
-        board: trial,
-        color: Go.opponent(toMove),
-        ko: result.ko,
-        passes: 0,
-        lastMove: idx,
-        depth: 0,
-      };
-
+    for (let i = 0; i < rootNode.children.length; i += 1) {
+      const child = rootNode.children[i];
+      const winRate = child.visits > 0 ? child.wins / child.visits : 0;
+      if (child.move === -1) {
+        passRate = winRate;
+      }
       candidates.push({
-        idx,
-        winRate: evaluate(child),
-        pass: false,
+        idx: child.move,
+        winRate,
+        visits: child.visits,
+        pass: child.move === -1,
       });
     }
 
-    const passChild = {
-      board: board.slice(),
-      color: Go.opponent(toMove),
-      ko: -1,
-      passes: passes + 1,
-      lastMove: -1,
-      depth: 0,
-    };
-    let passRate;
-    if (passes + 1 >= 2) {
-      passRate = terminalValueFor(passChild.board, geo, komi, toMove);
-    } else {
-      passRate = evaluate(passChild);
-    }
-    candidates.push({ idx: -1, winRate: passRate, pass: true });
-
     candidates.sort((a, b) => {
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      return b.idx - a.idx;
+      if (b.visits !== a.visits) return b.visits - a.visits;
+      return b.winRate - a.winRate;
     });
 
     let playedRank = null;
@@ -525,8 +551,8 @@
       playedRate,
       playedRank,
       evaluated: candidates.length,
-      playouts,
-      elapsedMs: now() - startedAt,
+      playouts: iterations,
+      elapsedMs: Math.round(now() - startedAt),
       candidates: candidates.slice(0, topN).map((candidate) => ({
         idx: candidate.idx,
         winRate: candidate.winRate,
@@ -560,32 +586,12 @@
       opponentPassed,
     };
 
-    // 对手刚停一手，而当前数子已经领先：直接停一手终局即可获胜。
-    if (opponentPassed) {
-      const currentScore = Go.judge(board, geo, komi);
-      if (currentScore.winner === aiColor) {
-        return {
-          move: -1,
-          pass: true,
-          stats: {
-            simulations: 0,
-            elapsedMs: Math.round(now() - startedAt),
-            treeDepth: 0,
-            readDepth: MIN_LOOKAHEAD_PLIES,
-            chosenVisits: 0,
-            chosenWinRate: 1,
-            rootVisits: 0,
-            currentScore,
-            lookaheadPlies: MIN_LOOKAHEAD_PLIES,
-          },
-        };
-      }
-    }
-
     const rootNode = createNode({
       board,
       color: toMove,
       ko: Number.isInteger(options.ko) ? options.ko : -1,
+      passes: opponentPassed ? 1 : 0,
+      lastMove: Number.isInteger(options.lastMove) ? options.lastMove : -1,
       passes: opponentPassed ? 1 : 0,
       lastMove: Number.isInteger(options.lastMove) ? options.lastMove : -1,
       depth: 0,

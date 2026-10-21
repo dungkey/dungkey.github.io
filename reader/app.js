@@ -1628,6 +1628,14 @@ function closeAllDialogs(except = null) {
   syncModalBodyState();
 }
 
+let lastInputMode = 'pointer';
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Tab') lastInputMode = 'keyboard';
+}, true);
+window.addEventListener('pointerdown', () => {
+  lastInputMode = 'pointer';
+}, true);
+
 function bindDialogs() {
   $$('[data-close-dialog]').forEach((button) => {
     button.addEventListener('click', () => closeDialog($(button.dataset.closeDialog)));
@@ -1636,7 +1644,12 @@ function bindDialogs() {
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();
     });
-    dialog.addEventListener('close', syncModalBodyState);
+    dialog.addEventListener('close', () => {
+      syncModalBodyState();
+      if (lastInputMode !== 'keyboard' && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
+    });
   }
 }
 

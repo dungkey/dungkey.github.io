@@ -4,26 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f2ecdf">
-  <meta name="description" content="弈间：五路与六路网页围棋，支持终局复盘、逐手胜率折线图与 AI 停一手判断。">
-  <title>弈间 · 小棋盘围棋</title>
+  <meta name="description" content="五路与六路网页围棋，支持对弈与复盘分析。">
+  <title>围棋</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b1482e'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23fff7eb'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%231e2a23'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="page-texture" aria-hidden="true"></div>
-
   <div class="app-shell">
     <header class="masthead">
-      <div class="brand">
-        <span class="brand-seal" aria-hidden="true">弈</span>
-        <div class="brand-copy">
-          <h1>弈间</h1>
-          <p>小棋盘围棋 · 五路 / 六路</p>
-        </div>
-      </div>
+      <a class="brand" href="./index.html" aria-label="围棋">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="brand-copy">
+          <strong>围棋</strong>
+          <small>WEIQI</small>
+        </span>
+      </a>
       <div class="masthead-aside">
-        <a class="home-link" href="../">工作台</a>
-        <p class="rule-tag">中国规则 · 数子法</p>
+        <a class="home-link" href="../index.html">工作台</a>
       </div>
     </header>
 
@@ -61,7 +58,7 @@
 
         <div class="stage-foot">
           <p id="boardHint">点击交叉点落子</p>
-          <p id="lastMoveInfo">静候第一手</p>
+          <p id="lastMoveInfo">等待落子</p>
           <div class="stage-foot-actions">
             <button class="result-chip" id="reviewChipBtn" type="button" hidden>复盘</button>
             <button class="result-chip" id="showResultBtn" type="button" hidden>查看结果</button>
@@ -72,10 +69,9 @@
       <aside class="side-panel">
         <section class="panel setup-panel">
           <div class="panel-title">
-            <span class="section-index" aria-hidden="true">一</span>
             <div>
-              <h2>手谈一局</h2>
-              <p>选择棋盘与执子</p>
+              <h2>对局设置</h2>
+              <p>棋盘与执子</p>
             </div>
           </div>
 
@@ -127,9 +123,8 @@
 
         <section class="panel game-panel">
           <div class="panel-title">
-            <span class="section-index" aria-hidden="true">二</span>
             <div>
-              <h2>当前棋局</h2>
+              <h2>当前对局</h2>
               <p id="gameMeta">中国规则 · 白贴 3.5 子</p>
             </div>
           </div>
@@ -156,7 +151,7 @@
         </section>
 
         <section class="rules-note">
-          <p class="rules-title">小棋盘规则</p>
+          <p class="rules-title">规则说明</p>
           <p>禁止自杀，遵循打劫规则。双方连续停一手后终局，按中国规则数子，白棋贴 3.5 子。</p>
         </section>
       </aside>
@@ -165,11 +160,9 @@
     <section class="panel review-panel" id="reviewPanel" hidden aria-labelledby="reviewTitle">
       <div class="review-head">
         <div class="panel-title review-title">
-          <span class="section-index" aria-hidden="true">复</span>
           <div>
-            <p class="eyebrow">复盘</p>
-            <h2 id="reviewTitle">逐手胜率与推荐点</h2>
-            <p id="reviewMeta">对局结束后，可以在这里逐手查看 AI 的判断。</p>
+            <h2 id="reviewTitle">复盘分析</h2>
+            <p id="reviewMeta">逐手胜率走势与推荐选点</p>
           </div>
         </div>
         <div class="review-actions">
@@ -235,9 +228,7 @@
     </section>
 
     <footer class="footer">
-      <span>弈间 · 一方小棋盘</span>
-      <span class="footer-dot" aria-hidden="true"></span>
-      <span>无禁手 · 简单劫 · 数子终局</span>
+      <span>围棋 · 5×5 / 6×6 对弈与复盘</span>
     </footer>
   </div>
 

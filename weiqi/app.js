@@ -554,6 +554,11 @@
     state.hover = null;
 
     const judge = Go.judge(state.board, state.geo, KOMI);
+    if (judge.deadStones && judge.deadStones.length > 0) {
+      for (let i = 0; i < judge.deadStones.length; i += 1) {
+        state.board[judge.deadStones[i]] = Go.EMPTY;
+      }
+    }
     if (reason === 'resign') {
       state.result = {
         reason: 'resign',
@@ -757,7 +762,7 @@
     if (result.reason === 'resign') {
       els.resultTitle.textContent = winner === state.humanColor ? '你赢了' : 'AI 获胜';
       els.resultDetail.textContent = '你按下了认输，棋局就此结束。';
-      els.resultCaption.textContent = '胜败乃兵家常事，不妨再来一局。';
+      els.resultCaption.textContent = '已认输终局。';
       return;
     }
 
@@ -774,12 +779,13 @@
     const blackWon = winner === Go.BLACK;
     const margin = judge.margin.toFixed(1);
     const title = humanWon ? '你赢了' : 'AI 获胜';
+    const deadInfo = judge.deadStones && judge.deadStones.length ? ` · 已清理 ${judge.deadStones.length} 颗死子` : '';
 
     els.resultTitle.textContent = title;
     els.resultDetail.textContent =
       `黑 ${judge.black} 子 · 白 ${judge.white} 子 + 贴 ${judge.komi} 子 = ${judge.whiteTotal} 子`;
     els.resultCaption.textContent =
-      `${blackWon ? '黑' : '白'}胜 ${margin} 子 · 双方连续停一手，数子终局`;
+      `${blackWon ? '黑' : '白'}胜 ${margin} 子 · 双方连续停一手，数子终局${deadInfo}`;
   }
 
   function resultAnnouncement() {
@@ -1525,7 +1531,7 @@
         els.lastMoveInfo.textContent = `第 ${state.moveNumber} 手 · ${colorName(state.lastAction.color)}棋停一手`;
       }
     } else {
-      els.lastMoveInfo.textContent = '静候第一手';
+      els.lastMoveInfo.textContent = '等待落子';
     }
 
     els.showResultBtn.hidden = !(isOver && els.resultLayer.hidden);

@@ -254,8 +254,115 @@
     return { black, white, neutral };
   }
 
-  function judge(board, geo, komi) {
-    const score = areaScore(board, geo);
+  /**
+   * 判断空点是否处于己方封闭的纯眼域/实地中（<=4 目且无任何敌方棋子接触）。
+   * 走在其中纯属自填眼/自填目，毫无防御或攻击意义。
+   */
+  function isSafeTerritory(board, geo, idx, color) {
+    if (board[idx] !== EMPTY) return false;
+    const opp = opponent(color);
+    const visited = new Uint8Array(geo.n);
+    const stack = [idx];
+    visited[idx] = 1;
+    let count = 0;
+
+    while (stack.length > 0) {
+      const p = stack.pop();
+      count += 1;
+      const ns = geo.neighbors[p];
+      for (let i = 0; i < ns.length; i += 1) {
+        const next = ns[i];
+        if (board[next] === opp) {
+          return false;
+        } else if (board[next] === EMPTY && !visited[next]) {
+          visited[next] = 1;
+          stack.push(next);
+        }
+      }
+    }
+
+    return count <= 4;
+  }
+
+  /**
+   * 检测棋盘上的无条件死子（孤子或被困在敌方领地内无法做活的气数<=2的死棋）。
+   */
+  function findDeadGroups(board, geo) {
+    const n = geo.n;
+    const visited = new Uint8Array(n);
+    const groups = [];
+
+    for (let i = 0; i < n; i += 1) {
+      if (board[i] === EMPTY || visited[i]) continue;
+      const group = groupAt(board, geo, i);
+      for (let j = 0; j < group.stones.length; j += 1) {
+        visited[group.stones[j]] = 1;
+      }
+      group.color = board[i];
+      groups.push(group);
+    }
+
+    const dead = [];
+    for (let i = 0; i < groups.length; i += 1) {
+      const g = groups[i];
+      if (g.stones.length >= Math.ceil(geo.n / 2)) continue;
+      const opp = opponent(g.color);
+
+      let hasEye = false;
+      for (let j = 0; j < g.liberties.length; j += 1) {
+        const lib = g.liberties[j];
+        const ns = geo.neighbors[lib];
+        let ownCount = 0;
+        for (let k = 0; k < ns.length; k += 1) {
+          if (board[ns[k]] === g.color) ownCount += 1;
+        }
+        if (ownCount === ns.length) {
+          hasEye = true;
+          break;
+        }
+      }
+      if (hasEye) continue;
+
+      if (g.liberties.length <= 2) {
+        let trapped = true;
+        for (let j = 0; j < g.liberties.length; j += 1) {
+          const lib = g.liberties[j];
+          const ns = geo.neighbors[lib];
+          let hasOpp = false;
+          for (let k = 0; k < ns.length; k += 1) {
+            if (board[ns[k]] === opp) {
+              hasOpp = true;
+              break;
+            }
+          }
+          if (!hasOpp) {
+            trapped = false;
+            break;
+          }
+        }
+        if (trapped) {
+          for (let j = 0; j < g.stones.length; j += 1) {
+            dead.push(g.stones[j]);
+          }
+        }
+      }
+    }
+    return dead;
+  }
+
+  function resolveBoard(board, geo) {
+    const dead = findDeadGroups(board, geo);
+    if (dead.length === 0) return { board, dead };
+    const clean = board.slice();
+    for (let i = 0; i < dead.length; i += 1) {
+      clean[dead[i]] = EMPTY;
+    }
+    return { board: clean, dead };
+  }
+
+  function judge(board, geo, komi, resolveDead = true) {
+    const resolved = resolveDead ? resolveBoard(board, geo) : { board, dead: [] };
+    const score = areaScore(resolved.board, geo);
     const whiteTotal = score.white + komi;
     let winner = EMPTY;
     if (score.black > whiteTotal) winner = BLACK;
@@ -267,6 +374,7 @@
       whiteTotal,
       winner,
       margin: Math.abs(score.black - whiteTotal),
+      deadStones: resolved.dead,
     };
   }
 
@@ -292,6 +400,9 @@
     play,
     unplay,
     isSimpleEye,
+    isSafeTerritory,
+    findDeadGroups,
+    resolveBoard,
     areaScore,
     judge,
     pointLabel,
