@@ -17,6 +17,7 @@ const DARK_MEDIA = window.matchMedia ? window.matchMedia('(prefers-color-scheme:
 const DEFAULT_SETTINGS = Object.freeze({
   theme: 'auto',
   paper: 'paper',
+  mode: 'scroll',
   font: DEFAULT_FONT,
   fontSize: 19,
   lineHeight: 1.95,
@@ -70,6 +71,12 @@ const el = {
   readerErrorText: $('readerErrorText'),
   retryChapterBtn: $('retryChapterBtn'),
   errorBackBtn: $('errorBackBtn'),
+  pagerChapterMeta: $('pagerChapterMeta'),
+  pagerChapterTitle: $('pagerChapterTitle'),
+  pagerClock: $('pagerClock'),
+  pagerProgress: $('pagerProgress'),
+  pagerRailFill: $('pagerRailFill'),
+  pagerFullscreenBtn: $('pagerFullscreenBtn'),
   chapterArticle: $('chapterArticle'),
   chapterKicker: $('chapterKicker'),
   chapterStats: $('chapterStats'),
@@ -207,6 +214,7 @@ function loadSettings() {
   return {
     theme: sharedTheme || normalizeTheme(saved.theme),
     paper: PAPER_ORDER.includes(saved.paper) ? saved.paper : DEFAULT_SETTINGS.paper,
+    mode: saved.mode === 'pager' ? 'pager' : 'scroll',
     font,
     fontExplicit,
     fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 16, 30),
@@ -227,6 +235,7 @@ function applySettings() {
   root.dataset.themeMode = settings.theme;
   root.dataset.theme = effectiveTheme;
   root.dataset.paper = settings.paper;
+  root.dataset.mode = settings.mode;
   root.dataset.font = settings.font;
   root.dataset.os = IS_WINDOWS ? 'windows' : 'other';
   root.style.setProperty('--reader-font-size', `${settings.fontSize}px`);
@@ -257,6 +266,10 @@ function applySettings() {
     button.setAttribute('aria-pressed', String(pressed));
     button.title = `字重 ${button.dataset.setWeight}`;
   });
+  $$('[data-set-mode]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.setMode === settings.mode));
+  });
+  el.readerView.classList.toggle('is-pager', settings.mode === 'pager');
 
   el.fontSizeRange.value = String(settings.fontSize);
   el.fontSizeValue.textContent = `${settings.fontSize} px`;
@@ -269,6 +282,7 @@ function applySettings() {
   updateRangeFill(el.fontSizeRange);
   updateRangeFill(el.lineHeightRange);
   updateRangeFill(el.widthRange);
+  updatePagerStatus();
 }
 
 function updateRangeFill(input) {
@@ -307,6 +321,19 @@ function bindSettings() {
     button.addEventListener('click', () => changeSetting('weight', Number(button.dataset.setWeight)));
   });
 
+  $$('[data-set-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.setMode === 'pager' ? 'pager' : 'scroll';
+      changeSetting('mode', mode);
+      if (mode === 'pager') {
+        closeDialog(el.settingsDialog);
+        if (isMobileViewport()) requestReaderFullscreen();
+      } else {
+        exitReaderFullscreen();
+      }
+    });
+  });
+
   el.fontSizeRange.addEventListener('input', () => {
     changeSetting('fontSize', Number(el.fontSizeRange.value));
   });
@@ -326,6 +353,7 @@ function bindSettings() {
     applySettings();
     persistSettings();
     persistSharedTheme(settings.theme);
+    exitReaderFullscreen();
     toast('已恢复默认格式');
   });
 
@@ -823,7 +851,10 @@ function setView(view) {
   state.lastScrollY = window.scrollY;
   const skip = document.querySelector('.skip-link');
   if (skip) skip.href = reader ? '#chapterBody' : '#mainContent';
-  if (!reader) closeAllDialogs();
+  if (!reader) {
+    closeAllDialogs();
+    exitReaderFullscreen();
+  }
 }
 
 function showReaderOpening() {
@@ -1267,6 +1298,7 @@ function focusOffset() {
 
 function currentScrollRatio() {
   if (!state.chapter || !el.chapterBody || el.chapterArticle.hidden) return 0;
+  if (window.scrollY <= 0) return 0;
   const bodyTop = el.chapterBody.getBoundingClientRect().top + window.scrollY;
   const bodyHeight = Math.max(1, el.chapterBody.offsetHeight);
   const point = window.scrollY + focusOffset() - bodyTop;
@@ -1286,15 +1318,44 @@ function scrollToRatio(ratio) {
   window.scrollTo(0, Math.max(0, y));
 }
 
+function formatClock() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function updatePagerStatus(percent) {
+  if (!el.pagerChapterTitle) return;
+  el.pagerClock.textContent = formatClock();
+  if (!state.book || !state.chapter || !state.chapters.length) {
+    el.pagerChapterMeta.textContent = '—';
+    el.pagerChapterTitle.textContent = '—';
+    el.pagerProgress.textContent = '0%';
+    el.pagerRailFill.style.width = '0%';
+    return;
+  }
+  const total = state.chapters.length;
+  const value = percent == null
+    ? ((state.chapter.index + currentScrollRatio()) / total) * 100
+    : percent;
+  const normalized = clamp(value, 0, 100);
+  el.pagerChapterMeta.textContent = `第 ${formatNumber(state.chapter.index + 1)} / ${formatNumber(total)} 章`;
+  el.pagerChapterTitle.textContent = state.chapter.title || '—';
+  el.pagerProgress.textContent = formatPercent(normalized);
+  el.pagerRailFill.style.width = `${normalized}%`;
+}
+
 function updateProgressVisual() {
   if (!state.book || !state.chapter || !state.chapters.length) {
     el.bookProgressBar.style.width = '0%';
+    updatePagerStatus(0);
     return;
   }
   const total = state.chapters.length;
   const ratio = currentScrollRatio();
   const percent = ((state.chapter.index + ratio) / total) * 100;
-  el.bookProgressBar.style.width = `${clamp(percent, 0, 100)}%`;
+  const normalized = clamp(percent, 0, 100);
+  el.bookProgressBar.style.width = `${normalized}%`;
+  updatePagerStatus(normalized);
 }
 
 function saveProgressNow() {
@@ -1324,9 +1385,59 @@ function setReaderBarHidden(hidden) {
   if (el.readerBar) el.readerBar.inert = hidden;
 }
 
-function isMobileReader() {
-  return window.matchMedia('(max-width: 720px)').matches
-    && window.matchMedia('(pointer: coarse)').matches;
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 720px)').matches;
+}
+
+function currentFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function requestReaderFullscreen() {
+  if (currentFullscreenElement()) return;
+  const target = document.documentElement;
+  const request = target.requestFullscreen || target.webkitRequestFullscreen;
+  if (!request) {
+    toast('当前浏览器不支持网页全屏');
+    return;
+  }
+  try {
+    const result = request.call(target, { navigationUI: 'hide' });
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => toast('无法进入全屏'));
+    }
+  } catch {
+    toast('无法进入全屏');
+  }
+}
+
+function exitReaderFullscreen() {
+  if (!currentFullscreenElement()) return;
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!exit) return;
+  try {
+    const result = exit.call(document);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch { /* 退出失败时保持当前状态 */ }
+}
+
+function syncFullscreenButton() {
+  if (!el.pagerFullscreenBtn) return;
+  const active = Boolean(currentFullscreenElement());
+  el.pagerFullscreenBtn.classList.toggle('is-fullscreen', active);
+  const label = active ? '退出全屏' : '进入全屏';
+  el.pagerFullscreenBtn.setAttribute('aria-label', label);
+  el.pagerFullscreenBtn.title = label;
+}
+
+function bindPager() {
+  el.pagerFullscreenBtn?.addEventListener('click', () => {
+    if (currentFullscreenElement()) exitReaderFullscreen();
+    else requestReaderFullscreen();
+  });
+  document.addEventListener('fullscreenchange', syncFullscreenButton);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+  syncFullscreenButton();
 }
 
 function readingEndY() {
@@ -1357,7 +1468,7 @@ function turnReadingPage(direction) {
 }
 
 function handleReadingTap(event) {
-  if (!isMobileReader() || state.view !== 'reader' || !state.chapter) return;
+  if (settings.mode !== 'pager' || state.view !== 'reader' || !state.chapter) return;
   if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
   if (event.target.closest?.('a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]')) return;
 
@@ -2139,6 +2250,10 @@ function init() {
   bindDialogs();
   bindKeyboard();
   bindSkipLink();
+  bindPager();
+  window.setInterval(() => {
+    if (state.view === 'reader') el.pagerClock.textContent = formatClock();
+  }, 30000);
 
   window.addEventListener('hashchange', () => {
     const route = parseRoute();

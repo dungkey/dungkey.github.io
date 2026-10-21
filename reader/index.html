@@ -325,6 +325,21 @@
     </article>
   </main>
 
+  <footer class="pager-status" aria-label="阅读状态">
+    <span class="pager-rail" aria-hidden="true"><span id="pagerRailFill"></span></span>
+    <div class="pager-chapter">
+      <span class="pager-chapter-meta" id="pagerChapterMeta">—</span>
+      <strong class="pager-chapter-title" id="pagerChapterTitle">—</strong>
+    </div>
+    <time class="pager-clock" id="pagerClock">--:--</time>
+    <span class="pager-percent" id="pagerProgress" title="阅读进度">0%</span>
+    <button class="pager-fullscreen" id="pagerFullscreenBtn" type="button" aria-label="进入全屏" title="进入全屏">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+      </svg>
+    </button>
+  </footer>
+
   <div class="note-popover" id="notePopover" role="tooltip" hidden></div>
 </section>
 
@@ -387,6 +402,15 @@
           </button>
         </div>
         <p class="setting-hint setting-hint-block">配色与工作台首页同步；AUTO 跟随系统外观。</p>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><span>阅读模式</span><small>MODE</small></div>
+        <div class="segmented segmented-2" role="group" aria-label="阅读模式">
+          <button type="button" data-set-mode="scroll" aria-pressed="true">滚动</button>
+          <button type="button" data-set-mode="pager" aria-pressed="false">点击翻页</button>
+        </div>
+        <p class="setting-hint setting-hint-block">点击翻页模式会尝试全屏，并在底部显示章节、时间与进度。</p>
       </section>
 
       <section class="setting-group">
