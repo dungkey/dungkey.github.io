@@ -1,3 +1,6 @@
 .DS_Store
 Thumbs.db
 node_modules/
+
+# 站点只发布转码后的音频，FLAC 母带留在本地
+music/*.flac
