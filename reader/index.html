@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="paper" data-font="serif">
+<html lang="zh-CN" data-theme="dark" data-theme-mode="auto" data-paper="paper" data-font="serif">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f2ecdf">
-<meta name="description" content="一个安静、离线可用的本地阅读器：EPUB / TXT，纸张、茶色与夜间三种阅读主题。">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#090a0d" id="themeColor">
+<meta name="description" content="一个安静、离线可用的本地阅读器：EPUB / TXT，可选纸（纯白）/ 米阅读纸色与霞鹜文楷；深色模式使用夜色阅读页。">
 <title>阅读 · 工作台</title>
 <link rel="canonical" href="https://dungkey.github.io/reader/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="工作台 · Workbench">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:title" content="阅读 · 工作台">
-<meta property="og:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签与三种阅读主题。">
+<meta property="og:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
 <meta property="og:url" content="https://dungkey.github.io/reader/">
 <meta property="og:image" content="https://dungkey.github.io/og.png">
 <meta property="og:image:type" content="image/png">
@@ -21,13 +21,15 @@
 <meta property="og:image:alt" content="阅读 · 工作台">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="阅读 · 工作台">
-<meta name="twitter:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签与三种阅读主题。">
+<meta name="twitter:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
 <meta name="twitter:image" content="https://dungkey.github.io/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f2ecdf'/%3E%3Cpath d='M18 20h28v4H18zm0 12h20v4H18zm0 12h28v4H18z' fill='%232b261f'/%3E%3Ccircle cx='46' cy='34' r='4' fill='%23b94a2f'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f59e0b'/%3E%3Cpath d='M18 20h28v4H18zm0 12h20v4H18zm0 12h28v4H18z' fill='%23090a0d'/%3E%3Ccircle cx='46' cy='34' r='4' fill='%23090a0d'/%3E%3C/svg%3E">
 <script>
   (function () {
-    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var theme = prefersDark ? 'night' : 'paper';
+    var mode = 'auto';
+    var font = 'serif';
+    var paper = 'paper';
+    var weight = 0;
     var isWindows = /Windows/i.test(
       (navigator.userAgentData && navigator.userAgentData.platform) ||
       navigator.platform ||
@@ -35,26 +37,45 @@
       ''
     );
     var defaultFont = isWindows ? 'sans' : 'serif';
-    var font = defaultFont;
-    var fontExplicit = false;
+    font = defaultFont;
     try {
       var saved = JSON.parse(localStorage.getItem('dengxia.settings.v1') || '{}') || {};
-      if (saved.theme === 'paper' || saved.theme === 'sepia' || saved.theme === 'night') theme = saved.theme;
-      fontExplicit = saved.fontExplicit === true;
-      if (saved.font === 'serif' || saved.font === 'sans' || saved.font === 'kai') {
+      var shared = localStorage.getItem('desk-theme');
+      if (shared === 'dark' || shared === 'light' || shared === 'auto') mode = shared;
+      else if (saved.theme === 'dark' || saved.theme === 'light' || saved.theme === 'auto') mode = saved.theme;
+      else if (saved.theme === 'night') mode = 'dark';
+      else if (saved.theme === 'paper' || saved.theme === 'sepia') mode = 'light';
+      if (saved.font === 'serif' || saved.font === 'sans' || saved.font === 'kai' || saved.font === 'wenkai') {
         font = saved.font;
-        if (isWindows && !fontExplicit && saved.font === 'serif') font = 'sans';
+        if (isWindows && saved.fontExplicit !== true && saved.font === 'serif') font = 'sans';
+      }
+      if (saved.paper === 'paper' || saved.paper === 'cream') {
+        paper = saved.paper;
+      }
+      if (saved.weight === 300 || saved.weight === 400 || saved.weight === 700) {
+        weight = saved.weight;
       }
     } catch (e) {}
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.dataset.font = font;
-    document.documentElement.dataset.os = isWindows ? 'windows' : 'other';
-    var themeColors = { paper: '#f2ecdf', sepia: '#e9deca', night: '#151518' };
+    if (!weight) weight = 400;
+    var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    var theme = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+    var root = document.documentElement;
+    root.dataset.themeMode = mode;
+    root.dataset.theme = theme;
+    root.dataset.paper = paper;
+    root.dataset.font = font;
+    root.dataset.os = isWindows ? 'windows' : 'other';
+    root.style.setProperty('--reader-body-weight', String(weight));
+    var themeColors = { dark: '#090a0d', light: '#f4f5f8' };
     var metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme && themeColors[theme]) metaTheme.setAttribute('content', themeColors[theme]);
   })();
 </script>
 <link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css">
 <script src="library.js" defer></script>
 <script src="store.js" defer></script>
 <script src="app.js" defer></script>
@@ -64,19 +85,50 @@
 
 <section id="libraryView" class="library-view">
   <header class="library-header">
-    <a class="brand" href="#/" aria-label="阅读，返回书架">
-      <span class="brand-mark" aria-hidden="true"><span></span></span>
-      <span class="brand-copy">
-        <strong>阅读</strong>
-        <small>READER</small>
-      </span>
-    </a>
-    <div class="library-header-end">
-      <a class="library-home" href="../index.html">工作台</a>
-      <span class="library-status" id="libraryStatus">正在整理书架</span>
-      <button class="icon-button theme-cycle" id="themeCycleBtn" type="button" aria-label="切换外观" title="切换外观">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.64 5.64l1.56 1.56M16.8 16.8l1.56 1.56M18.36 5.64 16.8 7.2M7.2 16.8l-1.56 1.56"/><circle cx="12" cy="12" r="4.2"/></svg>
-      </button>
+    <div class="library-header-inner">
+      <a class="brand" href="#/" aria-label="阅读，返回书架">
+        <span class="brand-badge">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          WORKBENCH · READER
+        </span>
+        <span class="brand-copy">
+          <strong>阅读</strong>
+          <small>离线书架 · 安静重读</small>
+        </span>
+      </a>
+      <div class="library-header-end">
+        <span class="library-status" id="libraryStatus">正在整理书架</span>
+        <div class="theme-toggle-wrap" role="group" aria-label="界面配色">
+          <div class="theme-toggle-slider" aria-hidden="true"></div>
+          <button type="button" data-set-theme="dark" aria-pressed="false" aria-label="深色模式" title="深色模式 (Dark)">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <span>DARK</span>
+          </button>
+          <button type="button" data-set-theme="light" aria-pressed="false" aria-label="浅色模式" title="浅色模式 (Light)">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+            <span>LIGHT</span>
+          </button>
+          <button type="button" data-set-theme="auto" aria-pressed="true" aria-label="跟随系统" title="跟随系统 (Auto)">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+            </svg>
+            <span>AUTO</span>
+          </button>
+        </div>
+        <a class="workbench-link" href="../index.html" title="返回工作台首页" aria-label="返回工作台首页">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 10.6 12 3l9 7.6"/>
+            <path d="M5.5 9.4V20h4.2v-5.2h4.6V20h4.2V9.4"/>
+          </svg>
+          <span>工作台</span>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -84,6 +136,7 @@
     <section class="shelf" aria-labelledby="shelfHeading">
       <div class="shelf-head">
         <div>
+          <p class="shelf-eyebrow"><span>01</span> Library</p>
           <h2 id="shelfHeading">书架</h2>
           <p class="shelf-summary" id="shelfSummary">正在读取书库…</p>
         </div>
@@ -146,6 +199,15 @@
     </section>
   </main>
 
+  <footer class="site-foot">
+    <p>© <span id="year">2026</span> 工作台</p>
+    <nav aria-label="本站导航">
+      <a href="../index.html">工作台</a>
+      <a href="../weiqi/index.html">围棋</a>
+      <a href="https://github.com/dungkey" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+  </footer>
+
   <div class="drop-hint" aria-hidden="true">
     <span>松开，导入书籍</span>
   </div>
@@ -188,6 +250,14 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg>
         <span>格式</span>
       </button>
+      <span class="bar-divider" aria-hidden="true"></span>
+      <a class="bar-button home-bar-button" href="../index.html" title="返回工作台首页" aria-label="返回工作台首页">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 10.6 12 3l9 7.6"/>
+          <path d="M5.5 9.4V20h4.2v-5.2h4.6V20h4.2V9.4"/>
+        </svg>
+        <span>工作台</span>
+      </a>
     </div>
   </header>
 
@@ -254,6 +324,8 @@
       </footer>
     </article>
   </main>
+
+  <div class="note-popover" id="notePopover" role="tooltip" hidden></div>
 </section>
 
 <dialog class="drawer drawer-right" id="tocDialog" aria-labelledby="tocHeading">
@@ -290,31 +362,67 @@
 
     <div class="settings-scroll">
       <section class="setting-group">
-        <div class="setting-title"><span>纸色</span><small>THEME</small></div>
-        <div class="theme-grid" role="group" aria-label="主题">
-          <button class="theme-swatch theme-paper" type="button" data-set-theme="paper" aria-label="纸张主题">
-            <span class="swatch-preview"><i></i><i></i><i></i></span>
-            <span>纸</span>
+        <div class="setting-title"><span>外观</span><small>APPEARANCE</small></div>
+        <div class="theme-toggle-wrap theme-toggle-block" role="group" aria-label="界面配色">
+          <div class="theme-toggle-slider" aria-hidden="true"></div>
+          <button type="button" data-set-theme="dark" aria-pressed="false" aria-label="深色模式">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <span>DARK</span>
           </button>
-          <button class="theme-swatch theme-sepia" type="button" data-set-theme="sepia" aria-label="茶色主题">
-            <span class="swatch-preview"><i></i><i></i><i></i></span>
-            <span>茶</span>
+          <button type="button" data-set-theme="light" aria-pressed="false" aria-label="浅色模式">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+            <span>LIGHT</span>
           </button>
-          <button class="theme-swatch theme-night" type="button" data-set-theme="night" aria-label="夜间主题">
-            <span class="swatch-preview"><i></i><i></i><i></i></span>
-            <span>夜</span>
+          <button type="button" data-set-theme="auto" aria-pressed="true" aria-label="跟随系统">
+            <svg class="theme-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+            </svg>
+            <span>AUTO</span>
           </button>
         </div>
+        <p class="setting-hint setting-hint-block">配色与工作台首页同步；AUTO 跟随系统外观。</p>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><span>阅读纸色</span><small>PAPER</small></div>
+        <div class="paper-grid" role="group" aria-label="阅读纸色">
+          <button class="paper-swatch" type="button" data-set-paper="paper" aria-pressed="true">
+            <span class="paper-preview paper-tone-paper" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span>纸</span>
+          </button>
+          <button class="paper-swatch" type="button" data-set-paper="cream" aria-pressed="false">
+            <span class="paper-preview paper-tone-cream" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span>米</span>
+          </button>
+        </div>
+        <p class="setting-hint setting-hint-block paper-hint-light">纸色为纯白；米色只作用于阅读页面。</p>
+        <p class="setting-hint setting-hint-block paper-hint-dark">深色模式固定使用夜色阅读页；切回浅色可选择纸色。</p>
       </section>
 
       <section class="setting-group">
         <div class="setting-title"><span>正文字体</span><small>TYPE</small></div>
-        <div class="segmented" role="group" aria-label="正文字体">
+        <div class="segmented segmented-4" role="group" aria-label="正文字体">
           <button type="button" data-set-font="serif" class="font-serif">宋体</button>
           <button type="button" data-set-font="sans" class="font-sans">黑体</button>
           <button type="button" data-set-font="kai" class="font-kai">楷体</button>
+          <button type="button" data-set-font="wenkai" class="font-wenkai" title="霞鹜文楷（LXGW WenKai）">霞鹜文楷</button>
         </div>
         <p class="setting-hint win-only">Windows 默认使用「黑体」，屏幕笔画更清晰。若文字仍然发虚，请确认浏览器缩放为 100%。</p>
+      </section>
+
+      <section class="setting-group">
+        <div class="setting-title"><span>字体粗细</span><small>WEIGHT</small></div>
+        <div class="segmented" role="group" aria-label="字体粗细">
+          <button type="button" data-set-weight="300" class="weight-300">细体</button>
+          <button type="button" data-set-weight="400" class="weight-400">常规</button>
+          <button type="button" data-set-weight="700" class="weight-700">粗体</button>
+        </div>
       </section>
 
       <section class="setting-group">
@@ -386,12 +494,10 @@
         <svg viewBox="0 0 24 24"><path d="M6.5 4.5h11v16l-5.5-3.7-5.5 3.7z"/></svg>
       </span>
       <p>还没有书签</p>
-      <small>收藏当前章节，或阅读时按 <kbd>B</kbd> 快速添加。</small>
+      <small>收藏当前章节，或阅读时按 <kbd>B</kbd> 打开书签面板。</small>
     </div>
   </div>
 </dialog>
-
-<div class="note-popover" id="notePopover" role="tooltip" hidden></div>
 
 <div class="toast" id="toast" role="status" aria-live="polite">
   <span class="toast-dot" aria-hidden="true"></span>

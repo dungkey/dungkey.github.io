@@ -3,6 +3,7 @@
 const SETTINGS_KEY = 'dengxia.settings.v1';
 const PROGRESS_KEY = 'dengxia.progress.v1';
 const BOOKMARKS_KEY = 'dengxia.bookmarks.v1';
+const SHARED_THEME_KEY = 'desk-theme';
 
 const IS_WINDOWS = /Windows/i.test(
   (navigator.userAgentData && navigator.userAgentData.platform)
@@ -11,21 +12,25 @@ const IS_WINDOWS = /Windows/i.test(
     || ''
 );
 const DEFAULT_FONT = IS_WINDOWS ? 'sans' : 'serif';
-const PREFERS_DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-const DEFAULT_THEME = PREFERS_DARK ? 'night' : 'paper';
+const DARK_MEDIA = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 const DEFAULT_SETTINGS = Object.freeze({
-  theme: DEFAULT_THEME,
+  theme: 'auto',
+  paper: 'paper',
   font: DEFAULT_FONT,
   fontSize: 19,
   lineHeight: 1.95,
   width: 760,
   indent: true,
+  weight: 400,
 });
 
-const THEME_NAMES = { paper: '纸色', sepia: '茶色', night: '夜色' };
-const THEME_COLORS = { paper: '#f2ecdf', sepia: '#e9deca', night: '#151518' };
-const THEME_ORDER = ['paper', 'sepia', 'night'];
+const THEME_NAMES = { dark: '深色', light: '浅色', auto: '跟随系统' };
+const THEME_COLORS = { dark: '#090a0d', light: '#f4f5f8' };
+const THEME_ORDER = ['dark', 'light', 'auto'];
+const PAPER_ORDER = ['paper', 'cream'];
+const PAPER_NAMES = { paper: '纸色', cream: '米色' };
+const WEIGHTS = [300, 400, 700];
 
 const $ = (id) => document.getElementById(id);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -34,7 +39,6 @@ const el = {
   libraryView: $('libraryView'),
   readerView: $('readerView'),
   libraryStatus: $('libraryStatus'),
-  themeCycleBtn: $('themeCycleBtn'),
   bookSearch: $('bookSearch'),
   refreshBooksBtn: $('refreshBooksBtn'),
   importBtn: $('importBtn'),
@@ -161,21 +165,52 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeTheme(value) {
+  if (value === 'dark' || value === 'light' || value === 'auto') return value;
+  // 旧版阅读主题迁移：夜色 → 深色，纸色 / 茶色 → 浅色。
+  if (value === 'night') return 'dark';
+  if (value === 'paper' || value === 'sepia') return 'light';
+  return 'auto';
+}
+
+function readSharedTheme() {
+  try {
+    const value = localStorage.getItem(SHARED_THEME_KEY);
+    return THEME_ORDER.includes(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistSharedTheme(mode) {
+  try { localStorage.setItem(SHARED_THEME_KEY, mode); } catch { /* 无法写入时仅影响跨页同步 */ }
+}
+
+function resolveTheme(mode) {
+  if (mode === 'light' || mode === 'dark') return mode;
+  return DARK_MEDIA && DARK_MEDIA.matches ? 'dark' : 'light';
+}
+
 function loadSettings() {
   const saved = readStore(SETTINGS_KEY, {});
-  const savedFontValid = ['serif', 'sans', 'kai'].includes(saved.font);
+  const savedFontValid = ['serif', 'sans', 'kai', 'wenkai'].includes(saved.font);
   const fontExplicit = saved.fontExplicit === true;
   let font = savedFontValid ? saved.font : DEFAULT_FONT;
   // 旧版默认使用宋体；Windows 用户没有主动选过字体时，迁移到更适合屏幕的雅黑。
   if (IS_WINDOWS && !fontExplicit && saved.font === 'serif') font = 'sans';
+  // 与工作台首页共用 desk-theme；没有共享值时迁移旧版阅读主题。
+  const sharedTheme = readSharedTheme();
+  const savedWeight = Number(saved.weight);
   return {
-    theme: THEME_ORDER.includes(saved.theme) ? saved.theme : DEFAULT_SETTINGS.theme,
+    theme: sharedTheme || normalizeTheme(saved.theme),
+    paper: PAPER_ORDER.includes(saved.paper) ? saved.paper : DEFAULT_SETTINGS.paper,
     font,
     fontExplicit,
     fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 16, 30),
     lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.4, 2.4),
     width: clamp(Number(saved.width) || DEFAULT_SETTINGS.width, 560, 1120),
     indent: saved.indent !== false,
+    weight: WEIGHTS.includes(savedWeight) ? savedWeight : 400,
   };
 }
 
@@ -185,22 +220,39 @@ function persistSettings() {
 
 function applySettings() {
   const root = document.documentElement;
-  root.dataset.theme = settings.theme;
+  const effectiveTheme = resolveTheme(settings.theme);
+  root.dataset.themeMode = settings.theme;
+  root.dataset.theme = effectiveTheme;
+  root.dataset.paper = settings.paper;
   root.dataset.font = settings.font;
   root.dataset.os = IS_WINDOWS ? 'windows' : 'other';
   root.style.setProperty('--reader-font-size', `${settings.fontSize}px`);
   root.style.setProperty('--reader-line-height', String(settings.lineHeight));
   root.style.setProperty('--reader-width', `${settings.width}px`);
   root.style.setProperty('--reader-indent', settings.indent ? '2em' : '0em');
+  root.style.setProperty('--reader-body-weight', String(settings.weight));
 
   const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.content = THEME_COLORS[settings.theme];
+  if (metaTheme) metaTheme.content = THEME_COLORS[effectiveTheme];
 
   $$('[data-set-theme]').forEach((button) => {
-    button.setAttribute('aria-pressed', String(button.dataset.setTheme === settings.theme));
+    const pressed = button.dataset.setTheme === settings.theme;
+    button.setAttribute('aria-pressed', String(pressed));
+    button.title = THEME_NAMES[button.dataset.setTheme] || '';
   });
   $$('[data-set-font]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.setFont === settings.font));
+  });
+  $$('[data-set-paper]').forEach((button) => {
+    const pressed = button.dataset.setPaper === settings.paper;
+    button.setAttribute('aria-pressed', String(pressed));
+    button.title = PAPER_NAMES[button.dataset.setPaper] || '';
+    button.disabled = effectiveTheme === 'dark';
+  });
+  $$('[data-set-weight]').forEach((button) => {
+    const pressed = Number(button.dataset.setWeight) === settings.weight;
+    button.setAttribute('aria-pressed', String(pressed));
+    button.title = `字重 ${button.dataset.setWeight}`;
   });
 
   el.fontSizeRange.value = String(settings.fontSize);
@@ -214,7 +266,6 @@ function applySettings() {
   updateRangeFill(el.fontSizeRange);
   updateRangeFill(el.lineHeightRange);
   updateRangeFill(el.widthRange);
-  updateThemeCycleLabel();
 }
 
 function updateRangeFill(input) {
@@ -225,16 +276,11 @@ function updateRangeFill(input) {
   input.style.setProperty('--fill', `${fill}%`);
 }
 
-function updateThemeCycleLabel() {
-  const next = THEME_ORDER[(THEME_ORDER.indexOf(settings.theme) + 1) % THEME_ORDER.length];
-  el.themeCycleBtn.title = `当前：${THEME_NAMES[settings.theme]} · 切换为${THEME_NAMES[next]}`;
-  el.themeCycleBtn.setAttribute('aria-label', el.themeCycleBtn.title);
-}
-
 function changeSetting(key, value) {
   settings[key] = value;
   applySettings();
   persistSettings();
+  if (key === 'theme') persistSharedTheme(value);
 }
 
 function bindSettings() {
@@ -248,6 +294,14 @@ function bindSettings() {
       applySettings();
       persistSettings();
     });
+  });
+
+  $$('[data-set-paper]').forEach((button) => {
+    button.addEventListener('click', () => changeSetting('paper', button.dataset.setPaper));
+  });
+
+  $$('[data-set-weight]').forEach((button) => {
+    button.addEventListener('click', () => changeSetting('weight', Number(button.dataset.setWeight)));
   });
 
   el.fontSizeRange.addEventListener('input', () => {
@@ -268,12 +322,25 @@ function bindSettings() {
     settings.fontExplicit = false;
     applySettings();
     persistSettings();
+    persistSharedTheme(settings.theme);
     toast('已恢复默认格式');
   });
 
-  el.themeCycleBtn.addEventListener('click', () => {
-    const next = THEME_ORDER[(THEME_ORDER.indexOf(settings.theme) + 1) % THEME_ORDER.length];
-    changeSetting('theme', next);
+  const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+  const onSystemThemeChange = () => {
+    if (settings.theme === 'auto') applySettings();
+  };
+  if (typeof themeMedia.addEventListener === 'function') {
+    themeMedia.addEventListener('change', onSystemThemeChange);
+  } else if (typeof themeMedia.addListener === 'function') {
+    themeMedia.addListener(onSystemThemeChange);
+  }
+
+  window.addEventListener('storage', (event) => {
+    if (event.key !== SHARED_THEME_KEY || !THEME_ORDER.includes(event.newValue)) return;
+    settings.theme = event.newValue;
+    applySettings();
+    persistSettings();
   });
 }
 
@@ -748,6 +815,7 @@ function setView(view) {
   el.libraryView.hidden = reader;
   el.readerView.hidden = !reader;
   document.body.classList.toggle('reading-mode', reader);
+  document.documentElement.classList.toggle('reading-mode', reader);
   const skip = document.querySelector('.skip-link');
   if (skip) skip.href = reader ? '#chapterBody' : '#mainContent';
   if (!reader) closeAllDialogs();
@@ -1961,7 +2029,21 @@ function toast(message) {
   }, 2400);
 }
 
+function bindSkipLink() {
+  const skip = document.querySelector('.skip-link');
+  if (!skip) return;
+  skip.addEventListener('click', (event) => {
+    const target = state.view === 'reader' ? el.chapterBody : $('mainContent');
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  });
+}
+
 function init() {
+  const year = $('year');
+  if (year) year.textContent = String(new Date().getFullYear());
+
   applySettings();
   bindSettings();
   bindLibrary();
@@ -1969,21 +2051,22 @@ function init() {
   bindNotePopover();
   bindDialogs();
   bindKeyboard();
+  bindSkipLink();
 
   window.addEventListener('hashchange', () => {
     const route = parseRoute();
-    if (route) {
-      if (state.book?.id === route.bookId) {
-        if (route.chapterIndex != null && route.chapterIndex !== state.chapter?.index) {
-          loadChapter(route.chapterIndex);
-        }
-      } else {
-        openBook(route.bookId, route.chapterIndex, { fromRoute: true });
+    if (!route) {
+      // 页内锚点（如 #chapterBody）不应当退出阅读；只有清空路由才返回书架。
+      if (location.hash) return;
+      if (state.view === 'reader') backToLibrary();
+      return;
+    }
+    if (state.book?.id === route.bookId) {
+      if (route.chapterIndex != null && route.chapterIndex !== state.chapter?.index) {
+        loadChapter(route.chapterIndex);
       }
-    } else if (state.view === 'reader' && !state.book) {
-      backToLibrary();
-    } else if (state.view === 'reader') {
-      backToLibrary();
+    } else {
+      openBook(route.bookId, route.chapterIndex, { fromRoute: true });
     }
   });
 
