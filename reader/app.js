@@ -77,6 +77,7 @@ const el = {
   pagerProgress: $('pagerProgress'),
   pagerRailFill: $('pagerRailFill'),
   pagerFullscreenBtn: $('pagerFullscreenBtn'),
+  modeHint: $('modeHint'),
   chapterArticle: $('chapterArticle'),
   chapterKicker: $('chapterKicker'),
   chapterStats: $('chapterStats'),
@@ -269,6 +270,11 @@ function applySettings() {
   $$('[data-set-mode]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.setMode === settings.mode));
   });
+  if (el.modeHint) {
+    el.modeHint.textContent = settings.mode === 'pager'
+      ? '点击翻页：左右点击翻页；支持时会全屏，底部显示章节、时间与进度。'
+      : '滚动阅读：上下滑动浏览。';
+  }
   el.readerView.classList.toggle('is-pager', settings.mode === 'pager');
 
   el.fontSizeRange.value = String(settings.fontSize);
@@ -326,7 +332,6 @@ function bindSettings() {
       const mode = button.dataset.setMode === 'pager' ? 'pager' : 'scroll';
       changeSetting('mode', mode);
       if (mode === 'pager') {
-        closeDialog(el.settingsDialog);
         if (isMobileViewport()) requestReaderFullscreen();
       } else {
         exitReaderFullscreen();
@@ -1324,7 +1329,7 @@ function formatClock() {
 }
 
 function updatePagerStatus(percent) {
-  if (!el.pagerChapterTitle) return;
+  if (!el.pagerChapterTitle || !el.pagerChapterMeta || !el.pagerProgress || !el.pagerRailFill || !el.pagerClock) return;
   el.pagerClock.textContent = formatClock();
   if (!state.book || !state.chapter || !state.chapters.length) {
     el.pagerChapterMeta.textContent = '—';

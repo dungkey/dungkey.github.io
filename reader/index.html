@@ -71,14 +71,15 @@
     if (metaTheme && themeColors[theme]) metaTheme.setAttribute('content', themeColors[theme]);
   })();
 </script>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261021b">
+<!-- 修改 reader 静态资源后同步更新上面的 v= 版本号，避免旧缓存 -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css">
-<script src="library.js" defer></script>
-<script src="store.js" defer></script>
-<script src="app.js" defer></script>
+<script src="library.js?v=20261021b" defer></script>
+<script src="store.js?v=20261021b" defer></script>
+<script src="app.js?v=20261021b" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#mainContent">跳到主要内容</a>
@@ -410,7 +411,7 @@
           <button type="button" data-set-mode="scroll" aria-pressed="true">滚动</button>
           <button type="button" data-set-mode="pager" aria-pressed="false">点击翻页</button>
         </div>
-        <p class="setting-hint setting-hint-block">点击翻页模式会尝试全屏，并在底部显示章节、时间与进度。</p>
+        <p class="setting-hint setting-hint-block" id="modeHint">滚动阅读：上下滑动浏览。</p>
       </section>
 
       <section class="setting-group">
