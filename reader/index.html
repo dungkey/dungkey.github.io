@@ -71,15 +71,15 @@
     if (metaTheme && themeColors[theme]) metaTheme.setAttribute('content', themeColors[theme]);
   })();
 </script>
-<link rel="stylesheet" href="styles.css?v=20261021b">
+<link rel="stylesheet" href="styles.css?v=20261021c">
 <!-- 修改 reader 静态资源后同步更新上面的 v= 版本号，避免旧缓存 -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css">
-<script src="library.js?v=20261021b" defer></script>
-<script src="store.js?v=20261021b" defer></script>
-<script src="app.js?v=20261021b" defer></script>
+<script src="library.js?v=20261021c" defer></script>
+<script src="store.js?v=20261021c" defer></script>
+<script src="app.js?v=20261021c" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#mainContent">跳到主要内容</a>
@@ -310,36 +310,9 @@
             <span class="nav-chapter-title" id="nextChapterTitle">已是终章</span>
           </button>
         </nav>
-
-        <form class="chapter-jump" id="chapterJumpForm">
-          <label for="chapterJumpPart">跳至</label>
-          <div class="jump-field">
-            <select id="chapterJumpPart" aria-label="选择卷"></select>
-            <span>第</span>
-            <input id="chapterJumpInput" type="number" min="1" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="章序号">
-            <span id="chapterJumpUnit">章</span>
-          </div>
-          <button type="submit">跳转</button>
-          <span class="jump-total" id="jumpTotal"></span>
-        </form>
       </footer>
     </article>
   </main>
-
-  <footer class="pager-status" aria-label="阅读状态">
-    <span class="pager-rail" aria-hidden="true"><span id="pagerRailFill"></span></span>
-    <div class="pager-chapter">
-      <span class="pager-chapter-meta" id="pagerChapterMeta">—</span>
-      <strong class="pager-chapter-title" id="pagerChapterTitle">—</strong>
-    </div>
-    <time class="pager-clock" id="pagerClock">--:--</time>
-    <span class="pager-percent" id="pagerProgress" title="阅读进度">0%</span>
-    <button class="pager-fullscreen" id="pagerFullscreenBtn" type="button" aria-label="进入全屏" title="进入全屏">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
-      </svg>
-    </button>
-  </footer>
 
   <div class="note-popover" id="notePopover" role="tooltip" hidden></div>
 </section>

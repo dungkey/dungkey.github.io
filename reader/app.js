@@ -71,12 +71,6 @@ const el = {
   readerErrorText: $('readerErrorText'),
   retryChapterBtn: $('retryChapterBtn'),
   errorBackBtn: $('errorBackBtn'),
-  pagerChapterMeta: $('pagerChapterMeta'),
-  pagerChapterTitle: $('pagerChapterTitle'),
-  pagerClock: $('pagerClock'),
-  pagerProgress: $('pagerProgress'),
-  pagerRailFill: $('pagerRailFill'),
-  pagerFullscreenBtn: $('pagerFullscreenBtn'),
   modeHint: $('modeHint'),
   chapterArticle: $('chapterArticle'),
   chapterKicker: $('chapterKicker'),
@@ -89,11 +83,6 @@ const el = {
   nextChapterTitle: $('nextChapterTitle'),
   chapterPrevBottom: $('chapterPrevBottom'),
   chapterNextBottom: $('chapterNextBottom'),
-  chapterJumpForm: $('chapterJumpForm'),
-  chapterJumpPart: $('chapterJumpPart'),
-  chapterJumpInput: $('chapterJumpInput'),
-  chapterJumpUnit: $('chapterJumpUnit'),
-  jumpTotal: $('jumpTotal'),
   tocDialog: $('tocDialog'),
   tocHeading: $('tocHeading'),
   tocBookName: $('tocBookName'),
@@ -143,7 +132,6 @@ const state = {
   tocGroups: [],
   tocTotalChars: 0,
   hasParts: false,
-  jumpGroups: [],
   lastOpenRequest: null,
   libraryScroll: 0,
   scrollTicking: false,
@@ -272,10 +260,9 @@ function applySettings() {
   });
   if (el.modeHint) {
     el.modeHint.textContent = settings.mode === 'pager'
-      ? '点击翻页：左右点击翻页；支持时会全屏，底部显示章节、时间与进度。'
+      ? '点击翻页：左右点击翻页；支持时会进入全屏。'
       : '滚动阅读：上下滑动浏览。';
   }
-  el.readerView.classList.toggle('is-pager', settings.mode === 'pager');
 
   el.fontSizeRange.value = String(settings.fontSize);
   el.fontSizeValue.textContent = `${settings.fontSize} px`;
@@ -288,7 +275,6 @@ function applySettings() {
   updateRangeFill(el.fontSizeRange);
   updateRangeFill(el.lineHeightRange);
   updateRangeFill(el.widthRange);
-  updatePagerStatus();
 }
 
 function updateRangeFill(input) {
@@ -926,7 +912,6 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
   state.tocNodes = [];
   state.tocGroups = [];
   state.hasParts = false;
-  state.jumpGroups = [];
   state.libraryScroll = window.scrollY;
   state.chapterLoading = false;
 
@@ -965,7 +950,6 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
     state.tocTotalChars = state.chapters.reduce((sum, chapter) => sum + (Number(chapter.chars) || 0), 0);
     setReaderBar(state.book);
     buildToc();
-    buildChapterJump();
     updateBookmarkBadge();
 
     const total = state.chapters.length;
@@ -1007,7 +991,6 @@ function backToLibrary() {
   state.tocNodes = [];
   state.tocGroups = [];
   state.hasParts = false;
-  state.jumpGroups = [];
   closeAllDialogs();
   setView('library');
   removeRouteHash();
@@ -1276,7 +1259,6 @@ function renderChapter() {
     : `第 ${formatNumber(chapter.index + 1)} / ${formatNumber(total)} 章`;
   el.chapterArcLabel.textContent = book.title;
   el.chapterArcLabel.title = book.title;
-  syncChapterJumpForCurrent();
 
   updateProgressVisual();
   el.readerLoading.hidden = true;
@@ -1323,36 +1305,9 @@ function scrollToRatio(ratio) {
   window.scrollTo(0, Math.max(0, y));
 }
 
-function formatClock() {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-}
-
-function updatePagerStatus(percent) {
-  if (!el.pagerChapterTitle || !el.pagerChapterMeta || !el.pagerProgress || !el.pagerRailFill || !el.pagerClock) return;
-  el.pagerClock.textContent = formatClock();
-  if (!state.book || !state.chapter || !state.chapters.length) {
-    el.pagerChapterMeta.textContent = '—';
-    el.pagerChapterTitle.textContent = '—';
-    el.pagerProgress.textContent = '0%';
-    el.pagerRailFill.style.width = '0%';
-    return;
-  }
-  const total = state.chapters.length;
-  const value = percent == null
-    ? ((state.chapter.index + currentScrollRatio()) / total) * 100
-    : percent;
-  const normalized = clamp(value, 0, 100);
-  el.pagerChapterMeta.textContent = `第 ${formatNumber(state.chapter.index + 1)} / ${formatNumber(total)} 章`;
-  el.pagerChapterTitle.textContent = state.chapter.title || '—';
-  el.pagerProgress.textContent = formatPercent(normalized);
-  el.pagerRailFill.style.width = `${normalized}%`;
-}
-
 function updateProgressVisual() {
   if (!state.book || !state.chapter || !state.chapters.length) {
     el.bookProgressBar.style.width = '0%';
-    updatePagerStatus(0);
     return;
   }
   const total = state.chapters.length;
@@ -1360,7 +1315,6 @@ function updateProgressVisual() {
   const percent = ((state.chapter.index + ratio) / total) * 100;
   const normalized = clamp(percent, 0, 100);
   el.bookProgressBar.style.width = `${normalized}%`;
-  updatePagerStatus(normalized);
 }
 
 function saveProgressNow() {
@@ -1424,25 +1378,6 @@ function exitReaderFullscreen() {
     const result = exit.call(document);
     if (result && typeof result.catch === 'function') result.catch(() => {});
   } catch { /* 退出失败时保持当前状态 */ }
-}
-
-function syncFullscreenButton() {
-  if (!el.pagerFullscreenBtn) return;
-  const active = Boolean(currentFullscreenElement());
-  el.pagerFullscreenBtn.classList.toggle('is-fullscreen', active);
-  const label = active ? '退出全屏' : '进入全屏';
-  el.pagerFullscreenBtn.setAttribute('aria-label', label);
-  el.pagerFullscreenBtn.title = label;
-}
-
-function bindPager() {
-  el.pagerFullscreenBtn?.addEventListener('click', () => {
-    if (currentFullscreenElement()) exitReaderFullscreen();
-    else requestReaderFullscreen();
-  });
-  document.addEventListener('fullscreenchange', syncFullscreenButton);
-  document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
-  syncFullscreenButton();
 }
 
 function readingEndY() {
@@ -1542,63 +1477,6 @@ function tocGroupsFor(chapters) {
     groups[groups.length - 1].chapters.push(chapter);
   }
   return groups;
-}
-
-function buildChapterJump() {
-  state.jumpGroups = tocGroupsFor(state.chapters);
-  const showParts = state.hasParts;
-  const label = el.chapterJumpForm.querySelector('label');
-  if (label) label.htmlFor = showParts ? 'chapterJumpPart' : 'chapterJumpInput';
-  el.chapterJumpPart.hidden = !showParts;
-  if (showParts) {
-    const fragment = document.createDocumentFragment();
-    state.jumpGroups.forEach((group, index) => {
-      const option = document.createElement('option');
-      option.value = String(index);
-      option.textContent = group.label;
-      fragment.append(option);
-    });
-    el.chapterJumpPart.replaceChildren(fragment);
-  } else {
-    el.chapterJumpPart.replaceChildren();
-  }
-  syncChapterJumpForCurrent();
-}
-
-function updateChapterJumpTotal(group) {
-  if (!group) return;
-  el.chapterJumpUnit.textContent = group.unit;
-  el.chapterJumpInput.setAttribute('aria-label', `${group.unit}序号`);
-  el.jumpTotal.textContent = state.hasParts
-    ? `${group.label} · 共 ${formatNumber(group.chapters.length)} ${group.unit}`
-    : `共 ${formatNumber(group.chapters.length)} 章`;
-}
-
-function syncChapterJumpForCurrent() {
-  if (!state.jumpGroups.length) return;
-  let groupIndex = 0;
-  if (state.hasParts) {
-    const found = state.jumpGroups.findIndex((group) => (
-      group.chapters.some((chapter) => chapter.index === state.chapter?.index)
-    ));
-    if (found >= 0) groupIndex = found;
-    el.chapterJumpPart.value = String(groupIndex);
-  }
-  const group = state.jumpGroups[groupIndex] || state.jumpGroups[0];
-  if (!group) return;
-  el.chapterJumpInput.value = '';
-  el.chapterJumpInput.max = String(group.chapters.length);
-  el.chapterJumpInput.placeholder = String(state.chapter?.inPart || 1);
-  updateChapterJumpTotal(group);
-}
-
-function syncChapterJumpForGroup() {
-  const group = state.jumpGroups[Number(el.chapterJumpPart.value)];
-  if (!group) return;
-  el.chapterJumpInput.value = '';
-  el.chapterJumpInput.max = String(group.chapters.length);
-  el.chapterJumpInput.placeholder = '1';
-  updateChapterJumpTotal(group);
 }
 
 function buildToc() {
@@ -2005,29 +1883,6 @@ function bindReader() {
   el.chapterPrevBottom.addEventListener('click', goToPreviousChapter);
   el.chapterNextBottom.addEventListener('click', goToNextChapter);
 
-  el.chapterJumpForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (!state.book) return;
-    const group = state.hasParts
-      ? state.jumpGroups[Number(el.chapterJumpPart.value)]
-      : state.jumpGroups[0];
-    const value = Number(el.chapterJumpInput.value);
-    if (!group || !Number.isInteger(value) || value < 1 || value > group.chapters.length) {
-      toast(`请输入 1–${group ? group.chapters.length : 0} 的序号`);
-      el.chapterJumpInput.focus();
-      return;
-    }
-    el.chapterJumpInput.value = '';
-    const targetChapter = group.chapters[value - 1];
-    if (targetChapter.index === state.chapter?.index) {
-      window.scrollTo(0, 0);
-      return;
-    }
-    loadChapter(targetChapter.index);
-  });
-
-  el.chapterJumpPart.addEventListener('change', syncChapterJumpForGroup);
-
   el.openTocBtn.addEventListener('click', openToc);
   el.openBookmarksBtn.addEventListener('click', openBookmarks);
   el.openSettingsBtn.addEventListener('click', () => openModal(el.settingsDialog));
@@ -2255,10 +2110,6 @@ function init() {
   bindDialogs();
   bindKeyboard();
   bindSkipLink();
-  bindPager();
-  window.setInterval(() => {
-    if (state.view === 'reader') el.pagerClock.textContent = formatClock();
-  }, 30000);
 
   window.addEventListener('hashchange', () => {
     const route = parseRoute();
