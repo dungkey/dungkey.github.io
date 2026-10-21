@@ -64,6 +64,7 @@ const el = {
   bookmarkCount: $('bookmarkCount'),
   openSettingsBtn: $('openSettingsBtn'),
   readerMain: $('readerMain'),
+  readerBar: document.querySelector('.reader-bar'),
   readerLoading: $('readerLoading'),
   readerError: $('readerError'),
   readerErrorText: $('readerErrorText'),
@@ -138,6 +139,8 @@ const state = {
   lastOpenRequest: null,
   libraryScroll: 0,
   scrollTicking: false,
+  lastScrollY: 0,
+  barHidden: false,
   progressTimer: 0,
   toastTimer: 0,
 };
@@ -816,6 +819,8 @@ function setView(view) {
   el.readerView.hidden = !reader;
   document.body.classList.toggle('reading-mode', reader);
   document.documentElement.classList.toggle('reading-mode', reader);
+  setReaderBarHidden(false);
+  state.lastScrollY = window.scrollY;
   const skip = document.querySelector('.skip-link');
   if (skip) skip.href = reader ? '#chapterBody' : '#mainContent';
   if (!reader) closeAllDialogs();
@@ -1312,9 +1317,84 @@ function scheduleProgressSave() {
   state.progressTimer = window.setTimeout(saveProgressNow, 450);
 }
 
+function setReaderBarHidden(hidden) {
+  if (state.barHidden === hidden) return;
+  state.barHidden = hidden;
+  el.readerView.classList.toggle('is-bar-hidden', hidden);
+  if (el.readerBar) el.readerBar.inert = hidden;
+}
+
+function isMobileReader() {
+  return window.matchMedia('(max-width: 720px)').matches
+    && window.matchMedia('(pointer: coarse)').matches;
+}
+
+function readingEndY() {
+  const end = document.querySelector('.chapter-end');
+  return end ? end.getBoundingClientRect().bottom + window.scrollY : document.documentElement.scrollHeight;
+}
+
+function turnReadingPage(direction) {
+  const barHeight = state.barHidden ? 0 : (el.readerBar?.offsetHeight || 0);
+  const step = Math.max(120, window.innerHeight - barHeight - 28);
+
+  if (direction > 0) {
+    if (window.scrollY + window.innerHeight >= readingEndY() - 8) {
+      if (state.next != null) loadChapter(state.next);
+      else toast('已是终章');
+      return;
+    }
+    window.scrollBy({ top: step, behavior: 'smooth' });
+    return;
+  }
+
+  if (window.scrollY <= 8) {
+    if (state.prev != null) loadChapter(state.prev, { scrollRatio: 1 });
+    else toast('已是开篇');
+    return;
+  }
+  window.scrollBy({ top: -step, behavior: 'smooth' });
+}
+
+function handleReadingTap(event) {
+  if (!isMobileReader() || state.view !== 'reader' || !state.chapter) return;
+  if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
+  if (event.target.closest?.('a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]')) return;
+
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed && String(selection).trim()) return;
+
+  const ratio = event.clientX / Math.max(1, window.innerWidth);
+  if (ratio < 0.3) turnReadingPage(-1);
+  else if (ratio > 0.7) turnReadingPage(1);
+  else if (state.barHidden) setReaderBarHidden(false);
+}
+
+function updateReaderBarVisibility() {
+  const mobile = window.matchMedia('(max-width: 720px)').matches;
+  if (!mobile) {
+    setReaderBarHidden(false);
+    state.lastScrollY = window.scrollY;
+    return;
+  }
+  const y = Math.max(0, window.scrollY);
+  const delta = y - state.lastScrollY;
+  if (y < 24) {
+    setReaderBarHidden(false);
+    state.lastScrollY = y;
+  } else if (delta > 8) {
+    setReaderBarHidden(true);
+    state.lastScrollY = y;
+  } else if (delta < -8) {
+    setReaderBarHidden(false);
+    state.lastScrollY = y;
+  }
+}
+
 function handleScroll() {
   if (!state.book || !state.chapter) return;
   if (notePopoverAnchor) hideNotePopover({ immediate: true, blur: true });
+  updateReaderBarVisibility();
   if (!state.scrollTicking) {
     state.scrollTicking = true;
     requestAnimationFrame(() => {
@@ -1678,6 +1758,7 @@ function syncModalBodyState() {
 
 function openModal(dialog) {
   if (!dialog) return;
+  setReaderBarHidden(false);
   if (notePopoverAnchor) hideNotePopover({ immediate: true, blur: true });
   closeAllDialogs(dialog);
   if (!dialog.open) dialog.showModal();
@@ -1877,7 +1958,13 @@ function bindReader() {
     });
   });
 
+  el.readerMain.addEventListener('click', handleReadingTap);
+
   window.addEventListener('scroll', handleScroll, { passive: true });
+  window.addEventListener('resize', () => {
+    state.lastScrollY = window.scrollY;
+    if (!window.matchMedia('(max-width: 720px)').matches) setReaderBarHidden(false);
+  });
   window.addEventListener('pagehide', saveProgressNow);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') saveProgressNow();

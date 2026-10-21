@@ -1092,7 +1092,10 @@ hr { border: 0; border-top: 1px solid var(--line); }
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
 }
+#readerView.is-bar-hidden .reader-bar { transform: translateY(-100%); }
 .reader-bar-start {
   display: flex;
   min-width: 0;
@@ -1414,6 +1417,7 @@ hr { border: 0; border-top: 1px solid var(--line); }
   transform: translateY(-2px);
 }
 .chapter-nav-card:disabled { cursor: not-allowed; opacity: 0.4; transform: none; box-shadow: var(--line-inset); }
+.chapter-nav-card.previous { align-items: flex-start; text-align: left; }
 .chapter-nav-card.next { align-items: flex-end; text-align: right; }
 .nav-direction {
   display: inline-flex;
@@ -1607,7 +1611,7 @@ dialog::backdrop {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.toc-search { width: auto; margin: 0 20px; background: var(--surface); }
+.toc-search { width: auto; flex: 0 0 auto; margin: 0 20px; background: var(--surface); }
 .toc-count {
   padding: 12px 26px 7px;
   color: var(--ink-faint);
@@ -2163,7 +2167,7 @@ input[type="range"]::-moz-range-thumb {
   .shelf { padding: 30px 0 52px; }
   .shelf-head { flex-direction: column; align-items: flex-start; gap: 20px; }
   .shelf-tools { width: 100%; }
-  .search-box { width: auto; min-width: 0; flex: 1 1 auto; }
+  .shelf-tools .search-box { width: auto; min-width: 0; flex: 1 1 auto; }
   .refresh-button { width: 42px; }
   .book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 24px; }
   .book-card { padding: 8px; border-radius: var(--radius-md); }
@@ -2236,9 +2240,9 @@ input[type="range"]::-moz-range-thumb {
   .bar-book { max-width: 24vw; }
   .reader-bar-actions { gap: 0; }
   .chapter { width: calc(100vw - 32px); }
-  .chapter-nav { grid-template-columns: 1fr; }
-  .chapter-nav-card.next { align-items: flex-start; text-align: left; }
-  .nav-direction { justify-content: flex-start; }
+  .chapter-nav { gap: 8px; }
+  .chapter-nav-card { min-height: 84px; padding: 11px; }
+  .nav-chapter-title { font-size: 11.5px; }
   .chapter-jump > label { display: none; }
   .jump-total { display: none; }
   .bookmark-current h3 { font-size: 13px; }
