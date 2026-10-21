@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>页面不存在 · 工作台</title>
+<meta name="description" content="这个地址没有对应的页面。">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#090a0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f59e0b'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23090a0d' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #090a0d;
+    --surface: #15181f;
+    --ink: #f2f4f8;
+    --dim: #9aa2b2;
+    --faint: #7f889a;
+    --line: rgba(255, 255, 255, 0.12);
+    --line-strong: rgba(255, 255, 255, 0.22);
+    --accent: #f59e0b;
+    --accent-wash: rgba(245, 158, 11, 0.08);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f5f8;
+      --surface: #ffffff;
+      --ink: #101319;
+      --dim: #4f5869;
+      --faint: #67708a;
+      --line: rgba(0, 0, 0, 0.12);
+      --line-strong: rgba(0, 0, 0, 0.22);
+      --accent: #c2410c;
+      --accent-wash: rgba(194, 65, 12, 0.07);
+      color-scheme: light;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background:
+      radial-gradient(900px 520px at 88% -10%, var(--accent-wash), transparent 62%),
+      radial-gradient(700px 420px at 0% 110%, rgba(255, 255, 255, 0.03), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    width: min(100%, 760px);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7);
+    padding: clamp(28px, 6vw, 64px);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--faint);
+    font: 500 12px/1 var(--mono);
+    letter-spacing: 0.16em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .brand::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    background: var(--accent);
+    box-shadow: 0 0 18px var(--accent);
+  }
+
+  .code {
+    margin-top: clamp(40px, 9vw, 88px);
+    color: var(--accent);
+    font: 600 clamp(64px, 15vw, 120px)/0.9 var(--mono);
+    letter-spacing: -0.06em;
+  }
+
+  h1 {
+    margin: 28px 0 0;
+    font-size: clamp(24px, 4vw, 34px);
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin: 14px 0 0;
+    max-width: 46ch;
+    color: var(--dim);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 36px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 0 18px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    text-decoration: none;
+    font: 500 13px/1 var(--mono);
+    letter-spacing: 0.04em;
+    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  }
+
+  nav a:hover {
+    border-color: var(--accent);
+    background: var(--accent-wash);
+  }
+
+  nav a.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  footer {
+    margin-top: 40px;
+    color: var(--faint);
+    font: 400 11px/1 var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 24px 16px; }
+    .wrap { padding: 28px 22px; }
+    nav { gap: 8px; }
+    nav a { flex: 1 1 auto; justify-content: center; padding: 0 12px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="brand" href="/">Workbench · Studio</a>
+  <div class="code">404</div>
+  <h1>这条路没有通向任何页面。</h1>
+  <p>地址可能写错了，或者页面已经搬走。回到工作台，从已知的入口重新开始。</p>
+  <nav aria-label="返回导航">
+    <a class="primary" href="/">返回工作台</a>
+    <a href="/reader/">阅读</a>
+    <a href="/weiqi/">围棋</a>
+  </nav>
+  <footer>dungkey.github.io</footer>
+</main>
+</body>
+</html>
