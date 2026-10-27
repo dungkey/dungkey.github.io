@@ -121,6 +121,7 @@
   /* ---------------- 搜索与键盘导航 ---------------- */
 
   var input = $('#q');
+  var clearEl = $('#searchClear');
   var links = Array.prototype.slice.call(document.querySelectorAll('[data-key]'));
   var groups = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
   var countEl = $('#count');
@@ -190,6 +191,7 @@
       shown += n;
     });
 
+    if (clearEl) clearEl.hidden = !input.value;
     countEl.textContent = String(shown).padStart(2, '0');
     emptyEl.hidden = shown !== 0;
     statusEl.textContent = shown === 0
@@ -199,6 +201,13 @@
   }
 
   input.addEventListener('input', filter);
+  if (clearEl) {
+    clearEl.addEventListener('click', function () {
+      input.value = '';
+      filter();
+      input.focus();
+    });
+  }
   resetEl.addEventListener('click', function () {
     input.value = '';
     filter();
@@ -206,6 +215,14 @@
   });
 
   document.addEventListener('keydown', function (e) {
+    // 优先支持 Cmd+K / Ctrl+K 全局呼出搜索
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+      return;
+    }
+
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     var activeEl = document.activeElement;
@@ -218,6 +235,15 @@
       e.preventDefault();
       input.focus();
       input.select();
+      return;
+    }
+
+    // 空格键在非输入态下快速播放/暂停音频
+    if (e.key === ' ' && !isInputActive && !/^(BUTTON|A)$/.test(tag)) {
+      e.preventDefault();
+      if (playlist.length) {
+        if (audio.paused) safePlay(); else audio.pause();
+      }
       return;
     }
 
@@ -243,7 +269,11 @@
       setActive(active - 1 < 0 ? vis.length - 1 : active - 1);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      (vis[active] || vis[0]).click();
+      if (active >= 0 && vis[active]) {
+        vis[active].click();
+      } else if (input.value.trim().length > 0 && vis[0]) {
+        vis[0].click();
+      }
     }
   });
 
@@ -254,6 +284,14 @@
   var playBtn = $('#play');
   var prevBtn = $('#prev');
   var nextBtn = $('#next');
+  var modeBtn = $('#modeBtn');
+  var volBtn = $('#volBtn');
+  var volRange = $('#volRange');
+  var trackListBtn = $('#trackListBtn');
+  var deckPlaylist = $('#deckPlaylist');
+  var deckPlaylistClose = $('#deckPlaylistClose');
+  var deckPlaylistItems = $('#deckPlaylistItems');
+
   var seekEl = $('#seek');
   var curEl = $('#cur');
   var durEl = $('#dur');
@@ -264,12 +302,154 @@
   var MUSIC_DIR = 'music/';
   var AUDIO_RE = /\.(flac|mp3|m4a|aac|ogg|oga|opus|wav|webm)$/i;
   var STORE_KEY = 'desk-track';
+  var STORE_MODE_KEY = 'desk-audio-mode';
+  var STORE_VOL_KEY = 'desk-audio-vol';
 
   var playlist = [];
   var current = 0;
   var dragging = false;
   var pendingSeek = 0;
   var saveTimer = 0;
+
+  var playMode = 'loop'; // 'loop' | 'single' | 'shuffle'
+  try {
+    var sm = localStorage.getItem(STORE_MODE_KEY);
+    if (sm === 'loop' || sm === 'single' || sm === 'shuffle') playMode = sm;
+  } catch (e) {}
+
+  function applyMode(mode, remember) {
+    playMode = mode;
+    var iconLoop = modeBtn ? modeBtn.querySelector('.icon-mode-loop') : null;
+    var iconSingle = modeBtn ? modeBtn.querySelector('.icon-mode-single') : null;
+    var iconShuffle = modeBtn ? modeBtn.querySelector('.icon-mode-shuffle') : null;
+
+    if (iconLoop) iconLoop.hidden = mode !== 'loop';
+    if (iconSingle) iconSingle.hidden = mode !== 'single';
+    if (iconShuffle) iconShuffle.hidden = mode !== 'shuffle';
+
+    var desc = mode === 'single' ? '单曲循环' : (mode === 'shuffle' ? '随机播放' : '列表循环');
+    if (modeBtn) {
+      modeBtn.setAttribute('aria-label', '播放模式：' + desc);
+      modeBtn.title = '切换播放模式 (当前：' + desc + ')';
+    }
+    if (remember) {
+      try { localStorage.setItem(STORE_MODE_KEY, mode); } catch (e) {}
+    }
+  }
+
+  if (modeBtn) {
+    modeBtn.addEventListener('click', function () {
+      var nextMode = playMode === 'loop' ? 'single' : (playMode === 'single' ? 'shuffle' : 'loop');
+      applyMode(nextMode, true);
+    });
+  }
+  applyMode(playMode, false);
+
+  /* 音量与静音控制 */
+  var savedVol = 0.8;
+  try {
+    var sv = localStorage.getItem(STORE_VOL_KEY);
+    if (sv !== null) savedVol = parseFloat(sv);
+  } catch (e) {}
+  if (isNaN(savedVol) || savedVol < 0 || savedVol > 1) savedVol = 0.8;
+  var lastNonZeroVol = savedVol > 0 ? savedVol : 0.8;
+
+  function applyVolume(vol, remember) {
+    vol = Math.max(0, Math.min(1, vol));
+    audio.volume = vol;
+    audio.muted = vol === 0;
+    if (volRange) {
+      volRange.value = String(Math.round(vol * 100));
+      volRange.style.setProperty('--p', (vol * 100).toFixed(0) + '%');
+    }
+    if (vol > 0) lastNonZeroVol = vol;
+
+    var iconHigh = volBtn ? volBtn.querySelector('.icon-vol-high') : null;
+    var iconLow = volBtn ? volBtn.querySelector('.icon-vol-low') : null;
+    var iconMute = volBtn ? volBtn.querySelector('.icon-vol-mute') : null;
+
+    if (iconHigh) iconHigh.hidden = vol < 0.5;
+    if (iconLow) iconLow.hidden = vol === 0 || vol >= 0.5;
+    if (iconMute) iconMute.hidden = vol > 0;
+
+    if (volBtn) {
+      volBtn.setAttribute('aria-label', vol === 0 ? '已静音，点击恢复' : '音量：' + Math.round(vol * 100) + '%');
+      volBtn.title = vol === 0 ? '已静音 (点击恢复音量)' : '音量：' + Math.round(vol * 100) + '% (点击静音)';
+    }
+    if (remember) {
+      try { localStorage.setItem(STORE_VOL_KEY, String(vol)); } catch (e) {}
+    }
+  }
+
+  if (volRange) {
+    volRange.addEventListener('input', function () {
+      applyVolume(Number(volRange.value) / 100, true);
+    });
+  }
+
+  if (volBtn) {
+    volBtn.addEventListener('click', function () {
+      if (audio.volume > 0) {
+        applyVolume(0, true);
+      } else {
+        applyVolume(lastNonZeroVol, true);
+      }
+    });
+  }
+  applyVolume(savedVol, false);
+
+  /* 播放列表抽屉 */
+  function renderPlaylistUI() {
+    if (!deckPlaylistItems) return;
+    deckPlaylistItems.innerHTML = '';
+    playlist.forEach(function (t, i) {
+      var li = document.createElement('li');
+      li.className = 'deck-playlist-item' + (i === current ? ' is-active' : '');
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(i === current));
+
+      var titleSpan = document.createElement('span');
+      titleSpan.className = 'deck-playlist-title';
+      titleSpan.textContent = (i + 1) + '. ' + t.title;
+
+      var artistSpan = document.createElement('span');
+      artistSpan.className = 'deck-playlist-artist';
+      artistSpan.textContent = t.artist || '';
+
+      li.appendChild(titleSpan);
+      li.appendChild(artistSpan);
+
+      li.addEventListener('click', function () {
+        loadTrack(i, true);
+        closePlaylist();
+      });
+      deckPlaylistItems.appendChild(li);
+    });
+  }
+
+  function openPlaylist() {
+    if (!deckPlaylist) return;
+    renderPlaylistUI();
+    deckPlaylist.hidden = false;
+    if (trackListBtn) trackListBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closePlaylist() {
+    if (!deckPlaylist) return;
+    deckPlaylist.hidden = true;
+    if (trackListBtn) trackListBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  if (trackListBtn) {
+    trackListBtn.addEventListener('click', function () {
+      if (!deckPlaylist) return;
+      if (deckPlaylist.hidden) openPlaylist();
+      else closePlaylist();
+    });
+  }
+  if (deckPlaylistClose) {
+    deckPlaylistClose.addEventListener('click', closePlaylist);
+  }
 
   function decodeName(s) {
     try { return decodeURIComponent(s); } catch (e) { return s; }
@@ -351,9 +531,10 @@
   }
 
   function loadPlaylist() {
-    var first = /^https?:$/.test(location.protocol)
+    var isStaticHost = location.hostname.endsWith('github.io') || location.protocol === 'file:';
+    var first = (!isStaticHost && /^https?:$/.test(location.protocol))
       ? loadFromListing()
-      : Promise.reject(new Error('file:// 不能列目录'));
+      : Promise.reject(new Error('静态环境直读 tracks.js'));
     return first.catch(loadFromManifest).then(sortTracks);
   }
 
@@ -436,6 +617,7 @@
     seekEl.style.setProperty('--p', '0%');
     seekEl.setAttribute('aria-valuetext', '0:00');
     paintMetadata();
+    if (deckPlaylist && !deckPlaylist.hidden) renderPlaylistUI();
   }
 
   function enableControls(on) {
@@ -443,6 +625,10 @@
     prevBtn.disabled = !on;
     nextBtn.disabled = !on;
     seekEl.disabled = !on;
+    if (modeBtn) modeBtn.disabled = !on;
+    if (volBtn) volBtn.disabled = !on;
+    if (volRange) volRange.disabled = !on;
+    if (trackListBtn) trackListBtn.disabled = !on;
   }
 
   function safePlay() {
@@ -469,11 +655,29 @@
   });
 
   prevBtn.addEventListener('click', function () {
-    if (playlist.length) loadTrack(current - 1, !audio.paused);
+    if (!playlist.length) return;
+    if (playMode === 'shuffle' && playlist.length > 1) {
+      var nextIdx;
+      do {
+        nextIdx = Math.floor(Math.random() * playlist.length);
+      } while (nextIdx === current);
+      loadTrack(nextIdx, !audio.paused);
+    } else {
+      loadTrack(current - 1, !audio.paused);
+    }
   });
 
   nextBtn.addEventListener('click', function () {
-    if (playlist.length) loadTrack(current + 1, !audio.paused);
+    if (!playlist.length) return;
+    if (playMode === 'shuffle' && playlist.length > 1) {
+      var nextIdx;
+      do {
+        nextIdx = Math.floor(Math.random() * playlist.length);
+      } while (nextIdx === current);
+      loadTrack(nextIdx, !audio.paused);
+    } else {
+      loadTrack(current + 1, !audio.paused);
+    }
   });
 
   function endDrag() { dragging = false; }
@@ -525,7 +729,23 @@
     paintTrack();
   });
   audio.addEventListener('ended', function () {
-    loadTrack(current + 1, true);
+    if (playMode === 'single') {
+      audio.currentTime = 0;
+      safePlay();
+    } else if (playMode === 'shuffle') {
+      if (playlist.length <= 1) {
+        audio.currentTime = 0;
+        safePlay();
+      } else {
+        var nextIdx;
+        do {
+          nextIdx = Math.floor(Math.random() * playlist.length);
+        } while (nextIdx === current);
+        loadTrack(nextIdx, true);
+      }
+    } else {
+      loadTrack(current + 1, true);
+    }
   });
   audio.addEventListener('error', function () {
     if (!audio.src) return;
@@ -585,8 +805,8 @@
 
     on('play', safePlay);
     on('pause', function () { audio.pause(); });
-    on('previoustrack', function () { loadTrack(current - 1, !audio.paused); });
-    on('nexttrack', function () { loadTrack(current + 1, !audio.paused); });
+    on('previoustrack', function () { prevBtn.click(); });
+    on('nexttrack', function () { nextBtn.click(); });
     on('seekbackward', function (d) {
       audio.currentTime = Math.max(0, audio.currentTime - ((d && d.seekOffset) || 10));
     });

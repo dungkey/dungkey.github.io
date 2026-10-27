@@ -24,6 +24,8 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#090a0d" id="themeColor">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f59e0b'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23090a0d' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
 <script>
   (function () {
     var mode = 'auto';
@@ -36,7 +38,7 @@
     document.documentElement.setAttribute('data-theme', mode === 'auto' ? (light ? 'light' : 'dark') : mode);
   })();
 </script>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261027">
 </head>
 <body>
 <a class="skip" href="#main">跳到主内容</a>
@@ -44,19 +46,38 @@
 <div class="frame">
   <!-- 左栏：品牌微章、时钟与微型音频卡带 -->
   <aside class="rail">
-    <div class="brand">
-      <div class="brand-badge">
-        <span class="pulse-dot" aria-hidden="true"></span>
-        <span>WORKBENCH · STUDIO</span>
+    <div class="rail-header">
+      <div class="brand">
+        <div class="brand-badge">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span>WORKBENCH · STUDIO</span>
+        </div>
+        <h1>工作台</h1>
+        <p class="motto">专注当下，保持秩序，静心构建。</p>
       </div>
-      <h1>工作台</h1>
-      <p class="motto">专注当下，保持秩序，静心构建。</p>
-    </div>
 
-    <!-- 极简通透时钟 -->
-    <div class="clock-section">
-      <time class="clock-digits" id="clock">00:00:00</time>
-      <div class="clock-meta" id="date">—</div>
+      <!-- 极简通透时钟 -->
+      <div class="clock-section">
+        <time class="clock-digits" id="clock">00:00:00</time>
+        <div class="clock-meta" id="date">—</div>
+      </div>
+      <script>
+        (function () {
+          try {
+            var d = new Date();
+            var c = document.getElementById('clock');
+            var dt = document.getElementById('date');
+            var w = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            if (c) {
+              c.textContent = d.toLocaleTimeString('zh-CN', { hour12: false });
+              c.setAttribute('datetime', d.toISOString());
+            }
+            if (dt) {
+              dt.textContent = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' · ' + w[d.getDay()];
+            }
+          } catch (e) {}
+        })();
+      </script>
     </div>
 
     <!-- 音频机体控制台 -->
@@ -70,7 +91,17 @@
           </svg>
           Audio Deck
         </span>
-        <span class="deck-count" id="trackCount">– / –</span>
+        <button class="btn-deck-pill" id="trackListBtn" type="button" aria-label="曲目列表" aria-expanded="false" title="查看曲目列表">
+          <svg class="icon-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <circle cx="4" cy="6" r="1.5" fill="currentColor"></circle>
+            <circle cx="4" cy="12" r="1.5" fill="currentColor"></circle>
+            <circle cx="4" cy="18" r="1.5" fill="currentColor"></circle>
+          </svg>
+          <span class="deck-count" id="trackCount">– / –</span>
+        </button>
       </div>
 
       <div class="deck-track-info">
@@ -89,8 +120,27 @@
         </div>
       </div>
 
-      <!-- 控制按键组 -->
+      <!-- 控制按键组: 模式 | 上一首 | 播放/暂停 | 下一首 | 音量 -->
       <div class="deck-controls">
+        <button class="btn-tool" id="modeBtn" type="button" aria-label="当前模式：列表循环" title="切换播放模式 (当前：列表循环)">
+          <svg class="icon-mode-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m17 2 4 4-4 4"/>
+            <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
+            <path d="m7 22-4-4 4-4"/>
+            <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+          </svg>
+          <svg class="icon-mode-single" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+            <path d="m17 2 4 4-4 4"/>
+            <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
+            <path d="m7 22-4-4 4-4"/>
+            <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+            <path d="M11 10h1v4" stroke-width="1.8"/>
+          </svg>
+          <svg class="icon-mode-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+            <path d="M16 3h5v5M4 20l17-17M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+          </svg>
+        </button>
+
         <button class="btn-step" id="prev" type="button" aria-label="上一首" disabled>
           <svg viewBox="0 0 24 24">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
@@ -111,6 +161,36 @@
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
           </svg>
         </button>
+
+        <div class="deck-vol-wrap">
+          <button class="btn-tool" id="volBtn" type="button" aria-label="音量控制" title="音量控制 / 点击静音">
+            <svg class="icon-vol-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <svg class="icon-vol-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <svg class="icon-vol-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/>
+              <line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          </button>
+          <div class="vol-popover" id="volPopover">
+            <input class="vol-range" id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="音量大小">
+          </div>
+        </div>
+      </div>
+
+      <!-- 展开的曲目列表抽屉 -->
+      <div class="deck-playlist" id="deckPlaylist" hidden>
+        <div class="deck-playlist-header">
+          <span>曲目列表</span>
+          <button class="btn-deck-close" id="deckPlaylistClose" type="button" aria-label="关闭列表">×</button>
+        </div>
+        <ul class="deck-playlist-items" id="deckPlaylistItems" role="listbox" aria-label="曲目列表"></ul>
       </div>
     </div>
 
@@ -150,11 +230,18 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <label class="sr-only" for="q">筛选入口</label>
-        <input id="q" type="text" placeholder="快速筛选：阅读、围棋、github…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input id="q" type="text" placeholder="快速筛选：阅读、围棋、ai、github…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="search-clear" id="searchClear" type="button" aria-label="清空搜索关键字" title="清空搜索" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
         <div class="search-meta">
+          <kbd class="kbd-pill" aria-hidden="true">⌘K</kbd>
           <kbd class="kbd-pill" aria-hidden="true">/</kbd>
           <span class="count-badge" aria-hidden="true">
-            <span id="count">13</span><span class="slash">/</span><span id="total">13</span>
+            <span id="count">17</span><span class="slash">/</span><span id="total">17</span>
           </span>
         </div>
       </div>
@@ -185,7 +272,7 @@
         </header>
         <ul class="link-grid">
           <li>
-            <a class="link-card" href="reader/index.html" data-key="阅读 阅读器 书架 reader epub txt 书 本地 本站">
+            <a class="link-card" href="reader/index.html" data-key="阅读 阅读器 书架 reader epub txt 书 本地 本站 yd yuedu">
               <div class="link-main-info">
                 <span class="link-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -207,7 +294,7 @@
             </a>
           </li>
           <li>
-            <a class="link-card" href="weiqi/index.html" data-key="围棋 五路 六路 weiqi go 棋盘 对弈 复盘 本站">
+            <a class="link-card" href="weiqi/index.html" data-key="围棋 五路 六路 weiqi go 棋盘 对弈 复盘 本站 wq weiqi">
               <div class="link-main-info">
                 <span class="link-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -232,10 +319,112 @@
         </ul>
       </section>
 
-      <!-- 02 代码工程 -->
+      <!-- 02 人工智能 -->
       <section class="group" data-group>
         <header class="group-header">
           <span class="group-num">02</span>
+          <h2 class="group-title">人工智能</h2>
+          <span class="group-sub">AI & Models</span>
+        </header>
+        <ul class="link-grid">
+          <li>
+            <a class="link-card" href="https://claude.ai" target="_blank" rel="noopener noreferrer" data-key="claude anthropic ai 智能 助手 对话 编程 模型">
+              <div class="link-main-info">
+                <span class="link-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.9 6.1L4 11l6.1 1.9L12 19l1.9-6.1L20 11l-6.1-1.9z"/>
+                    <path d="M19 3v4M21 5h-4M5 19v2M6 20H4"/>
+                  </svg>
+                </span>
+                <div class="link-texts">
+                  <h3 class="link-title">Claude</h3>
+                  <span class="link-domain">claude.ai</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" data-key="chatgpt openai gpt ai 对话 助手 问答 模型">
+              <div class="link-main-info">
+                <span class="link-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a4 4 0 0 0-3.5 2L5 10a4 4 0 0 0 0 4l3.5 6A4 4 0 0 0 12 22a4 4 0 0 0 3.5-2L19 14a4 4 0 0 0 0-4l-3.5-6A4 4 0 0 0 12 2z"/>
+                    <path d="M8.5 7.5 12 9.5l3.5-2M15.5 11.5 12 13.5l-3.5-2M12 17.5v-4"/>
+                  </svg>
+                </span>
+                <div class="link-texts">
+                  <h3 class="link-title">ChatGPT</h3>
+                  <span class="link-domain">chatgpt.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://chat.deepseek.com" target="_blank" rel="noopener noreferrer" data-key="deepseek 深度求索 ai 思考 推理 代码 模型">
+              <div class="link-main-info">
+                <span class="link-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3.5 14.5c2-3.5 6-6.5 13-5.5-1.5 2-2 4.5-1 7-4 0-8-1-12-1.5z"/>
+                    <path d="M12 9c.5-2.5 2-4.5 4.5-5 .5 2 0 4-1.5 5.5"/>
+                    <circle cx="8" cy="12.5" r="1.2" fill="currentColor"/>
+                  </svg>
+                </span>
+                <div class="link-texts">
+                  <h3 class="link-title">DeepSeek</h3>
+                  <span class="link-domain">chat.deepseek.com</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="link-card" href="https://huggingface.co" target="_blank" rel="noopener noreferrer" data-key="huggingface hf 开源 模型 社区 weights datasets ai">
+              <div class="link-main-info">
+                <span class="link-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M9 10h.01M15 10h.01"/>
+                    <path d="M8.5 14.5s1.2 2 3.5 2 3.5-2 3.5-2"/>
+                    <path d="M4.5 14c-.6 1.4-.3 3 1.2 3.8M19.5 14c.6 1.4.3 3-1.2 3.8"/>
+                  </svg>
+                </span>
+                <div class="link-texts">
+                  <h3 class="link-title">Hugging Face</h3>
+                  <span class="link-domain">huggingface.co</span>
+                </div>
+              </div>
+              <span class="link-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 03 代码工程 -->
+      <section class="group" data-group>
+        <header class="group-header">
+          <span class="group-num">03</span>
           <h2 class="group-title">代码工程</h2>
           <span class="group-sub">Code & Dev</span>
         </header>
@@ -329,10 +518,10 @@
         </ul>
       </section>
 
-      <!-- 03 阅读与社区 -->
+      <!-- 04 阅读与社区 -->
       <section class="group" data-group>
         <header class="group-header">
-          <span class="group-num">03</span>
+          <span class="group-num">04</span>
           <h2 class="group-title">阅读与社区</h2>
           <span class="group-sub">Read & Digest</span>
         </header>
@@ -380,7 +569,7 @@
             </a>
           </li>
           <li>
-            <a class="link-card" href="https://sspai.com" target="_blank" rel="noopener noreferrer" data-key="少数派 数码 效率 中文 文章 生产力">
+            <a class="link-card" href="https://sspai.com" target="_blank" rel="noopener noreferrer" data-key="少数派 数码 效率 中文 文章 生产力 sspai ssp">
               <div class="link-main-info">
                 <span class="link-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="currentColor">
@@ -429,10 +618,10 @@
         </ul>
       </section>
 
-      <!-- 04 实用效能工具 -->
+      <!-- 05 实用效能工具 -->
       <section class="group" data-group>
         <header class="group-header">
-          <span class="group-num">04</span>
+          <span class="group-num">05</span>
           <h2 class="group-title">开发与灵感工具</h2>
           <span class="group-sub">Utility & Tools</span>
         </header>
@@ -519,6 +708,6 @@
   </footer>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20261027" defer></script>
 </body>
 </html>
