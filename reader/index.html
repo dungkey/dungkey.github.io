@@ -71,15 +71,15 @@
     if (metaTheme && themeColors[theme]) metaTheme.setAttribute('content', themeColors[theme]);
   })();
 </script>
-<link rel="stylesheet" href="styles.css?v=20261021c">
+<link rel="stylesheet" href="styles.css?v=20261027">
 <!-- 修改 reader 静态资源后同步更新上面的 v= 版本号，避免旧缓存 -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css">
-<script src="library.js?v=20261021c" defer></script>
-<script src="store.js?v=20261021c" defer></script>
-<script src="app.js?v=20261021c" defer></script>
+<script src="library.js?v=20261027" defer></script>
+<script src="store.js?v=20261027" defer></script>
+<script src="app.js?v=20261027" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#mainContent">跳到主要内容</a>
@@ -154,7 +154,7 @@
           <button class="icon-button refresh-button" id="refreshBooksBtn" type="button" aria-label="刷新书架" title="刷新书架">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.9 4.8M20 4v7h-7"/></svg>
           </button>
-          <input id="importInput" type="file" accept=".epub,.txt" multiple hidden>
+          <input id="importInput" type="file" accept=".epub,.txt,.md,.markdown" multiple hidden>
         </div>
       </div>
 
@@ -241,6 +241,10 @@
       <button class="bar-button" id="openTocBtn" type="button" aria-haspopup="dialog" title="目录（T）">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
         <span>目录</span>
+      </button>
+      <button class="bar-button" id="openSearchBtn" type="button" aria-haspopup="dialog" title="全书搜索（F）">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+        <span>搜索</span>
       </button>
       <button class="bar-button bookmark-bar-button" id="openBookmarksBtn" type="button" aria-haspopup="dialog" title="书签（B）">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h11v16l-5.5-3.7-5.5 3.7z"/></svg>
@@ -335,6 +339,26 @@
     <div class="toc-count" id="tocCount"></div>
     <div class="toc-list" id="tocList" role="navigation" aria-label="章节目录"></div>
     <div class="toc-empty" id="tocEmpty" hidden>没有找到匹配的章节</div>
+  </div>
+</dialog>
+
+<dialog class="drawer drawer-right" id="searchDialog" aria-labelledby="searchHeading">
+  <div class="drawer-panel">
+    <header class="drawer-head">
+      <div>
+        <h2 id="searchHeading">全书搜索</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close-dialog="searchDialog" aria-label="关闭搜索">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <label class="toc-search search-box" for="searchBookInput">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+      <input id="searchBookInput" type="search" placeholder="在全书正文中搜索…" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="toc-count" id="searchCount"></div>
+    <div class="search-list" id="searchList" role="region" aria-label="全书搜索结果"></div>
+    <div class="toc-empty" id="searchEmpty">输入关键词回车或停顿搜索全书正文</div>
   </div>
 </dialog>
 
@@ -501,5 +525,12 @@
   <span class="toast-dot" aria-hidden="true"></span>
   <span id="toastText"></span>
 </div>
+<script>
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>

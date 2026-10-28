@@ -312,12 +312,23 @@
       .replace(/ {2,}/g, ' ');
   }
 
-  function pushTextRun(runs, value) {
+  function pushTextRun(runs, value, format = {}) {
     const text = cleanInlineText(value);
     if (!text) return;
     const last = runs[runs.length - 1];
-    if (last && last.type === 'text') last.text += text;
-    else runs.push({ type: 'text', text });
+    const canMerge = last && last.type === 'text'
+      && Boolean(last.bold) === Boolean(format.bold)
+      && Boolean(last.italic) === Boolean(format.italic)
+      && Boolean(last.code) === Boolean(format.code);
+    if (canMerge) {
+      last.text += text;
+    } else {
+      const run = { type: 'text', text };
+      if (format.bold) run.bold = true;
+      if (format.italic) run.italic = true;
+      if (format.code) run.code = true;
+      runs.push(run);
+    }
   }
 
   function noteLabel(value, fallbackIndex) {
@@ -329,9 +340,11 @@
   }
 
   function runsToText(runs) {
-    return normalizeText((runs || []).map((run) => (
-      run.type === 'note' ? (run.label || '') : (run.text || '')
-    )).join(''));
+    return normalizeText((runs || []).map((run) => {
+      if (run.type === 'note') return run.label || '';
+      if (run.type === 'image') return run.alt ? `[图: ${run.alt}]` : '[图]';
+      return run.text || '';
+    }).join(''));
   }
 
   function findFirstMeaningful(node) {
@@ -389,23 +402,42 @@
 
   function inlineRuns(root, path, skipNode) {
     const runs = [];
-    const walk = (node) => {
+    const walk = (node, format = {}) => {
       if (node === skipNode) return;
       if (node.nodeType === 3) {
-        pushTextRun(runs, node.nodeValue || '');
+        pushTextRun(runs, node.nodeValue || '', format);
         return;
       }
       if (node.nodeType !== 1) return;
       const element = node;
       const tag = localTag(element);
       if (SKIP_TAGS.has(tag)) return;
-      if (tag === 'br') { pushTextRun(runs, ' '); return; }
-      if (tag === 'img') return;
+      if (tag === 'br') { pushTextRun(runs, ' ', format); return; }
+      if (tag === 'img' || tag === 'image') {
+        const src = element.getAttribute('src') || element.getAttribute('xlink:href') || element.getAttribute('href') || '';
+        if (src) {
+          const target = parseHref(path, src);
+          if (target && target.path) {
+            const alt = element.getAttribute('alt') || element.getAttribute('title') || '';
+            runs.push({
+              type: 'image',
+              path: target.path,
+              alt: normalizeText(alt),
+            });
+            return;
+          }
+        }
+        return;
+      }
       if (tag === 'a' || tag === 'sup') {
         const note = detectNoteReference(element, path);
         if (note) { runs.push(note); return; }
       }
-      for (const child of element.childNodes) walk(child);
+      const nextFormat = { ...format };
+      if (tag === 'strong' || tag === 'b') nextFormat.bold = true;
+      if (tag === 'em' || tag === 'i') nextFormat.italic = true;
+      if (tag === 'code') nextFormat.code = true;
+      for (const child of element.childNodes) walk(child, nextFormat);
     };
     walk(root);
 
@@ -416,7 +448,11 @@
         if (!run.text) continue;
       }
       const last = cleaned[cleaned.length - 1];
-      if (run.type === 'text' && last && last.type === 'text') last.text += run.text;
+      const canMerge = run.type === 'text' && last && last.type === 'text'
+        && Boolean(last.bold) === Boolean(run.bold)
+        && Boolean(last.italic) === Boolean(run.italic)
+        && Boolean(last.code) === Boolean(run.code);
+      if (canMerge) last.text += run.text;
       else cleaned.push(run);
     }
     if (cleaned.length && cleaned[0].type === 'text') cleaned[0].text = cleaned[0].text.replace(/^\s+/, '');
@@ -424,7 +460,7 @@
       const last = cleaned[cleaned.length - 1];
       if (last.type === 'text') last.text = last.text.replace(/\s+$/, '');
     }
-    return cleaned.filter((run) => run.type === 'note' || run.text);
+    return cleaned.filter((run) => run.type === 'note' || run.type === 'image' || run.text);
   }
 
   function detectNoteDefinition(element, path) {
@@ -518,15 +554,27 @@
       const noteDef = footnote || detectNoteDefinition(element, path);
       const runs = noteDef ? noteDef.runs : inlineRuns(element, path);
       const text = runsToText(runs);
-      if (!text && !noteDef) {
+      if (!text && !noteDef && !runs.some((r) => r.type === 'image')) {
         pendingIds.push(...ids);
         return;
       }
+
+      let kind = 'p';
+      const tag = localTag(element);
+      if (tag === 'blockquote' || Boolean(element.closest && element.closest('blockquote'))) {
+        kind = 'quote';
+      } else if (tag === 'pre' || tag === 'code' || Boolean(element.closest && element.closest('pre'))) {
+        kind = 'code';
+      } else if (/^h[2-6]$/.test(tag)) {
+        kind = 'subheading';
+      }
+
       blocks.push({
         element,
         ids,
         runs,
         text,
+        kind,
         noteDef: noteDef || null,
         headingLike: noteDef ? false : isHeadingBlock(element, text),
       });
@@ -730,14 +778,14 @@
       }
       if (noteHeadingAt(info, index, end)) continue;
       if (/^[\s\-—–·•*]+$/.test(block.text)) continue;
-      paragraphs.push({ runs: block.runs });
+      paragraphs.push({ runs: block.runs, kind: block.kind || 'p' });
     }
     return { paragraphs, orphanNotes };
   }
 
   function paragraphChars(paragraph) {
     return (paragraph.runs || []).reduce((sum, run) => (
-      sum + (run.type === 'note' ? 0 : String(run.text || '').replace(/\s/g, '').length)
+      sum + (run.type === 'note' || run.type === 'image' ? 0 : String(run.text || '').replace(/\s/g, '').length)
     ), 0);
   }
 
@@ -995,6 +1043,21 @@
 
     attachChapterNotes(chapters, notes);
 
+    const images = new Map();
+    for (const item of manifest.values()) {
+      const mime = item['media-type'] || MIME[extensionOf(item.path)] || '';
+      if (mime.startsWith('image/') || MIME[extensionOf(item.path)]) {
+        if (zip.has(item.path)) {
+          try {
+            const data = await zip.read(item.path);
+            if (data && data.byteLength) {
+              images.set(item.path, new Blob([data], { type: mime || 'image/jpeg' }));
+            }
+          } catch { /* 忽略单个损坏图片 */ }
+        }
+      }
+    }
+
     return {
       filename,
       format: 'epub',
@@ -1009,14 +1072,42 @@
         notes: chapter.notes,
       })),
       cover,
+      images,
     };
   }
 
   /* ---------------------------------------------------------------- */
-  /* TXT                                                               */
+  /* TXT / Markdown                                                    */
   /* ---------------------------------------------------------------- */
 
-  const TXT_HEADING = /^(?:(\d{1,4})\s*[_\-—.、]\s*)?(第\s*[0-9零〇一二三四五六七八九十百千万两]+\s*[章节回卷])(?:\s*[：:、.\-—]?\s*(.*?))?\s*$/u;
+  const TXT_HEADING_PATTERNS = [
+    /^(?:(\d{1,4})\s*[_\-—.、]\s*)?(第\s*[0-9零〇一二三四五六七八九十百千万两]+\s*[章节回卷篇部集折])(?:\s*[：:、.\-—]?\s*(.*?))?$/u,
+    /^(?:(\d{1,4})\s*[_\-—.、]\s*)?([【\[（(]?\s*(?:序[章言幕曲]?|前言|楔子|引子|尾声|后记|结语|番外(?:篇)?|终章|附录)\s*[】\]）)]?)(?:\s*[：:、.\-—]?\s*(.*?))?$/u,
+    /^(?:(\d{1,4})\s*[_\-—.、]\s*)?((?:chapter|section|part|book|act|scene)\s+[0-9ivxlcdm]+)(?:\s*[：:、.\-—]?\s*(.*?))?$/i,
+    /^(?:([0-9]{1,4}|[零〇一二三四五六七八九十百千]{1,10})[、.．\s])\s*([^\s。！？；].{0,40})$/u,
+  ];
+
+  function matchHeading(line, isMarkdown = false) {
+    const trimmed = line.trim().replace(/\.(?:txt|md|markdown)\s*$/i, '').trim();
+    if (!trimmed || trimmed.length > 100) return null;
+    if (isMarkdown) {
+      const mdMatch = trimmed.match(/^(#{1,3})\s+(.*?)$/);
+      if (mdMatch) {
+        const title = normalizeText(mdMatch[2]).slice(0, 160);
+        if (title) return title;
+      }
+    }
+    for (const pattern of TXT_HEADING_PATTERNS) {
+      const match = trimmed.match(pattern);
+      if (match) {
+        const token = normalizeText(match[2] || match[1] || '').replace(/\s+/g, ' ');
+        const rest = normalizeText((match[3] || match[2] || '').replace(/^[，,]\s*/, ''));
+        const title = normalizeText(`${token}${rest && rest !== token ? ` ${rest}` : ''}`).slice(0, 160);
+        if (title) return title;
+      }
+    }
+    return null;
+  }
 
   function textToParagraphs(text) {
     return String(text)
@@ -1026,7 +1117,7 @@
       .filter((line) => line && !/^[\s\-—–·•*]+$/.test(line) && line.length < 50000);
   }
 
-  function parseTxtText(text) {
+  function parseTxtText(text, filename = '', isMarkdown = false) {
     const normalized = text.replace(/\r\n?/g, '\n').replace(/\u0000/g, '');
     const lines = normalized.split('\n');
     const candidates = [];
@@ -1036,14 +1127,7 @@
       const original = lines[i];
       const lineOffset = offset;
       offset += original.length + 1;
-      const trimmed = original.trim();
-      if (!trimmed || trimmed.length > 140) continue;
-      const withoutExtension = trimmed.replace(/\.txt\s*$/i, '').trim();
-      const match = withoutExtension.match(TXT_HEADING);
-      if (!match) continue;
-      const rest = normalizeText((match[3] || '').replace(/^[，,]\s*/, ''));
-      const token = normalizeText(match[2]).replace(/\s+/g, '');
-      const title = normalizeText(`${token}${rest ? ` ${rest}` : ''}`).slice(0, 160);
+      const title = matchHeading(original, isMarkdown);
       if (!title) continue;
       candidates.push({ title, line: i, headingStart: lineOffset, bodyStart: lineOffset + original.length + 1 });
     }
@@ -1055,7 +1139,7 @@
         const paragraphs = textToParagraphs(preface);
         if (paragraphs.length) {
           chapters.push({
-            title: '前言',
+            title: isMarkdown ? '简介' : '前言',
             paragraphs,
             chars: paragraphs.reduce((sum, line) => sum + line.replace(/\s/g, '').length, 0),
           });
@@ -1108,12 +1192,15 @@
   }
 
   function parseTxt(buffer, filename) {
-    const chapters = parseTxtText(decodeBytes(new Uint8Array(buffer)));
-    if (!chapters.length) throw new Error('TXT 中没有找到可阅读的正文');
+    const ext = extensionOf(filename);
+    const isMarkdown = ext === '.md' || ext === '.markdown';
+    const chapters = parseTxtText(decodeBytes(new Uint8Array(buffer)), filename, isMarkdown);
+    if (!chapters.length) throw new Error(`${isMarkdown ? 'Markdown' : 'TXT'} 中没有找到可阅读的正文`);
+    const cleanTitle = String(filename).replace(/\.(txt|md|markdown)$/i, '');
     return {
       filename,
-      format: 'txt',
-      title: String(filename).replace(/\.txt$/i, ''),
+      format: isMarkdown ? 'markdown' : 'txt',
+      title: cleanTitle,
       author: '',
       language: 'zh',
       chapters,
