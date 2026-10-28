@@ -4,8 +4,6 @@
   const Go = window.Go;
   const GoAI = window.GoAI;
   const KOMI = 3.5;
-  const AI_TIME_LIMIT = 2100;
-  const FALLBACK_AI_TIME_LIMIT = 1650;
   const CANVAS_MAX_DPR = 2;
   const CHINESE_NUMERALS = { 5: '五', 6: '六' };
   const REVIEW_PLAYOUTS = 20;
@@ -13,9 +11,142 @@
   const MAX_ARCHIVES = 8;
   const REVIEW_RANK_COLORS = ['#2f7d5b', '#3b6fa0', '#b07a2a'];
 
+  const LEVEL_CONFIG = {
+    easy: { timeLimit: 450, fallbackLimit: 380, label: '入门' },
+    normal: { timeLimit: 2100, fallbackLimit: 1650, label: '进阶' },
+    hard: { timeLimit: 3600, fallbackLimit: 2600, label: '大师' },
+  };
+
+  const AudioFX = (function () {
+    let audioCtx = null;
+    let soundEnabled = localStorage.getItem('weiqi_sound') !== 'false';
+
+    function getContext() {
+      if (!audioCtx && typeof AudioContext !== 'undefined') {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playStoneSound(isCapture = false) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        const baseFreq = 410 + Math.random() * 80;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.06);
+
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1400, now);
+        filter.Q.setValueAtTime(3.2, now);
+
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.08);
+
+        if (isCapture) {
+          window.setTimeout(() => {
+            try {
+              const cOsc = ctx.createOscillator();
+              const cGain = ctx.createGain();
+              cOsc.type = 'sine';
+              cOsc.frequency.setValueAtTime(680 + Math.random() * 100, ctx.currentTime);
+              cOsc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.09);
+              cGain.gain.setValueAtTime(0.35, ctx.currentTime);
+              cGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+              cOsc.connect(cGain);
+              cGain.connect(ctx.destination);
+              cOsc.start();
+              cOsc.stop(ctx.currentTime + 0.1);
+            } catch (e) {}
+          }, 35);
+        }
+      } catch (err) {}
+    }
+
+    function playPassSound() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(280, now + 0.14);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } catch (e) {}
+    }
+
+    function playWinSound(won) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const notes = won ? [523.25, 659.25, 783.99] : [392, 349.23, 311.13];
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const start = now + idx * 0.1;
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.22, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + 0.23);
+        });
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem('weiqi_sound', String(soundEnabled));
+      return soundEnabled;
+    }
+
+    return {
+      playStoneSound,
+      playPassSound,
+      playWinSound,
+      toggleSound,
+      isSoundEnabled: () => soundEnabled,
+    };
+  })();
+
   const $ = (id) => document.getElementById(id);
 
   const els = {
+    soundToggleBtn: $('soundToggleBtn'),
+    soundIcon: $('soundIcon'),
+    moveNumberToggleBtn: $('moveNumberToggleBtn'),
+    moveNumberIcon: $('moveNumberIcon'),
+
     boardKicker: $('boardKicker'),
     boardTitle: $('boardTitle'),
     turnPillStone: $('turnPillStone'),
@@ -31,6 +162,7 @@
     againBtn: $('againBtn'),
     reviewBtn: $('reviewBtn'),
     reviewGameBtn: $('reviewGameBtn'),
+    exportSgfResultBtn: $('exportSgfResultBtn'),
 
     boardHint: $('boardHint'),
     lastMoveInfo: $('lastMoveInfo'),
@@ -39,6 +171,8 @@
 
     sizeControl: $('sizeControl'),
     sizeHint: $('sizeHint'),
+    levelControl: $('levelControl'),
+    levelHint: $('levelHint'),
     colorControl: $('colorControl'),
     newGameBtn: $('newGameBtn'),
     historyReviewBtn: $('historyReviewBtn'),
@@ -46,6 +180,7 @@
     reviewPanel: $('reviewPanel'),
     reviewMeta: $('reviewMeta'),
     reviewGameSelect: $('reviewGameSelect'),
+    exportSgfBtn: $('exportSgfBtn'),
     reviewRefreshBtn: $('reviewRefreshBtn'),
     reviewCloseBtn: $('reviewCloseBtn'),
     reviewProgressBar: $('reviewProgressBar'),
@@ -54,6 +189,10 @@
     reviewBoardSide: $('reviewBoardSide'),
     reviewBoardSvg: $('reviewBoardSvg'),
     reviewBoardNote: $('reviewBoardNote'),
+    reviewFirstBtn: $('reviewFirstBtn'),
+    reviewPrevBtn: $('reviewPrevBtn'),
+    reviewNextBtn: $('reviewNextBtn'),
+    reviewLastBtn: $('reviewLastBtn'),
     reviewChart: $('reviewChart'),
     reviewTableBody: $('reviewTableBody'),
     reviewFootnote: $('reviewFootnote'),
@@ -66,6 +205,7 @@
     blackCapMetric: $('blackCapMetric'),
     whiteCapMetric: $('whiteCapMetric'),
 
+    undoBtn: $('undoBtn'),
     passBtn: $('passBtn'),
     resignBtn: $('resignBtn'),
 
@@ -82,6 +222,9 @@
     humanColor: Go.BLACK,
     selectedSize: 5,
     selectedColor: Go.BLACK,
+    level: 'normal',
+    selectedLevel: 'normal',
+    showMoveNumbers: localStorage.getItem('weiqi_move_numbers') === 'true',
     board: null,
     geo: null,
     toMove: Go.BLACK,
@@ -221,11 +364,13 @@
       state.fallbackTimer = window.setTimeout(() => {
         state.fallbackTimer = null;
         try {
+          const cfg = LEVEL_CONFIG[state.level] || LEVEL_CONFIG.normal;
+          const fallbackLimit = cfg.fallbackLimit;
           const result = payload.type === 'analyze'
             ? GoAI.analyzePosition(payload)
             : GoAI.chooseMove({
               ...payload,
-              timeLimit: Math.min(payload.timeLimit || FALLBACK_AI_TIME_LIMIT, FALLBACK_AI_TIME_LIMIT),
+              timeLimit: Math.min(payload.timeLimit || fallbackLimit, fallbackLimit),
             });
           resolve(result);
         } catch (error) {
@@ -346,6 +491,7 @@
 
     state.size = state.selectedSize;
     state.humanColor = state.selectedColor;
+    state.level = state.selectedLevel;
     state.geo = Go.makeGeometry(state.size);
     state.board = Go.newBoard(state.size);
     state.toMove = Go.BLACK;
@@ -420,6 +566,7 @@
 
     const gameId = state.gameId;
     const color = aiColor();
+    const cfg = LEVEL_CONFIG[state.level] || LEVEL_CONFIG.normal;
     const payload = {
       size: state.size,
       board: Array.from(state.board),
@@ -429,7 +576,8 @@
       komi: KOMI,
       opponentPassed: state.passes === 1,
       lastMove: state.lastMove,
-      timeLimit: AI_TIME_LIMIT,
+      timeLimit: cfg.timeLimit,
+      level: state.level,
     };
 
     let response;
@@ -502,6 +650,7 @@
 
     updateUi();
     drawBoard();
+    AudioFX.playStoneSound(result.captured.length > 0);
     announce(
       `${colorName(color)}棋落子 ${Go.pointLabel(idx, state.size)}${result.captured.length ? `，提${result.captured.length}子` : ''}。`,
     );
@@ -540,6 +689,7 @@
 
     updateUi();
     drawBoard();
+    AudioFX.playPassSound();
     announce(`${colorName(color)}棋停一手。`);
 
     if (state.toMove === aiColor()) {
@@ -578,6 +728,67 @@
     drawBoard();
     showResult();
     announce(resultAnnouncement());
+    AudioFX.playWinSound(state.result.winner === state.humanColor);
+  }
+
+  function canUndo() {
+    if (state.phase === 'over' || state.phase === 'ai' || state.result) return false;
+    if (state.history.length === 0) return false;
+    if (state.toMove !== state.humanColor) return false;
+    return state.history.some((item) => item.color === state.humanColor);
+  }
+
+  function undoMove() {
+    if (!canUndo()) {
+      showToast('当前无法悔棋');
+      return;
+    }
+
+    stopAITasks();
+
+    let stepsToUndo = 0;
+    const len = state.history.length;
+    if (len >= 2 && state.history[len - 1].color !== state.humanColor) {
+      stepsToUndo = 2; // 撤销 AI 与玩家各一手
+    } else if (len >= 1 && state.history[len - 1].color === state.humanColor) {
+      stepsToUndo = 1; // 仅玩家刚下完
+    }
+
+    if (stepsToUndo === 0) {
+      showToast('当前没有可以撤回的玩家着法');
+      return;
+    }
+
+    for (let i = 0; i < stepsToUndo; i += 1) {
+      const last = state.history.pop();
+      if (!last) break;
+      state.board = Uint8Array.from(last.boardBefore);
+      state.ko = last.koBefore;
+      state.passes = last.passesBefore;
+      state.lastMove = last.lastMoveBefore;
+      state.moveNumber = last.moveNumber - 1;
+      state.captures[last.color] -= last.captured;
+    }
+
+    state.toMove = state.humanColor;
+    state.phase = 'playing';
+    state.hover = null;
+    state.stoneAnimation = null;
+    state.lastAction = state.history.length > 0
+      ? (state.history[state.history.length - 1].pass
+          ? { type: 'pass', color: state.history[state.history.length - 1].color }
+          : {
+              type: 'move',
+              color: state.history[state.history.length - 1].color,
+              idx: state.history[state.history.length - 1].idx,
+              captured: state.history[state.history.length - 1].captured,
+            })
+      : null;
+
+    updateUi();
+    drawBoard();
+    showToast('已撤回一步');
+    announce('已悔棋，轮到你落子。');
   }
 
   function handleResign() {
@@ -837,6 +1048,7 @@
       lastMove: state.lastMove,
       moveNumber: state.moveNumber,
       result: state.result,
+      level: state.level,
       reviewPositions: null,
       analysisResults: [],
       analysisStatus: 'idle',
@@ -852,6 +1064,76 @@
 
   function activeArchive() {
     return state.archives.find((archive) => archive.id === state.review.archiveId) || null;
+  }
+
+  function generateSGF(archive) {
+    if (!archive) return '';
+    const size = archive.size;
+    const komi = archive.komi || KOMI;
+    const humanColor = archive.humanColor;
+    const humanName = '玩家 (Human)';
+    const levelText = archive.level === 'easy' ? '入门' : archive.level === 'hard' ? '大师' : '进阶';
+    const aiName = `围棋 AI (${levelText})`;
+    const blackPlayer = humanColor === Go.BLACK ? humanName : aiName;
+    const whitePlayer = humanColor === Go.BLACK ? aiName : humanName;
+
+    let resultStr = '0';
+    if (archive.result) {
+      const winner = archive.result.winner;
+      if (winner === Go.EMPTY) {
+        resultStr = '0';
+      } else if (archive.result.reason === 'resign') {
+        resultStr = winner === Go.BLACK ? 'B+R' : 'W+R';
+      } else if (archive.result.judge) {
+        const margin = archive.result.judge.margin.toFixed(1);
+        resultStr = winner === Go.BLACK ? `B+${margin}` : `W+${margin}`;
+      }
+    }
+
+    const d = new Date(archive.createdAt || Date.now());
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    let sgf = `(;GM[1]FF[4]CA[UTF-8]AP[WeiqiWeb]SZ[${size}]KM[${komi}]RU[Chinese]PB[${blackPlayer}]PW[${whitePlayer}]RE[${resultStr}]DT[${dateStr}]\n`;
+
+    archive.history.forEach((entry) => {
+      const tag = entry.color === Go.BLACK ? 'B' : 'W';
+      if (entry.pass || entry.idx === -1) {
+        sgf += `;${tag}[]`;
+      } else {
+        const col = String.fromCharCode(97 + (entry.idx % size));
+        const row = String.fromCharCode(97 + Math.floor(entry.idx / size));
+        sgf += `;${tag}[${col}${row}]`;
+      }
+    });
+
+    sgf += ')';
+    return sgf;
+  }
+
+  function downloadSGF(archive) {
+    if (!archive) {
+      showToast('暂无对局棋谱可导出');
+      return;
+    }
+    const sgfContent = generateSGF(archive);
+    const blob = new Blob([sgfContent], { type: 'application/x-go-sgf;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const filename = `weiqi_${archive.size}x${archive.size}_${archive.id || 'game'}.sgf`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sgfContent)
+        .then(() => showToast('已下载并复制 SGF 棋谱'))
+        .catch(() => showToast('已下载 SGF 棋谱文件'));
+    } else {
+      showToast('已下载 SGF 棋谱文件');
+    }
   }
 
   function buildReviewPositions(archive) {
@@ -1085,6 +1367,12 @@
     }
 
     els.reviewRefreshBtn.disabled = archive.analysisStatus === 'running';
+    const maxIdx = Math.max(0, total - 1);
+    if (els.reviewFirstBtn) els.reviewFirstBtn.disabled = state.review.selected <= 0;
+    if (els.reviewPrevBtn) els.reviewPrevBtn.disabled = state.review.selected <= 0;
+    if (els.reviewNextBtn) els.reviewNextBtn.disabled = state.review.selected >= maxIdx;
+    if (els.reviewLastBtn) els.reviewLastBtn.disabled = state.review.selected >= maxIdx;
+
     els.reviewFootnote.textContent =
       `每个局面会对棋盘上所有合法点（含停一手）各做 ${REVIEW_PLAYOUTS} 次推演；`
       + '胜率为行棋方视角，折线图换算为黑棋胜率。';
@@ -1384,8 +1672,21 @@
           topCell += `<span class="review-point rank-pass">停一手 <em>${percentText(passCandidate.winRate)}</em></span>`;
         }
 
+        let qualityBadge = '';
         if (analysis.playedRank !== null) {
           rankCell = `第 ${analysis.playedRank} <span>/ ${analysis.evaluated}</span>`;
+          if (analysis.playedRank === 1) {
+            qualityBadge = '<span class="move-quality quality-best">妙手</span>';
+          } else if (analysis.playedRank <= 2) {
+            qualityBadge = '<span class="move-quality quality-good">好手</span>';
+          } else if (analysis.playedRate !== null && analysis.bestRate !== null) {
+            const diff = analysis.bestRate - analysis.playedRate;
+            if (diff >= 0.22) {
+              qualityBadge = '<span class="move-quality quality-bad">恶手</span>';
+            } else if (diff >= 0.09) {
+              qualityBadge = '<span class="move-quality quality-dubious">缓手</span>';
+            }
+          }
         }
       }
 
@@ -1396,6 +1697,7 @@
             <span class="review-move">
               <i class="review-stone ${stoneColor}" aria-hidden="true"></i>
               <span>${moveLabel}</span>
+              ${qualityBadge}
             </span>
           </td>
           <td class="review-rate">${rateCell}</td>
@@ -1465,9 +1767,21 @@
       button.setAttribute('aria-pressed', String(active));
     });
 
+    if (els.levelControl) {
+      els.levelControl.querySelectorAll('[data-level]').forEach((button) => {
+        const active = button.dataset.level === state.selectedLevel;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+      const cfg = LEVEL_CONFIG[state.selectedLevel] || LEVEL_CONFIG.normal;
+      if (els.levelHint) els.levelHint.textContent = cfg.label;
+    }
+
     els.sizeHint.textContent = `${state.selectedSize} × ${state.selectedSize}`;
 
-    const changed = state.selectedSize !== state.size || state.selectedColor !== state.humanColor;
+    const changed = state.selectedSize !== state.size
+      || state.selectedColor !== state.humanColor
+      || state.selectedLevel !== state.level;
     els.newGameBtn.querySelector('span').textContent = changed ? '应用设置，重新开局' : '开始新对局';
   }
 
@@ -1478,6 +1792,19 @@
     const displayColor = isOver && state.result ? state.result.winner : state.toMove;
     const humanColorName = colorName(state.humanColor);
     const sideColorName = colorName(displayColor);
+
+    if (els.undoBtn) {
+      els.undoBtn.disabled = !canUndo();
+    }
+    if (els.soundToggleBtn) {
+      const isSound = AudioFX.isSoundEnabled();
+      els.soundToggleBtn.classList.toggle('is-active', isSound);
+      if (els.soundIcon) els.soundIcon.textContent = isSound ? '🔊' : '🔇';
+    }
+    if (els.moveNumberToggleBtn) {
+      els.moveNumberToggleBtn.classList.toggle('is-active', state.showMoveNumbers);
+      if (els.moveNumberIcon) els.moveNumberIcon.textContent = state.showMoveNumbers ? '①' : '⚪';
+    }
 
     els.boardKicker.textContent = `${CHINESE_NUMERALS[state.size]}路棋盘`;
     els.boardTitle.textContent = `${state.size} × ${state.size} 对局`;
@@ -1616,6 +1943,16 @@
 
     let needsAnimationFrame = false;
     let lastMoveScale = 1;
+
+    const stoneNumbers = new Map();
+    if (state.showMoveNumbers) {
+      state.history.forEach((entry) => {
+        if (!entry.pass && entry.idx >= 0) {
+          stoneNumbers.set(entry.idx, entry.moveNumber);
+        }
+      });
+    }
+
     for (let idx = 0; idx < state.board.length; idx += 1) {
       const color = state.board[idx];
       if (color === Go.EMPTY) continue;
@@ -1640,12 +1977,36 @@
       }
 
       drawStone(x, y, view.cell * 0.42, color, { scale });
+
+      if (state.showMoveNumbers) {
+        const moveNum = stoneNumbers.get(idx);
+        if (moveNum !== undefined) {
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const fontSize = Math.max(9, Math.min(14, view.cell * 0.34)) * scale;
+          ctx.font = `600 ${fontSize}px ui-monospace, "SF Mono", Menlo, monospace`;
+          ctx.fillStyle = color === Go.BLACK ? 'rgba(255, 255, 255, 0.92)' : 'rgba(26, 30, 26, 0.92)';
+          ctx.fillText(String(moveNum), x, y + 0.5);
+          ctx.restore();
+        }
+      }
     }
 
     if (state.lastMove >= 0 && state.board[state.lastMove] !== Go.EMPTY) {
       const x = gridStart + (state.lastMove % n) * view.cell;
       const y = gridStart + Math.floor(state.lastMove / n) * view.cell;
-      drawLastMarker(x, y, lastMoveScale, state.board[state.lastMove]);
+      if (state.showMoveNumbers) {
+        ctx.save();
+        ctx.strokeStyle = '#b1482e';
+        ctx.lineWidth = Math.max(1.8, view.cell * 0.045);
+        ctx.beginPath();
+        ctx.arc(x, y, view.cell * 0.45 * lastMoveScale, 0, TAU);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        drawLastMarker(x, y, lastMoveScale, state.board[state.lastMove]);
+      }
     }
 
     if (state.hover !== null && canHumanPlay() && state.board[state.hover] === Go.EMPTY) {
@@ -1868,12 +2229,78 @@
       updateSetupUi();
     });
 
+    if (els.levelControl) {
+      els.levelControl.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-level]');
+        if (!button) return;
+        state.selectedLevel = button.dataset.level || 'normal';
+        updateSetupUi();
+      });
+    }
+
+    if (els.soundToggleBtn) {
+      els.soundToggleBtn.addEventListener('click', () => {
+        const active = AudioFX.toggleSound();
+        els.soundToggleBtn.classList.toggle('is-active', active);
+        if (els.soundIcon) els.soundIcon.textContent = active ? '🔊' : '🔇';
+        showToast(active ? '已开启音效' : '已静音');
+      });
+    }
+
+    if (els.moveNumberToggleBtn) {
+      els.moveNumberToggleBtn.addEventListener('click', () => {
+        state.showMoveNumbers = !state.showMoveNumbers;
+        localStorage.setItem('weiqi_move_numbers', String(state.showMoveNumbers));
+        els.moveNumberToggleBtn.classList.toggle('is-active', state.showMoveNumbers);
+        if (els.moveNumberIcon) els.moveNumberIcon.textContent = state.showMoveNumbers ? '①' : '⚪';
+        drawBoard();
+        showToast(state.showMoveNumbers ? '已开启手数显示' : '已隐藏手数');
+      });
+    }
+
+    if (els.undoBtn) {
+      els.undoBtn.addEventListener('click', undoMove);
+    }
+
     els.newGameBtn.addEventListener('click', startNewGame);
     els.againBtn.addEventListener('click', startNewGame);
     els.passBtn.addEventListener('click', handlePass);
     els.resignBtn.addEventListener('click', handleResign);
     els.reviewBtn.addEventListener('click', hideResult);
     els.showResultBtn.addEventListener('click', showResult);
+
+    if (els.exportSgfBtn) {
+      els.exportSgfBtn.addEventListener('click', () => {
+        downloadSGF(activeArchive());
+      });
+    }
+
+    if (els.exportSgfResultBtn) {
+      els.exportSgfResultBtn.addEventListener('click', () => {
+        downloadSGF(activeArchive() || state.archives[state.archives.length - 1]);
+      });
+    }
+
+    if (els.reviewFirstBtn) {
+      els.reviewFirstBtn.addEventListener('click', () => selectReviewPosition(0));
+    }
+
+    if (els.reviewPrevBtn) {
+      els.reviewPrevBtn.addEventListener('click', () => selectReviewPosition(state.review.selected - 1));
+    }
+
+    if (els.reviewNextBtn) {
+      els.reviewNextBtn.addEventListener('click', () => selectReviewPosition(state.review.selected + 1));
+    }
+
+    if (els.reviewLastBtn) {
+      els.reviewLastBtn.addEventListener('click', () => {
+        const archive = activeArchive();
+        if (archive && archive.reviewPositions) {
+          selectReviewPosition(archive.reviewPositions.length - 1);
+        }
+      });
+    }
 
     els.resultLayer.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
@@ -1953,6 +2380,40 @@
     });
 
     window.addEventListener('keydown', (event) => {
+      if (state.review.open) {
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          selectReviewPosition(state.review.selected - 1);
+          return;
+        }
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          selectReviewPosition(state.review.selected + 1);
+          return;
+        }
+        if (event.key === 'Home') {
+          event.preventDefault();
+          selectReviewPosition(0);
+          return;
+        }
+        if (event.key === 'End') {
+          const archive = activeArchive();
+          if (archive && archive.reviewPositions) {
+            event.preventDefault();
+            selectReviewPosition(archive.reviewPositions.length - 1);
+          }
+          return;
+        }
+      }
+
+      if (event.key === 'z' || event.key === 'Z') {
+        if (!state.review.open && els.resultLayer.hidden && canUndo()) {
+          event.preventDefault();
+          undoMove();
+          return;
+        }
+      }
+
       if (event.key !== 'Escape') return;
       if (!els.resultLayer.hidden) {
         hideResult();

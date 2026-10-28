@@ -36,6 +36,16 @@
         </span>
       </a>
       <div class="masthead-aside">
+        <div class="masthead-controls">
+          <button class="icon-toggle-btn is-active" id="soundToggleBtn" type="button" aria-label="音效开关" title="音效开关">
+            <span id="soundIcon" aria-hidden="true">🔊</span>
+            <span class="btn-text">音效</span>
+          </button>
+          <button class="icon-toggle-btn" id="moveNumberToggleBtn" type="button" aria-label="显示手数" title="显示手数">
+            <span id="moveNumberIcon" aria-hidden="true">①</span>
+            <span class="btn-text">手数</span>
+          </button>
+        </div>
         <a class="home-link" href="../index.html">工作台</a>
       </div>
     </header>
@@ -66,6 +76,7 @@
               <div class="result-actions">
                 <button class="primary-btn result-primary" id="againBtn" type="button">再来一局</button>
                 <button class="ghost-btn" id="reviewGameBtn" type="button">复盘本局</button>
+                <button class="ghost-btn" id="exportSgfResultBtn" type="button">导出棋谱</button>
                 <button class="ghost-btn" id="reviewBtn" type="button">查看棋盘</button>
               </div>
             </div>
@@ -104,6 +115,27 @@
               <button type="button" data-size="6" aria-pressed="false">
                 <span class="variant-title">六路</span>
                 <span class="variant-sub">6 × 6</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span>AI 难度</span>
+              <span class="field-hint" id="levelHint">进阶</span>
+            </div>
+            <div class="segmented segmented-3" id="levelControl" role="group" aria-label="选择 AI 难度">
+              <button type="button" data-level="easy" aria-pressed="false">
+                <span class="variant-title">入门</span>
+                <span class="variant-sub">轻快</span>
+              </button>
+              <button type="button" class="is-active" data-level="normal" aria-pressed="true">
+                <span class="variant-title">进阶</span>
+                <span class="variant-sub">均衡</span>
+              </button>
+              <button type="button" data-level="hard" aria-pressed="false">
+                <span class="variant-title">大师</span>
+                <span class="variant-sub">深思</span>
               </button>
             </div>
           </div>
@@ -161,6 +193,7 @@
           </div>
 
           <div class="game-actions">
+            <button class="secondary-btn" id="undoBtn" type="button" title="撤回一步 (快捷键 Z)">悔棋</button>
             <button class="secondary-btn" id="passBtn" type="button">停一手</button>
             <button class="ghost-btn" id="resignBtn" type="button">认输</button>
           </div>
@@ -186,6 +219,7 @@
             <span>对局</span>
             <select id="reviewGameSelect"></select>
           </label>
+          <button class="secondary-btn" id="exportSgfBtn" type="button">导出 SGF</button>
           <button class="secondary-btn" id="reviewRefreshBtn" type="button">重新分析</button>
           <button class="ghost-btn" id="reviewCloseBtn" type="button">收起复盘</button>
         </div>
@@ -206,7 +240,13 @@
           </div>
           <svg id="reviewBoardSvg" class="review-board-svg" viewBox="0 0 320 320"
                role="img" aria-label="复盘棋盘"></svg>
-          <p class="review-board-note" id="reviewBoardNote">点击下方表格或折线节点切换局面。</p>
+          <div class="review-nav-bar" role="group" aria-label="复盘步进">
+            <button class="ghost-btn nav-btn" id="reviewFirstBtn" type="button" title="开局 (Home)">⏮ 首手</button>
+            <button class="secondary-btn nav-btn" id="reviewPrevBtn" type="button" title="上一手 (←)">◀ 上一手</button>
+            <button class="secondary-btn nav-btn" id="reviewNextBtn" type="button" title="下一手 (→)">下一手 ▶</button>
+            <button class="ghost-btn nav-btn" id="reviewLastBtn" type="button" title="终局 (End)">末手 ⏭</button>
+          </div>
+          <p class="review-board-note" id="reviewBoardNote">点击下方表格或折线节点切换局面，支持键盘 ← / → 翻手。</p>
         </div>
 
         <div class="review-chart-card">

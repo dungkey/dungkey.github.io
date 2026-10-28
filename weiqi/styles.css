@@ -140,6 +140,50 @@ button:focus-visible {
 .masthead-aside {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.masthead-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.icon-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.7);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-toggle-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: #fffdf8;
+}
+
+.icon-toggle-btn.is-active {
+  border-color: rgba(61, 95, 80, 0.45);
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-weight: 500;
+}
+
+.icon-toggle-btn span[aria-hidden="true"] {
+  font-size: 12px;
+}
+
+.icon-toggle-btn .btn-text {
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .home-link {
@@ -378,9 +422,13 @@ button:focus-visible {
 
 .result-actions {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 9px;
   margin-top: 21px;
+}
+
+.result-actions .result-primary {
+  grid-column: 1 / -1;
 }
 
 .result-actions .primary-btn,
@@ -473,6 +521,10 @@ button:focus-visible {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #ece4d6;
+}
+
+.segmented.segmented-3 {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .segmented button {
@@ -837,7 +889,7 @@ button:disabled {
 
 .game-actions {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 13px;
 }
@@ -1024,6 +1076,52 @@ button:disabled {
 .review-board-svg text,
 .review-chart text {
   font-family: var(--sans);
+}
+
+.review-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.review-nav-bar .nav-btn {
+  height: 31px;
+  padding: 0 9px;
+  font-size: 11px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.move-quality {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: 4px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.quality-best {
+  background: rgba(47, 125, 91, 0.16);
+  color: #246a4d;
+}
+
+.quality-good {
+  background: rgba(59, 111, 160, 0.15);
+  color: #2b5984;
+}
+
+.quality-dubious {
+  background: rgba(184, 134, 11, 0.16);
+  color: #8c6608;
+}
+
+.quality-bad {
+  background: rgba(177, 72, 46, 0.16);
+  color: #b1482e;
 }
 
 .review-board-note {
@@ -1472,6 +1570,7 @@ button:disabled {
 
   .side-panel {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
     gap: 14px;
   }

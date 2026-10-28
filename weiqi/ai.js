@@ -154,7 +154,8 @@
           else if (distance === 2) weight += 0.15;
         }
 
-        weight *= 0.85 + Math.random() * 0.3;
+        const jitter = ctx.level === 'easy' ? (0.55 + Math.random() * 0.9) : (0.85 + Math.random() * 0.3);
+        weight *= jitter;
       }
 
       candidates.push({ idx, weight, captured, liberties });
@@ -433,8 +434,12 @@
 
     const best = sorted[0];
 
-    // 如果对手刚停一手，且经过搜索，停一手终局确能获胜：
+    // 如果对手刚停一手，且判定此时停一手终局确能获胜：直接停一手确保胜利
     if (directPass && ctx.opponentPassed) {
+      const judge = Go.judge(rootNode.board, ctx.geo, ctx.komi);
+      if (judge.winner === ctx.aiColor) {
+        return directPass;
+      }
       const passRate = directPass.visits > 0 ? directPass.wins / directPass.visits : 0;
       if (passRate >= 0.75) {
         return directPass;
@@ -571,7 +576,7 @@
     const komi = Number.isFinite(options.komi) ? options.komi : 3.5;
     const opponentPassed = Boolean(options.opponentPassed);
     const timeLimit = Math.max(
-      320,
+      150,
       Math.min(MAX_TIME_LIMIT, Number(options.timeLimit) || DEFAULT_TIME_LIMIT),
     );
 
@@ -584,14 +589,13 @@
       komi,
       aiColor,
       opponentPassed,
+      level: options.level || 'normal',
     };
 
     const rootNode = createNode({
       board,
       color: toMove,
       ko: Number.isInteger(options.ko) ? options.ko : -1,
-      passes: opponentPassed ? 1 : 0,
-      lastMove: Number.isInteger(options.lastMove) ? options.lastMove : -1,
       passes: opponentPassed ? 1 : 0,
       lastMove: Number.isInteger(options.lastMove) ? options.lastMove : -1,
       depth: 0,
