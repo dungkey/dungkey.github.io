@@ -24,7 +24,11 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#090a0d" id="themeColor">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f59e0b'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23090a0d' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png" sizes="180x180">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="工作台">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
   (function () {
@@ -34,18 +38,32 @@
       if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
     } catch (e) {}
     var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
     document.documentElement.setAttribute('data-theme-mode', mode);
-    document.documentElement.setAttribute('data-theme', mode === 'auto' ? (light ? 'light' : 'dark') : mode);
+    document.documentElement.setAttribute('data-theme', resolved);
+    var meta = document.getElementById('themeColor');
+    if (meta) meta.setAttribute('content', resolved === 'light' ? '#f4f5f8' : '#090a0d');
   })();
 </script>
-<link rel="stylesheet" href="styles.css?v=20261027">
+<link rel="stylesheet" href="styles.css?v=20261028">
 </head>
 <body>
 <a class="skip" href="#main">跳到主内容</a>
 
+<svg class="icon-sprite" aria-hidden="true" focusable="false" width="0" height="0">
+  <symbol id="arrow-internal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+    <polyline points="13 6 19 12 13 18"></polyline>
+  </symbol>
+  <symbol id="arrow-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="7" y1="17" x2="17" y2="7"></line>
+    <polyline points="7 7 17 7 17 17"></polyline>
+  </symbol>
+</svg>
+
 <div class="frame">
   <!-- 左栏：品牌微章、时钟与微型音频卡带 -->
-  <aside class="rail">
+  <aside class="rail" aria-label="工作台工具">
     <div class="rail-header">
       <div class="brand">
         <div class="brand-badge">
@@ -81,32 +99,39 @@
     </div>
 
     <!-- 音频机体控制台 -->
-    <div class="sound-deck" id="track">
+    <div class="sound-deck" id="track" role="region" aria-label="音乐播放器">
       <audio id="audio" preload="metadata"></audio>
 
       <div class="deck-header">
         <span class="deck-tag">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
           </svg>
           Audio Deck
         </span>
-        <button class="btn-deck-pill" id="trackListBtn" type="button" aria-label="曲目列表" aria-expanded="false" title="查看曲目列表">
-          <svg class="icon-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <circle cx="4" cy="6" r="1.5" fill="currentColor"></circle>
-            <circle cx="4" cy="12" r="1.5" fill="currentColor"></circle>
-            <circle cx="4" cy="18" r="1.5" fill="currentColor"></circle>
-          </svg>
-          <span class="deck-count" id="trackCount">– / –</span>
-        </button>
+        <div class="deck-header-actions">
+          <button class="btn-deck-pill" id="trackListBtn" type="button" aria-label="曲目列表 – / –" aria-expanded="false" aria-controls="deckPlaylist" title="查看曲目列表" disabled>
+            <svg class="icon-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <circle cx="4" cy="6" r="1.5" fill="currentColor"></circle>
+              <circle cx="4" cy="12" r="1.5" fill="currentColor"></circle>
+              <circle cx="4" cy="18" r="1.5" fill="currentColor"></circle>
+            </svg>
+            <span class="deck-count" id="trackCount">– / –</span>
+          </button>
+          <button class="btn-deck-expand" id="deckExpandBtn" type="button" aria-label="展开播放控制" aria-expanded="false" title="展开播放控制">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div class="deck-track-info">
+      <div class="deck-track-info" aria-live="polite" aria-atomic="true">
         <p class="deck-title" id="trackTitle">正在加载音乐库…</p>
-        <p class="deck-artist" id="trackArtist">读取 music/ 目录</p>
+        <p class="deck-artist" id="trackArtist">加载本地音乐</p>
       </div>
 
       <!-- 细密滑轨 -->
@@ -122,7 +147,7 @@
 
       <!-- 控制按键组: 模式 | 上一首 | 播放/暂停 | 下一首 | 音量 -->
       <div class="deck-controls">
-        <button class="btn-tool" id="modeBtn" type="button" aria-label="当前模式：列表循环" title="切换播放模式 (当前：列表循环)">
+        <button class="btn-tool" id="modeBtn" type="button" aria-label="当前模式：列表循环" title="切换播放模式 (当前：列表循环)" disabled>
           <svg class="icon-mode-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m17 2 4 4-4 4"/>
             <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
@@ -163,25 +188,27 @@
         </button>
 
         <div class="deck-vol-wrap">
-          <button class="btn-tool" id="volBtn" type="button" aria-label="音量控制" title="音量控制 / 点击静音">
-            <svg class="icon-vol-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="btn-tool" id="volBtn" type="button" aria-label="音量控制" aria-controls="volPopover" aria-expanded="false" title="音量控制" disabled>
+            <svg class="icon-vol-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
             </svg>
-            <svg class="icon-vol-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+            <svg class="icon-vol-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
             </svg>
-            <svg class="icon-vol-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+            <svg class="icon-vol-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <line x1="23" y1="9" x2="17" y2="15"/>
               <line x1="17" y1="9" x2="23" y2="15"/>
             </svg>
           </button>
-          <div class="vol-popover" id="volPopover">
-            <input class="vol-range" id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="音量大小">
-          </div>
         </div>
+      </div>
+
+      <div class="vol-popover" id="volPopover" role="group" aria-label="音量控制">
+        <input class="vol-range" id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="音量大小" disabled>
+        <button class="btn-vol-mute" id="volMuteBtn" type="button" aria-label="静音" disabled>静音</button>
       </div>
 
       <!-- 展开的曲目列表抽屉 -->
@@ -190,7 +217,7 @@
           <span>曲目列表</span>
           <button class="btn-deck-close" id="deckPlaylistClose" type="button" aria-label="关闭列表">×</button>
         </div>
-        <ul class="deck-playlist-items" id="deckPlaylistItems" role="listbox" aria-label="曲目列表"></ul>
+        <ul class="deck-playlist-items" id="deckPlaylistItems" aria-label="曲目列表"></ul>
       </div>
     </div>
 
@@ -230,7 +257,7 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <label class="sr-only" for="q">筛选入口</label>
-        <input id="q" type="text" placeholder="快速筛选：阅读、围棋、ai、github…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input id="q" type="text" placeholder="快速筛选：阅读、围棋、ai、github…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
         <button class="search-clear" id="searchClear" type="button" aria-label="清空搜索关键字" title="清空搜索" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -238,7 +265,7 @@
           </svg>
         </button>
         <div class="search-meta">
-          <kbd class="kbd-pill" aria-hidden="true">⌘K</kbd>
+          <kbd class="kbd-pill" id="kbdMod" aria-hidden="true">⌘K</kbd>
           <kbd class="kbd-pill" aria-hidden="true">/</kbd>
           <span class="count-badge" aria-hidden="true">
             <span id="count">17</span><span class="slash">/</span><span id="total">17</span>
@@ -253,6 +280,25 @@
       <span><kbd>Enter</kbd> 打开</span>
       <span><kbd>Esc</kbd> 清除</span>
     </div>
+
+    <!-- 继续阅读 -->
+    <a class="resume-card" id="resumeCard" href="reader/index.html" hidden>
+      <span class="resume-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/>
+          <path d="M4 20.5V5.5M8 7h8M8 11h6"/>
+        </svg>
+      </span>
+      <span class="resume-body">
+        <span class="resume-kicker">继续阅读</span>
+        <span class="resume-title" id="resumeTitle"></span>
+        <span class="resume-meta" id="resumeMeta"></span>
+        <span class="resume-track" aria-hidden="true"><span class="resume-fill" id="resumeFill"></span></span>
+      </span>
+      <span class="resume-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><use href="#arrow-internal"></use></svg>
+      </span>
+    </a>
 
     <!-- 搜索空状态 -->
     <div class="empty-state" id="empty" hidden>
@@ -286,10 +332,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="13 6 19 12 13 18"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-internal"></use></svg>
               </span>
             </a>
           </li>
@@ -309,10 +352,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="13 6 19 12 13 18"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-internal"></use></svg>
               </span>
             </a>
           </li>
@@ -342,10 +382,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -364,10 +401,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -387,10 +421,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -411,10 +442,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -443,10 +471,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -466,10 +491,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -487,10 +509,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -508,10 +527,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -540,10 +556,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -561,10 +574,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -582,10 +592,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -608,10 +615,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -641,10 +645,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -664,10 +665,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -686,10 +684,7 @@
                 </div>
               </div>
               <span class="link-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"></line>
-                  <polyline points="7 7 17 7 17 17"></polyline>
-                </svg>
+                <svg viewBox="0 0 24 24"><use href="#arrow-external"></use></svg>
               </span>
             </a>
           </li>
@@ -708,6 +703,7 @@
   </footer>
 </div>
 
-<script src="app.js?v=20261027" defer></script>
+<script src="reader/store.js" defer></script>
+<script src="app.js?v=20261028" defer></script>
 </body>
 </html>

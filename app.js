@@ -126,17 +126,46 @@
   var groups = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
   var countEl = $('#count');
   var totalEl = $('#total');
+  var countBadge = document.querySelector('.count-badge');
   var emptyEl = $('#empty');
   var statusEl = $('#status');
   var resetEl = $('#reset');
+  var kbdMod = document.getElementById('kbdMod');
+  var resumeCard = document.getElementById('resumeCard');
+  var resumeTitle = document.getElementById('resumeTitle');
+  var resumeMeta = document.getElementById('resumeMeta');
+  var resumeFill = document.getElementById('resumeFill');
+  var resumeAvailable = false;
   var total = links.length;
   var active = -1;
+  var composing = false;
+  var reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var raf = window.requestAnimationFrame || function (fn) { return window.setTimeout(fn, 16); };
 
   totalEl.textContent = String(total).padStart(2, '0');
+  if (countBadge) countBadge.classList.add('is-all');
+
+  if (kbdMod) {
+    var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ||
+      /Mac OS X/.test(navigator.userAgent || '');
+    kbdMod.textContent = isMac ? '⌘K' : 'Ctrl K';
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('a[target="_blank"]'), function (a) {
+    if (a.querySelector('.sr-only')) return;
+    var hint = document.createElement('span');
+    hint.className = 'sr-only';
+    hint.textContent = '（在新标签页打开）';
+    a.appendChild(hint);
+  });
 
   function norm(s) {
-    return String(s).toLowerCase()
-      .replace(/[.\-_/]+/g, ' ')
+    s = String(s);
+    if (s.normalize) s = s.normalize('NFKC');
+    return s.toLowerCase()
+      .replace(/[.\-_/&]+/g, ' ')
+      .replace(/[，、；：！？（）【】「」《》〈〉…·]/g, ' ')
+      .replace(/[,;:!?()\[\]{}"'`]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -144,12 +173,29 @@
   links.forEach(function (a) {
     var name = a.querySelector('.link-title');
     var hint = a.querySelector('.link-domain');
+    var group = a.closest('[data-group]');
+    var groupTitle = group ? group.querySelector('.group-title') : null;
+    var groupSub = group ? group.querySelector('.group-sub') : null;
     a._index = norm([
       name ? name.textContent : '',
       hint ? hint.textContent : '',
+      groupTitle ? groupTitle.textContent : '',
+      groupSub ? groupSub.textContent : '',
       a.dataset.key
     ].join(' '));
+    a._tokens = a._index.split(' ').filter(Boolean);
   });
+
+  function matchesToken(a, token) {
+    if (/^[\x00-\x7F]+$/.test(token)) {
+      for (var i = 0; i < a._tokens.length; i++) {
+        var word = a._tokens[i];
+        if (word.indexOf(token) === 0 || (token.length >= 3 && word.indexOf(token) !== -1)) return true;
+      }
+      return false;
+    }
+    return a._index.indexOf(token) !== -1;
+  }
 
   function visibleLinks() {
     return links.filter(function (a) { return !a.closest('li').hidden; });
@@ -162,18 +208,26 @@
 
     if (i >= 0 && vis[i]) {
       vis[i].classList.add('is-active');
-      vis[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      vis[i].scrollIntoView({
+        block: 'nearest',
+        behavior: reduceMotion && reduceMotion.matches ? 'auto' : 'smooth'
+      });
+      if (statusEl) {
+        var title = vis[i].querySelector('.link-title');
+        statusEl.textContent = (title ? title.textContent : '') + '，' + (i + 1) + ' / ' + vis.length;
+      }
     }
   }
 
   function filter() {
     var tokens = norm(input.value).split(' ').filter(Boolean);
     var shown = 0;
+    var revealed = [];
 
     groups.forEach(function (group) {
       var n = 0;
       Array.prototype.forEach.call(group.querySelectorAll('[data-key]'), function (a) {
-        var hit = tokens.every(function (t) { return a._index.indexOf(t) !== -1; });
+        var hit = tokens.every(function (t) { return matchesToken(a, t); });
         var li = a.closest('li');
         var wasHidden = li.hidden;
         li.hidden = !hit;
@@ -181,9 +235,7 @@
           n++;
           if (wasHidden) {
             li.classList.remove('is-revealed');
-            void li.offsetWidth;
-            li.classList.add('is-revealed');
-            window.setTimeout(function () { li.classList.remove('is-revealed'); }, 240);
+            revealed.push(li);
           }
         }
       });
@@ -191,16 +243,39 @@
       shown += n;
     });
 
+    if (revealed.length) {
+      raf(function () {
+        revealed.forEach(function (li) {
+          li.classList.add('is-revealed');
+          window.setTimeout(function () { li.classList.remove('is-revealed'); }, 240);
+        });
+      });
+    }
+
     if (clearEl) clearEl.hidden = !input.value;
     countEl.textContent = String(shown).padStart(2, '0');
+    if (countBadge) countBadge.classList.toggle('is-all', shown === total);
     emptyEl.hidden = shown !== 0;
     statusEl.textContent = shown === 0
       ? '没有匹配的入口'
       : shown + ' 个入口，共 ' + total + ' 个';
+    updateResumeVisibility();
     setActive(-1);
   }
 
-  input.addEventListener('input', filter);
+  function updateResumeVisibility() {
+    if (!resumeCard) return;
+    resumeCard.hidden = !resumeAvailable || !!input.value.trim();
+  }
+
+  input.addEventListener('compositionstart', function () { composing = true; });
+  input.addEventListener('compositionend', function () {
+    composing = false;
+    filter();
+  });
+  input.addEventListener('input', function (e) {
+    if (!composing && !e.isComposing) filter();
+  });
   if (clearEl) {
     clearEl.addEventListener('click', function () {
       input.value = '';
@@ -238,15 +313,6 @@
       return;
     }
 
-    // 空格键在非输入态下快速播放/暂停音频
-    if (e.key === ' ' && !isInputActive && !/^(BUTTON|A)$/.test(tag)) {
-      e.preventDefault();
-      if (playlist.length) {
-        if (audio.paused) safePlay(); else audio.pause();
-      }
-      return;
-    }
-
     if (e.isComposing || e.keyCode === 229) return;
 
     if (e.key === 'Escape' && document.activeElement === input) {
@@ -277,6 +343,60 @@
     }
   });
 
+  /* ---------------- 继续阅读 ---------------- */
+
+  function initResume() {
+    if (!resumeCard || !window.ReaderStore) return;
+    var raw;
+    try {
+      raw = JSON.parse(localStorage.getItem('dengxia.progress.v1') || 'null');
+    } catch (e) {
+      return;
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+
+    var entries = Object.keys(raw).map(function (id) {
+      var p = raw[id];
+      if (!p || typeof p.updatedAt !== 'number' || typeof p.chapter !== 'number' || p.chapter < 0) return null;
+      return {
+        id: id,
+        chapter: Math.floor(p.chapter),
+        ratio: Math.max(0, Math.min(1, Number(p.ratio) || 0)),
+        updatedAt: p.updatedAt,
+        chapterTitle: typeof p.chapterTitle === 'string' ? p.chapterTitle : ''
+      };
+    }).filter(Boolean).sort(function (a, b) {
+      return b.updatedAt - a.updatedAt;
+    }).slice(0, 5);
+
+    if (!entries.length) return;
+
+    var index = 0;
+    function tryNext() {
+      if (index >= entries.length) return;
+      var entry = entries[index++];
+      Promise.resolve(window.ReaderStore.get(entry.id)).then(function (book) {
+        if (!book || typeof book.title !== 'string' || !book.title) {
+          tryNext();
+          return;
+        }
+        var total = Number(book.chapterCount) || 0;
+        var percent = total > 0 ? ((entry.chapter + entry.ratio) / total) * 100 : 0;
+        percent = Math.max(0, Math.min(100, percent));
+        var label = entry.chapterTitle || ('第 ' + (entry.chapter + 1) + ' 章');
+        var rounded = Math.round(percent);
+
+        resumeTitle.textContent = book.title;
+        resumeMeta.textContent = label + ' · ' + rounded + '%';
+        resumeFill.style.width = percent.toFixed(1) + '%';
+        resumeCard.href = 'reader/index.html#/read/' + encodeURIComponent(entry.id) + '/' + entry.chapter;
+        resumeAvailable = true;
+        updateResumeVisibility();
+      }).catch(tryNext);
+    }
+    tryNext();
+  }
+
   /* ---------------- 音乐播放机体 ---------------- */
 
   var audio = $('#audio');
@@ -287,7 +407,11 @@
   var modeBtn = $('#modeBtn');
   var volBtn = $('#volBtn');
   var volRange = $('#volRange');
+  var volMuteBtn = $('#volMuteBtn');
+  var volPopover = $('#volPopover');
+  var volWrap = volBtn ? volBtn.closest('.deck-vol-wrap') : null;
   var trackListBtn = $('#trackListBtn');
+  var deckExpandBtn = $('#deckExpandBtn');
   var deckPlaylist = $('#deckPlaylist');
   var deckPlaylistClose = $('#deckPlaylistClose');
   var deckPlaylistItems = $('#deckPlaylistItems');
@@ -310,6 +434,9 @@
   var dragging = false;
   var pendingSeek = 0;
   var saveTimer = 0;
+  var errorStreak = 0;
+  var autoplayOnLoad = false;
+  var errorTimer = 0;
 
   var playMode = 'loop'; // 'loop' | 'single' | 'shuffle'
   try {
@@ -345,6 +472,17 @@
   }
   applyMode(playMode, false);
 
+  /* 手机端折叠/展开播放器 */
+  if (deckExpandBtn) {
+    deckExpandBtn.addEventListener('click', function () {
+      var open = trackEl.classList.toggle('is-expanded');
+      deckExpandBtn.setAttribute('aria-expanded', String(open));
+      deckExpandBtn.setAttribute('aria-label', open ? '收起播放控制' : '展开播放控制');
+      deckExpandBtn.title = open ? '收起播放控制' : '展开播放控制';
+      if (!open) setVolOpen(false);
+    });
+  }
+
   /* 音量与静音控制 */
   var savedVol = 0.8;
   try {
@@ -353,6 +491,12 @@
   } catch (e) {}
   if (isNaN(savedVol) || savedVol < 0 || savedVol > 1) savedVol = 0.8;
   var lastNonZeroVol = savedVol > 0 ? savedVol : 0.8;
+
+  function setVolOpen(open) {
+    if (!volPopover || !volBtn) return;
+    volPopover.classList.toggle('is-open', !!open);
+    volBtn.setAttribute('aria-expanded', String(!!open));
+  }
 
   function applyVolume(vol, remember) {
     vol = Math.max(0, Math.min(1, vol));
@@ -373,8 +517,16 @@
     if (iconMute) iconMute.hidden = vol > 0;
 
     if (volBtn) {
-      volBtn.setAttribute('aria-label', vol === 0 ? '已静音，点击恢复' : '音量：' + Math.round(vol * 100) + '%');
-      volBtn.title = vol === 0 ? '已静音 (点击恢复音量)' : '音量：' + Math.round(vol * 100) + '% (点击静音)';
+      var level = Math.round(vol * 100);
+      var status = vol === 0 ? '已静音' : '音量：' + level + '%';
+      volBtn.setAttribute('aria-label', status + '，点击打开音量控制');
+      volBtn.title = status + '，点击打开音量控制';
+    }
+    if (volMuteBtn) {
+      var muted = vol === 0;
+      volMuteBtn.textContent = muted ? '恢复' : '静音';
+      volMuteBtn.setAttribute('aria-label', muted ? '恢复音量' : '静音');
+      volMuteBtn.classList.toggle('is-muted', muted);
     }
     if (remember) {
       try { localStorage.setItem(STORE_VOL_KEY, String(vol)); } catch (e) {}
@@ -389,6 +541,12 @@
 
   if (volBtn) {
     volBtn.addEventListener('click', function () {
+      setVolOpen(!(volPopover && volPopover.classList.contains('is-open')));
+    });
+  }
+
+  if (volMuteBtn) {
+    volMuteBtn.addEventListener('click', function () {
       if (audio.volume > 0) {
         applyVolume(0, true);
       } else {
@@ -396,6 +554,28 @@
       }
     });
   }
+
+  document.addEventListener('click', function (e) {
+    if (!volPopover || !volPopover.classList.contains('is-open')) return;
+    if (volWrap && volWrap.contains(e.target)) return;
+    if (volPopover.contains(e.target)) return;
+    setVolOpen(false);
+  });
+
+  document.addEventListener('focusin', function (e) {
+    if (!volPopover || !volPopover.classList.contains('is-open')) return;
+    if (volWrap && volWrap.contains(e.target)) return;
+    if (volPopover.contains(e.target)) return;
+    setVolOpen(false);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !volPopover || !volPopover.classList.contains('is-open')) return;
+    var focusInside = volPopover.contains(document.activeElement) || document.activeElement === volBtn;
+    setVolOpen(false);
+    if (focusInside && volBtn) volBtn.focus();
+  });
+
   applyVolume(savedVol, false);
 
   /* 播放列表抽屉 */
@@ -404,9 +584,11 @@
     deckPlaylistItems.innerHTML = '';
     playlist.forEach(function (t, i) {
       var li = document.createElement('li');
-      li.className = 'deck-playlist-item' + (i === current ? ' is-active' : '');
-      li.setAttribute('role', 'option');
-      li.setAttribute('aria-selected', String(i === current));
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'deck-playlist-item' + (i === current ? ' is-active' : '');
+      btn.setAttribute('aria-current', i === current ? 'true' : 'false');
+      btn.title = t.title + (t.artist ? ' — ' + t.artist : '');
 
       var titleSpan = document.createElement('span');
       titleSpan.className = 'deck-playlist-title';
@@ -416,13 +598,14 @@
       artistSpan.className = 'deck-playlist-artist';
       artistSpan.textContent = t.artist || '';
 
-      li.appendChild(titleSpan);
-      li.appendChild(artistSpan);
+      btn.appendChild(titleSpan);
+      btn.appendChild(artistSpan);
 
-      li.addEventListener('click', function () {
+      btn.addEventListener('click', function () {
         loadTrack(i, true);
         closePlaylist();
       });
+      li.appendChild(btn);
       deckPlaylistItems.appendChild(li);
     });
   }
@@ -432,12 +615,19 @@
     renderPlaylistUI();
     deckPlaylist.hidden = false;
     if (trackListBtn) trackListBtn.setAttribute('aria-expanded', 'true');
+    var activeItem = deckPlaylistItems
+      ? deckPlaylistItems.querySelector('.deck-playlist-item.is-active')
+      : null;
+    if (activeItem) activeItem.focus();
+    else if (deckPlaylistClose) deckPlaylistClose.focus();
   }
 
   function closePlaylist() {
     if (!deckPlaylist) return;
+    var hadFocus = deckPlaylist.contains(document.activeElement);
     deckPlaylist.hidden = true;
     if (trackListBtn) trackListBtn.setAttribute('aria-expanded', 'false');
+    if (hadFocus && trackListBtn) trackListBtn.focus();
   }
 
   if (trackListBtn) {
@@ -450,6 +640,22 @@
   if (deckPlaylistClose) {
     deckPlaylistClose.addEventListener('click', closePlaylist);
   }
+  if (deckPlaylist) {
+    deckPlaylist.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closePlaylist();
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (!deckPlaylist || deckPlaylist.hidden) return;
+    if (deckPlaylist.contains(e.target)) return;
+    if (trackListBtn && trackListBtn.contains(e.target)) return;
+    closePlaylist();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && deckPlaylist && !deckPlaylist.hidden) closePlaylist();
+  });
 
   function decodeName(s) {
     try { return decodeURIComponent(s); } catch (e) { return s; }
@@ -514,6 +720,7 @@
           var raw = typeof item === 'string' ? item : (item && item.file) || '';
           if (!raw) return;
           var file = decodeName(raw);
+          if (!AUDIO_RE.test(file)) return;
           var src = MUSIC_DIR + file.split('/').map(encodeURIComponent).join('/');
           out.push(makeTrack(src, file, typeof item === 'string' ? null : item));
         });
@@ -609,15 +816,29 @@
     var t = playlist[current];
     if (!t) return;
     titleEl.textContent = t.title;
+    titleEl.title = t.title;
     artistEl.textContent = t.artist || '本地音频';
+    artistEl.title = t.artist || '';
     trackCountEl.textContent = (current + 1) + ' / ' + playlist.length;
+    if (trackListBtn) {
+      trackListBtn.setAttribute('aria-label', '曲目列表 ' + (current + 1) + ' / ' + playlist.length);
+    }
     durEl.textContent = '--:--';
     curEl.textContent = '0:00';
     seekEl.value = '0';
     seekEl.style.setProperty('--p', '0%');
     seekEl.setAttribute('aria-valuetext', '0:00');
     paintMetadata();
-    if (deckPlaylist && !deckPlaylist.hidden) renderPlaylistUI();
+    if (deckPlaylist && !deckPlaylist.hidden) {
+      var focusInside = deckPlaylist.contains(document.activeElement);
+      renderPlaylistUI();
+      if (focusInside) {
+        var activeItem = deckPlaylistItems
+          ? deckPlaylistItems.querySelector('.deck-playlist-item.is-active')
+          : null;
+        if (activeItem) activeItem.focus();
+      }
+    }
   }
 
   function enableControls(on) {
@@ -628,6 +849,7 @@
     if (modeBtn) modeBtn.disabled = !on;
     if (volBtn) volBtn.disabled = !on;
     if (volRange) volRange.disabled = !on;
+    if (volMuteBtn) volMuteBtn.disabled = !on;
     if (trackListBtn) trackListBtn.disabled = !on;
   }
 
@@ -639,6 +861,11 @@
 
   function loadTrack(index, autoplay, startAt) {
     if (!playlist.length) return;
+    if (errorTimer) {
+      window.clearTimeout(errorTimer);
+      errorTimer = 0;
+    }
+    autoplayOnLoad = !!autoplay;
     current = ((index % playlist.length) + playlist.length) % playlist.length;
     pendingSeek = typeof startAt === 'number' && startAt > 0.5 ? startAt : 0;
     applyTrack();
@@ -656,6 +883,12 @@
 
   prevBtn.addEventListener('click', function () {
     if (!playlist.length) return;
+    if (audio.currentTime > 3) {
+      audio.currentTime = 0;
+      paintTrack();
+      savePosition();
+      return;
+    }
     if (playMode === 'shuffle' && playlist.length > 1) {
       var nextIdx;
       do {
@@ -712,8 +945,14 @@
   });
 
   audio.addEventListener('play', function () { setPlaying(true); });
-  audio.addEventListener('playing', function () { setBuffering(false); });
-  audio.addEventListener('canplay', function () { setBuffering(false); });
+  audio.addEventListener('playing', function () {
+    errorStreak = 0;
+    setBuffering(false);
+  });
+  audio.addEventListener('canplay', function () {
+    errorStreak = 0;
+    setBuffering(false);
+  });
   audio.addEventListener('waiting', function () { setBuffering(true); });
   audio.addEventListener('stalled', function () { setBuffering(true); });
   audio.addEventListener('pause', function () { setPlaying(false); savePosition(); });
@@ -757,8 +996,22 @@
       : code === 4 ? '格式不支持'
       : '无法播放';
 
+    errorStreak += 1;
     setBuffering(false);
     setPlaying(false);
+
+    if (autoplayOnLoad && playlist.length > 1 && errorStreak < playlist.length) {
+      artistEl.textContent = '无法播放，正在切换下一首…';
+      if (window.console) {
+        console.warn('[music] ' + reason + '（code ' + (code || 0) + '），自动跳过：' + audio.src);
+      }
+      errorTimer = window.setTimeout(function () {
+        errorTimer = 0;
+        loadTrack(current + 1, true);
+      }, 1200);
+      return;
+    }
+
     artistEl.textContent = '无法播放 · ' + reason;
     curEl.textContent = '—';
     durEl.textContent = '—';
@@ -785,7 +1038,7 @@
 
   function scheduleSave() {
     if (saveTimer) return;
-    saveTimer = setTimeout(function () { saveTimer = 0; savePosition(); }, 5000);
+    saveTimer = setTimeout(function () { saveTimer = 0; savePosition(); }, 20000);
   }
 
   function readPosition() {
@@ -797,6 +1050,9 @@
   }
 
   window.addEventListener('pagehide', savePosition);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') savePosition();
+  });
 
   function initMediaSession() {
     if (!('mediaSession' in navigator)) return;
@@ -838,6 +1094,7 @@
       titleEl.textContent = '暂无本地音频';
       artistEl.textContent = '可放入 music/ 目录';
       trackCountEl.textContent = '0 / 0';
+      if (trackListBtn) trackListBtn.setAttribute('aria-label', '曲目列表 0 / 0');
       curEl.textContent = '0:00';
       durEl.textContent = '--:--';
       if (window.console) {
@@ -868,6 +1125,16 @@
   }, 1000 - (Date.now() % 1000));
 
   filter();
+  initResume();
   initMediaSession();
   bootMusic();
+
+  if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', function () {
+      try {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      } catch (e) {}
+    });
+  }
 })();
