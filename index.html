@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#e4d7c5" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232a241d'/%3E%3Cpath d='M8 21h16M11 21v-7M16 21V10M21 21v-5' stroke='%23f4ecdf' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <title></title>
+    <link rel="stylesheet" href="./styles/main.css" />
+    <link rel="stylesheet" href="./styles/reader.css?v=flat-reader-2" />
+    <link rel="preload" href="./assets/fonts/KingHwaOldSong.ttf" as="font" type="font/ttf" crossorigin />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/three.webgpu.js",
+          "three/addons/": "./vendor/three/addons/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="scene">
+      <div class="stage" id="stage"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+
+      <div class="add-dock" id="add-dock">
+        <div class="add-menu" id="add-menu" role="menu" aria-hidden="true">
+          <button class="add-menu-item" id="import-epub-btn" type="button" role="menuitem">
+            <span class="add-menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20">
+                <path d="M4.5 3.5h8.5a2 2 0 0 1 2 2v11h-9a1.5 1.5 0 0 1-1.5-1.5v-11.5Z" />
+                <path d="M4.5 14h10.5M10 6.5v5M7.8 9.2 10 11.5l2.2-2.3" />
+              </svg>
+            </span>
+            <span class="add-menu-text">
+              <strong id="import-epub-title"></strong>
+              <small id="import-epub-hint"></small>
+            </span>
+          </button>
+        </div>
+
+        <input
+          id="epub-input"
+          type="file"
+          accept=".epub,application/epub+zip"
+          multiple
+          hidden
+        />
+
+        <button
+          class="add-book"
+          id="add-book"
+          type="button"
+          aria-expanded="false"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 4v12M4 10h12" />
+          </svg>
+        </button>
+      </div>
+    </main>
+
+    <div class="curtain" id="curtain" aria-hidden="true"></div>
+
+    <script type="module" src="./src/scene.js?v=flat-reader-2"></script>
+  </body>
+</html>
