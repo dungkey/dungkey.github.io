@@ -1,11 +1,13 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-shell-v20261028';
+const CACHE_NAME = 'workbench-shell-v20261113';
 const BASE = new URL('./', self.location.href);
 
 const SHELL = [
   './',
   './index.html',
+  './assets/tokens.css',
+  './assets/ambient-gl.js',
   './styles.css?v=20261028',
   './app.js?v=20261028',
   './reader/store.js',
@@ -36,7 +38,7 @@ function staleWhileRevalidate(request) {
           cache.put(request, response.clone());
         }
         return response;
-      });
+      }).catch(() => cached);
       return cached || networkFetch;
     })
   );

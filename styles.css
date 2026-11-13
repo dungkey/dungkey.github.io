@@ -149,13 +149,6 @@ h1 {
   color: var(--ink);
 }
 
-.motto {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--ink-dim);
-}
-
 /* 极简透气时钟：告别笨重框套 */
 .clock-section {
   padding-left: 2px;
@@ -1312,7 +1305,7 @@ html.is-theme-switching .theme-toggle-wrap {
 
 /* ---------- 站点页脚 ---------- */
 .site-foot {
-  grid-column: 1 / -1;
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1417,9 +1410,6 @@ html.is-theme-switching .theme-toggle-wrap {
   .brand-badge {
     padding: 2px 7px;
     font-size: 11px;
-  }
-  .motto {
-    display: none;
   }
   h1 {
     font-size: 23px;
@@ -1549,6 +1539,7 @@ html.is-theme-switching .theme-toggle-wrap {
     min-height: 40px;
   }
   .site-foot {
+    grid-column: 1;
     gap: 12px;
     font-size: 12px;
   }
@@ -1563,4 +1554,51 @@ html.is-theme-switching .theme-toggle-wrap {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+
+/* ---------- 精密微交互与对齐优化 ---------- */
+
+.clock-digits,
+.seek-time,
+.group-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.card,
+.panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.card::after,
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    var(--accent-wash),
+    transparent 70%
+  );
+}
+
+.card:hover::after,
+.panel:hover::after {
+  opacity: 1;
+}
+
+:root[data-theme="light"] .seek::-webkit-slider-thumb,
+:root[data-theme="light"] .vol-range::-webkit-slider-thumb {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+}
+
+:root[data-theme="light"] .seek::-moz-range-thumb,
+:root[data-theme="light"] .vol-range::-moz-range-thumb {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
 }

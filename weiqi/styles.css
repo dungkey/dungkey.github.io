@@ -476,6 +476,13 @@ button:focus-visible {
   backdrop-filter: blur(12px);
 }
 
+:root[data-theme="dark"] .panel {
+  background: var(--surface);
+  box-shadow:
+    var(--shadow-md),
+    var(--line-inset);
+}
+
 .panel-title {
   display: flex;
   align-items: flex-start;
