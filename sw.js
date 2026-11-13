@@ -6,7 +6,7 @@ const BASE = new URL('./', self.location.href);
 const SHELL = [
   './',
   './index.html',
-  './assets/tokens.css',
+  './assets/tokens.css?v=20261113',
   './assets/ambient-gl.js',
   './styles.css?v=20261028',
   './app.js?v=20261028',
