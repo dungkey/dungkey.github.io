@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f2ecdf">
+  <meta name="theme-color" content="#f2ecdf" id="themeColor">
   <meta name="description" content="五路与六路网页围棋，支持对弈与复盘分析。">
   <title>围棋 · 工作台</title>
   <link rel="canonical" href="https://dungkey.github.io/weiqi/">
@@ -23,6 +23,22 @@
   <meta name="twitter:description" content="5×5 / 6×6 网页围棋，MCTS AI 对弈与逐手复盘分析。">
   <meta name="twitter:image" content="https://dungkey.github.io/og.png">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b1482e'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23fff7eb'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%231e2a23'/%3E%3C/svg%3E">
+  <script>
+    (function () {
+      var mode = 'auto';
+      try {
+        var saved = localStorage.getItem('desk-theme');
+        if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
+      } catch (e) {}
+      var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+      document.documentElement.setAttribute('data-theme-mode', mode);
+      document.documentElement.setAttribute('data-theme', resolved);
+      var meta = document.getElementById('themeColor');
+      if (meta) meta.setAttribute('content', resolved === 'dark' ? '#090a0d' : '#f2ecdf');
+    })();
+  </script>
+  <link rel="stylesheet" href="../assets/tokens.css?v=20261113">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>

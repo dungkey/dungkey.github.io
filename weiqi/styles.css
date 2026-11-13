@@ -17,6 +17,25 @@
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
+:root[data-theme="dark"] {
+  --paper: var(--bg, #090a0d);
+  --paper-deep: var(--surface, #15181f);
+  --ink: #f2f4f8;
+  --ink-soft: #9aa2b2;
+  --ink-faint: #7f889a;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-strong: rgba(255, 255, 255, 0.24);
+  --jade-soft: rgba(61, 95, 80, 0.22);
+  --ivory: #15181f;
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] body {
+  background-image:
+    radial-gradient(ellipse at 12% -8%, rgba(245, 158, 11, 0.06), transparent 45%),
+    radial-gradient(ellipse at 96% 34%, rgba(61, 95, 80, 0.08), transparent 38%);
+}
+
 *,
 *::before,
 *::after {
