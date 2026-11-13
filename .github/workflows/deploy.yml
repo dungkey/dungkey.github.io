@@ -1,6 +1,6 @@
 on:
   push:
-    branches: ["main", "bookshelf"]
+    branches: ["bookshelf"]
   workflow_dispatch:
 
 permissions:
@@ -20,9 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare static site artifact
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r src styles assets vendor _site/
+          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
       - id: deployment
         uses: actions/deploy-pages@v4

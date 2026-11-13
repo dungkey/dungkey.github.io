@@ -1,6 +1,9 @@
-const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+export const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
-const FALLBACK_PALETTES = [
+export const SERIF_FONT =
+  '"KingHwa_OldSong", "京華老宋体", "KingHwaOldSong", "Songti SC", "Noto Serif SC", "STSong", "Baskerville", Georgia, serif';
+
+export const FALLBACK_PALETTES = [
   { cloth: '#4f5b49', dark: '#35412f', sheen: '#c9d5b4' },
   { cloth: '#7a3f35', dark: '#57271f', sheen: '#e3b9a5' },
   { cloth: '#33465d', dark: '#202d40', sheen: '#b8c9de' },
@@ -11,12 +14,11 @@ const FALLBACK_PALETTES = [
 
 export function computeBookThickness(pages) {
   const safePages = clamp(Number(pages) || 260, 40, 1600);
-  
   return Number(clamp(0.075 + Math.pow(safePages / 280, 0.78) * 0.125, 0.09, 0.42).toFixed(3));
 }
 
 function normalizeZipPath(path) {
-  const parts = path.replace(/\\/g, '/').split('/');
+  const parts = String(path || '').replace(/\\/g, '/').split('/');
   const out = [];
   for (const part of parts) {
     if (!part || part === '.') continue;
@@ -28,9 +30,12 @@ function normalizeZipPath(path) {
 
 function resolveRelativePath(baseFilePath, relativeHref) {
   if (!relativeHref) return '';
-  const cleanHref = decodeURIComponent(relativeHref.split('#')[0].split('?')[0]);
+  let cleanHref = relativeHref.split('#')[0].split('?')[0];
+  try {
+    cleanHref = decodeURIComponent(cleanHref);
+  } catch {}
   const baseParts = normalizeZipPath(baseFilePath).split('/');
-  baseParts.pop(); 
+  baseParts.pop();
   return normalizeZipPath([...baseParts, cleanHref].join('/'));
 }
 
@@ -39,6 +44,7 @@ export function parseZipDirectory(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
   const decoder = new TextDecoder('utf-8');
 
+  // ZIP EOCD 签名 0x06054b50，最小长度 22 字节，注释最长 65535 字节
   const minEocdOffset = Math.max(0, bytes.length - 65557);
   let eocdOffset = -1;
   for (let i = bytes.length - 22; i >= minEocdOffset; i--) {
@@ -48,7 +54,7 @@ export function parseZipDirectory(arrayBuffer) {
     }
   }
   if (eocdOffset === -1) {
-    throw new Error();
+    throw new Error('无效的 EPUB 文件（未找到 ZIP 目录尾记录）');
   }
 
   const totalEntries = view.getUint16(eocdOffset + 10, true);
@@ -58,9 +64,9 @@ export function parseZipDirectory(arrayBuffer) {
   const entriesLower = new Map();
   let ptr = centralDirOffset;
 
+  // 中央目录项签名 0x02014b50，固定头长 46 字节
   for (let i = 0; i < totalEntries && ptr + 46 <= bytes.length; i++) {
-    const sig = view.getUint32(ptr, true);
-    if (sig !== 0x02014b50) break;
+    if (view.getUint32(ptr, true) !== 0x02014b50) break;
 
     const compressionMethod = view.getUint16(ptr + 10, true);
     const compressedSize = view.getUint32(ptr + 20, true);
@@ -72,7 +78,6 @@ export function parseZipDirectory(arrayBuffer) {
 
     const rawName = decoder.decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
     const name = normalizeZipPath(rawName);
-
     const entry = {
       name,
       compressionMethod,
@@ -83,7 +88,6 @@ export function parseZipDirectory(arrayBuffer) {
 
     entries.set(name, entry);
     entriesLower.set(name.toLowerCase(), entry);
-
     ptr += 46 + nameLen + extraLen + commentLen;
   }
 
@@ -95,6 +99,7 @@ export function parseZipDirectory(arrayBuffer) {
         : entryOrPath;
     if (!entry) return null;
 
+    // 本地文件头签名 0x04034b50，固定头长 30 字节
     const localOffset = entry.localHeaderOffset;
     if (localOffset + 30 > bytes.length) return null;
     if (view.getUint32(localOffset, true) !== 0x04034b50) return null;
@@ -102,11 +107,10 @@ export function parseZipDirectory(arrayBuffer) {
     const localNameLen = view.getUint16(localOffset + 26, true);
     const localExtraLen = view.getUint16(localOffset + 28, true);
     const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+    if (dataStart + entry.compressedSize > bytes.length) return null;
     const compressed = bytes.subarray(dataStart, dataStart + entry.compressedSize);
 
-    if (entry.compressionMethod === 0) {
-      return compressed;
-    }
+    if (entry.compressionMethod === 0) return compressed;
 
     if (entry.compressionMethod === 8) {
       const ds = new DecompressionStream('deflate-raw');
@@ -127,8 +131,7 @@ export function parseZipDirectory(arrayBuffer) {
           }
         }
       } catch {
-        
-        if (totalLen === 0) return null;
+        return null;
       }
 
       const out = new Uint8Array(totalLen);
@@ -145,9 +148,8 @@ export function parseZipDirectory(arrayBuffer) {
 
   const textCache = new Map();
   async function extractText(entryOrPath) {
-    const rawName = typeof entryOrPath === 'string'
-      ? normalizeZipPath(entryOrPath)
-      : (entryOrPath?.name || '');
+    const rawName =
+      typeof entryOrPath === 'string' ? normalizeZipPath(entryOrPath) : entryOrPath?.name || '';
     const key = rawName.toLowerCase();
     if (textCache.has(key)) return textCache.get(key);
     const data = await extractBytes(entryOrPath);
@@ -171,50 +173,15 @@ function parseXml(xmlText) {
 function findFirstText(doc, selectors) {
   for (const sel of selectors) {
     const el = doc.querySelector(sel);
-    if (el && el.textContent && el.textContent.trim()) {
-      return el.textContent.trim();
-    }
+    if (el?.textContent?.trim()) return el.textContent.trim();
   }
-  const all = doc.getElementsByTagName('*');
-  for (const el of all) {
+  for (const el of doc.getElementsByTagName('*')) {
     const local = (el.localName || el.tagName || '').toLowerCase();
-    if (selectors.includes(local) && el.textContent && el.textContent.trim()) {
+    if (selectors.includes(local) && el.textContent?.trim()) {
       return el.textContent.trim();
     }
   }
   return '';
-}
-
-function estimatePagesFromHtmlTexts(htmlTexts, totalUncompressedBytes, imageCount) {
-  let cjkChars = 0;
-  let otherChars = 0;
-
-  for (const html of htmlTexts) {
-    const text = html
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&[a-zA-Z0-9#]+;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    for (let i = 0; i < text.length; i++) {
-      const code = text.charCodeAt(i);
-      if (code >= 0x2e80 && code <= 0x9fff) {
-        cjkChars++;
-      } else if (code > 32) {
-        otherChars++;
-      }
-    }
-  }
-
-  const effectiveChars = cjkChars + otherChars * 0.42;
-  const textPages = Math.round(effectiveChars / 620);
-  const byteEstimatePages = Math.round(totalUncompressedBytes / 2100);
-  const imagePages = Math.round(imageCount * 0.65);
-
-  const rawPages = Math.max(textPages + imagePages * 0.35, byteEstimatePages * 0.6, imagePages);
-  return clamp(Math.round(rawPages) || 180, 45, 1500);
 }
 
 function hashString(str) {
@@ -241,8 +208,8 @@ function extractPaletteFromCanvas(canvas, fallbackIndex = 0) {
     let gSum = 0;
     let bSum = 0;
     let weightSum = 0;
-
     const step = 6 * 4;
+
     for (let i = 0; i < data.length; i += step) {
       const pixelIndex = i >> 2;
       const x = pixelIndex % width;
@@ -255,7 +222,6 @@ function extractPaletteFromCanvas(canvas, fallbackIndex = 0) {
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-      
       if (luma > 240 || luma < 14) continue;
 
       const sat = max > 0 ? (max - min) / max : 0;
@@ -272,19 +238,19 @@ function extractPaletteFromCanvas(canvas, fallbackIndex = 0) {
       return FALLBACK_PALETTES[fallbackIndex % FALLBACK_PALETTES.length];
     }
 
-    let r = (rSum / weightSum) * 0.72 + 22;
-    let g = (gSum / weightSum) * 0.72 + 20;
-    let b = (bSum / weightSum) * 0.72 + 18;
+    const r = (rSum / weightSum) * 0.72 + 22;
+    const g = (gSum / weightSum) * 0.72 + 20;
+    const b = (bSum / weightSum) * 0.72 + 18;
 
-    const cloth = rgbToHex(r, g, b);
-    const dark = rgbToHex(r * 0.68, g * 0.68, b * 0.68);
-    const sheen = rgbToHex(
-      Math.min(255, r * 1.45 + 55),
-      Math.min(255, g * 1.42 + 50),
-      Math.min(255, b * 1.38 + 45)
-    );
-
-    return { cloth, dark, sheen };
+    return {
+      cloth: rgbToHex(r, g, b),
+      dark: rgbToHex(r * 0.68, g * 0.68, b * 0.68),
+      sheen: rgbToHex(
+        Math.min(255, r * 1.45 + 55),
+        Math.min(255, g * 1.42 + 50),
+        Math.min(255, b * 1.38 + 45)
+      ),
+    };
   } catch {
     return FALLBACK_PALETTES[fallbackIndex % FALLBACK_PALETTES.length];
   }
@@ -305,13 +271,26 @@ function wrapLines(ctx, text, maxWidth, maxLines = 3) {
       current = test;
     }
   }
-  if (current && lines.length < maxLines) {
-    lines.push(current);
-  }
+  if (current && lines.length < maxLines) lines.push(current);
   if (lines.length === maxLines && chars.length > lines.join('').length) {
     lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + '…';
   }
   return lines;
+}
+
+function addBookbindingOverlay(ctx, w, h) {
+  const groove = ctx.createLinearGradient(0, 0, 28, 0);
+  groove.addColorStop(0, 'rgba(15, 10, 6, 0.36)');
+  groove.addColorStop(0.45, 'rgba(15, 10, 6, 0.06)');
+  groove.addColorStop(0.65, 'rgba(255, 248, 235, 0.08)');
+  groove.addColorStop(0.85, 'rgba(15, 10, 6, 0.14)');
+  groove.addColorStop(1, 'rgba(15, 10, 6, 0)');
+  ctx.fillStyle = groove;
+  ctx.fillRect(0, 0, 28, h);
+
+  ctx.strokeStyle = 'rgba(255, 245, 228, 0.12)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, w - 2, h - 2);
 }
 
 function renderGeneratedCoverCanvas(title, author, palette) {
@@ -348,43 +327,25 @@ function renderGeneratedCoverCanvas(title, author, palette) {
   ctx.fillStyle = '#2a221b';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '600 26px "KingHwa_OldSong", "京華老宋体", "Songti SC", "Noto Serif SC", "STSong", Georgia, serif';
+  ctx.font = `600 26px ${SERIF_FONT}`;
 
   const lines = wrapLines(ctx, title || '', labelW - 36, 3);
   const lineHeight = 36;
   const startY = labelY + labelH * 0.42 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, w / 2, startY + i * lineHeight);
-  });
+  lines.forEach((line, i) => ctx.fillText(line, w / 2, startY + i * lineHeight));
 
   ctx.fillStyle = '#b99352';
   ctx.fillRect(w / 2 - 42, labelY + labelH - 64, 84, 2);
 
   if (author) {
     ctx.fillStyle = '#5a4b3c';
-    ctx.font = '400 15px "KingHwa_OldSong", "京華老宋体", "Songti SC", "Noto Serif SC", Georgia, serif';
+    ctx.font = `400 15px ${SERIF_FONT}`;
     const authorLines = wrapLines(ctx, author, labelW - 40, 1);
     ctx.fillText(authorLines[0], w / 2, labelY + labelH - 34);
   }
 
   addBookbindingOverlay(ctx, w, h);
   return canvas;
-}
-
-function addBookbindingOverlay(ctx, w, h) {
-  
-  const groove = ctx.createLinearGradient(0, 0, 28, 0);
-  groove.addColorStop(0, 'rgba(15, 10, 6, 0.36)');
-  groove.addColorStop(0.45, 'rgba(15, 10, 6, 0.06)');
-  groove.addColorStop(0.65, 'rgba(255, 248, 235, 0.08)');
-  groove.addColorStop(0.85, 'rgba(15, 10, 6, 0.14)');
-  groove.addColorStop(1, 'rgba(15, 10, 6, 0)');
-  ctx.fillStyle = groove;
-  ctx.fillRect(0, 0, 28, h);
-
-  ctx.strokeStyle = 'rgba(255, 245, 228, 0.12)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, w - 2, h - 2);
 }
 
 async function decodeImageFromBytes(bytes, mimeType = 'image/jpeg') {
@@ -405,23 +366,31 @@ async function decodeImageFromBytes(bytes, mimeType = 'image/jpeg') {
 }
 
 async function readTocMap(zip, tocPath, isNav) {
-  const map = new Map();
-  if (!tocPath) return map;
+  const byPath = new Map();
+  if (!tocPath) return byPath;
   const xml = await zip.extractText(tocPath);
-  if (!xml) return map;
+  if (!xml) return byPath;
 
   const localName = (el) => (el?.localName || el?.tagName || '').toLowerCase();
   const childEls = (el, name) => Array.from(el?.children || []).filter((c) => localName(c) === name);
 
   const add = (href, label, level) => {
-    const path = resolveRelativePath(tocPath, href || '');
+    if (!href) return;
+    const [rawPart, rawFrag] = href.split('#');
+    const path = resolveRelativePath(tocPath, rawPart || '');
     const clean = String(label || '').replace(/\s+/g, ' ').trim();
-    if (!path || !clean || map.has(path.toLowerCase())) return;
-    map.set(path.toLowerCase(), { label: clean, level: clamp(Number(level) || 0, 0, 2) });
+    if (!path || !clean) return;
+    const key = path.toLowerCase();
+    let frag = rawFrag || '';
+    try {
+      frag = decodeURIComponent(frag);
+    } catch {}
+    const list = byPath.get(key) || [];
+    list.push({ label: clean, level: clamp(Number(level) || 0, 0, 2), fragment: frag });
+    byPath.set(key, list);
   };
 
   if (isNav || /<nav[\s>]/i.test(xml)) {
-    
     const doc = new DOMParser().parseFromString(xml, 'text/html');
     const navs = Array.from(doc.querySelectorAll('nav'));
     const nav =
@@ -444,16 +413,25 @@ async function readTocMap(zip, tocPath, isNav) {
     if (topOl) walk(topOl, 0);
     else for (const a of root.querySelectorAll('a[href]')) add(a.getAttribute('href'), a.textContent, 0);
   } else {
-    
     const doc = parseXml(xml);
     for (const el of Array.from(doc.getElementsByTagName('*'))) {
       if (localName(el) !== 'navpoint') continue;
       let label = '';
       let src = '';
-      for (const child of Array.from(el.getElementsByTagName('*'))) {
-        const name = localName(child);
-        if (!label && name === 'text') label = child.textContent;
-        if (!src && name === 'content') src = child.getAttribute('src') || '';
+      for (const child of Array.from(el.children || [])) {
+        const cname = localName(child);
+        if (cname === 'navlabel') {
+          label = child.textContent || '';
+        } else if (cname === 'content') {
+          src = child.getAttribute('src') || '';
+        }
+      }
+      if (!label || !src) {
+        for (const child of Array.from(el.getElementsByTagName('*'))) {
+          const name = localName(child);
+          if (!label && name === 'text') label = child.textContent;
+          if (!src && name === 'content') src = child.getAttribute('src') || '';
+        }
       }
       let level = 0;
       let parent = el.parentElement;
@@ -465,7 +443,126 @@ async function readTocMap(zip, tocPath, isNav) {
     }
   }
 
-  return map;
+  return byPath;
+}
+
+const BLOCK_TAGS = new Set([
+  'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'blockquote', 'li', 'section', 'article', 'dt', 'dd',
+  'pre', 'header', 'footer', 'aside', 'main', 'figure', 'figcaption', 'tr',
+]);
+
+const INLINE_FORMAT_TAGS = new Set(['em', 'i', 'strong', 'b']);
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+export function stripHtml(str) {
+  return String(str || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function normalizeHeadingCompare(str) {
+  return stripHtml(str)
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
+    .toLowerCase();
+}
+
+function extractSectionsFromBody(body, tocItems) {
+  const fragmentMap = new Map();
+  if (tocItems && tocItems.length > 0) {
+    for (const item of tocItems) {
+      if (item.fragment && !fragmentMap.has(item.fragment)) {
+        fragmentMap.set(item.fragment, item);
+      }
+    }
+  }
+
+  const firstToc = tocItems?.[0] || null;
+  const sections = [
+    {
+      title: firstToc?.label || '',
+      level: firstToc?.level || 0,
+      inToc: Boolean(firstToc),
+      paragraphs: [],
+    },
+  ];
+  let currentSection = sections[0];
+  let inlineBuf = '';
+
+  const flush = () => {
+    const raw = inlineBuf.trim();
+    inlineBuf = '';
+    if (!raw) return;
+    const lines = raw.split('\n');
+    for (const line of lines) {
+      const clean = stripHtml(line).trim();
+      if (clean.length > 0) {
+        currentSection.paragraphs.push(line.trim());
+      }
+    }
+  };
+
+  const walk = (node) => {
+    if (!node) return;
+    if (node.nodeType === 3) {
+      const text = node.nodeValue.replace(/[\t\r\n ]+/g, ' ');
+      inlineBuf += escapeHtml(text);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+
+    const id = node.getAttribute('id') || node.getAttribute('name') || '';
+    if (id && fragmentMap.has(id)) {
+      const matchedToc = fragmentMap.get(id);
+      fragmentMap.delete(id);
+      flush();
+      if (currentSection.paragraphs.length > 0 || (currentSection.title && currentSection.title !== matchedToc.label)) {
+        currentSection = {
+          title: matchedToc.label,
+          level: matchedToc.level,
+          inToc: true,
+          paragraphs: [],
+        };
+        sections.push(currentSection);
+      } else {
+        currentSection.title = matchedToc.label;
+        currentSection.level = matchedToc.level;
+        currentSection.inToc = true;
+      }
+    }
+
+    const tag = (node.localName || node.tagName || '').toLowerCase();
+    if (tag === 'br' || tag === 'hr') {
+      inlineBuf += '\n';
+      return;
+    }
+
+    const isBlock = BLOCK_TAGS.has(tag);
+    if (isBlock) flush();
+
+    if (INLINE_FORMAT_TAGS.has(tag)) {
+      const outTag = tag === 'i' ? 'em' : tag === 'b' ? 'strong' : tag;
+      inlineBuf += `<${outTag}>`;
+      for (const child of node.childNodes) walk(child);
+      inlineBuf += `</${outTag}>`;
+    } else {
+      for (const child of node.childNodes) walk(child);
+    }
+
+    if (isBlock) flush();
+  };
+
+  walk(body);
+  flush();
+  return sections;
 }
 
 export async function parseEpubFile(file) {
@@ -477,9 +574,7 @@ export async function parseEpubFile(file) {
   if (containerXml) {
     const containerDoc = parseXml(containerXml);
     const rootfile = containerDoc.querySelector('rootfile[full-path]');
-    if (rootfile) {
-      opfPath = normalizeZipPath(rootfile.getAttribute('full-path'));
-    }
+    if (rootfile) opfPath = normalizeZipPath(rootfile.getAttribute('full-path'));
   }
 
   if (!opfPath) {
@@ -491,7 +586,7 @@ export async function parseEpubFile(file) {
     }
   }
 
-  let title = file.name.replace(/\.epub$/i, '').trim() || '';
+  let title = file.name.replace(/\.epub$/i, '').trim() || '未命名书籍';
   let author = '';
   let coverEntryPath = '';
   let coverMime = 'image/jpeg';
@@ -536,26 +631,22 @@ export async function parseEpubFile(file) {
 
       for (const itemref of opfDoc.querySelectorAll('spine > itemref, itemref')) {
         const idref = itemref.getAttribute('idref');
-        if (idref && manifestById.has(idref)) {
-          spineHrefs.push(manifestById.get(idref));
-        }
+        if (idref && manifestById.has(idref)) spineHrefs.push(manifestById.get(idref));
       }
 
       const spineEl = Array.from(opfDoc.getElementsByTagName('*')).find(
         (el) => (el.localName || el.tagName || '').toLowerCase() === 'spine'
       );
       const tocId = spineEl?.getAttribute('toc') || '';
+      const navItem = manifestItems.find((it) => it.properties.split(/\s+/).includes('nav'));
       const ncxItem =
         (tocId && manifestById.get(tocId)) ||
         manifestItems.find((it) => it.mediaType.includes('dtbncx') || /\.ncx$/i.test(it.href));
-      if (ncxItem) {
+      if (navItem) {
+        tocPath = navItem.path;
+        tocIsNav = true;
+      } else if (ncxItem) {
         tocPath = ncxItem.path;
-      } else {
-        const navItem = manifestItems.find((it) => it.properties.split(/\s+/).includes('nav'));
-        if (navItem) {
-          tocPath = navItem.path;
-          tocIsNav = true;
-        }
       }
 
       const epub3Cover = manifestItems.find(
@@ -572,7 +663,7 @@ export async function parseEpubFile(file) {
           const contentAttr = meta.getAttribute('content') || '';
           if (nameAttr === 'cover' && contentAttr) {
             const byId = manifestById.get(contentAttr);
-            if (byId && byId.mediaType.startsWith('image/')) {
+            if (byId?.mediaType.startsWith('image/')) {
               coverEntryPath = byId.path;
               coverMime = byId.mediaType;
               break;
@@ -604,9 +695,7 @@ export async function parseEpubFile(file) {
             }
           }
         }
-        if (spineHrefs.length > 0) {
-          candidateXhtmlPaths.push(spineHrefs[0].path);
-        }
+        if (spineHrefs.length > 0) candidateXhtmlPaths.push(spineHrefs[0].path);
 
         for (const xhtmlPath of candidateXhtmlPaths) {
           if (coverEntryPath) break;
@@ -615,7 +704,7 @@ export async function parseEpubFile(file) {
           const imgMatch =
             xhtml.match(/<img[^>]+src=["']([^"']+)["']/i) ||
             xhtml.match(/<image[^>]+(?:xlink:)?href=["']([^"']+)["']/i);
-          if (imgMatch && imgMatch[1]) {
+          if (imgMatch?.[1]) {
             const imgPath = resolveRelativePath(xhtmlPath, imgMatch[1]);
             if (zip.entries.has(imgPath) || zip.entriesLower.has(imgPath.toLowerCase())) {
               coverEntryPath = imgPath;
@@ -627,9 +716,7 @@ export async function parseEpubFile(file) {
 
       if (!coverEntryPath) {
         const coverLike = manifestItems.find(
-          (it) =>
-            it.mediaType.startsWith('image/') &&
-            (/cover/i.test(it.id) || /cover/i.test(it.href))
+          (it) => it.mediaType.startsWith('image/') && (/cover/i.test(it.id) || /cover/i.test(it.href))
         );
         if (coverLike) {
           coverEntryPath = coverLike.path;
@@ -666,51 +753,10 @@ export async function parseEpubFile(file) {
     }
   }
 
-  let pages = declaredPages;
-  if (!pages) {
-    const htmlEntries =
-      spineHrefs.length > 0
-        ? spineHrefs
-            .map((s) => zip.entries.get(s.path) || zip.entriesLower.get(s.path.toLowerCase()))
-            .filter(Boolean)
-        : Array.from(zip.entries.values()).filter((e) => /\.(x?html?|htm|xml)$/i.test(e.name));
-
-    let totalUncompressedBytes = 0;
-    for (const e of htmlEntries) totalUncompressedBytes += e.uncompressedSize || 0;
-
-    const imageCount = Array.from(zip.entries.values()).filter((e) =>
-      /\.(jpe?g|png|webp|gif)$/i.test(e.name)
-    ).length;
-
-    const sampleEntries = htmlEntries.slice(0, 45);
-    const sampleTexts = [];
-    let sampledBytes = 0;
-    for (const entry of sampleEntries) {
-      const txt = await zip.extractText(entry);
-      if (txt) {
-        sampleTexts.push(txt);
-        sampledBytes += entry.uncompressedSize || txt.length;
-      }
-    }
-
-    const scaleRatio =
-      sampledBytes > 0 && totalUncompressedBytes > sampledBytes
-        ? totalUncompressedBytes / sampledBytes
-        : 1;
-
-    const basePages = estimatePagesFromHtmlTexts(
-      sampleTexts,
-      totalUncompressedBytes,
-      imageCount
-    );
-    pages = clamp(Math.round(basePages * Math.min(scaleRatio, 4)), 45, 1500);
-  }
-
-  const thickness = computeBookThickness(pages);
-
   const fallbackIndex = hashString(title) % FALLBACK_PALETTES.length;
   let coverCanvas = null;
   let palette = FALLBACK_PALETTES[fallbackIndex];
+  let aspect = 0.75;
 
   if (coverEntryPath) {
     const imgBytes = await zip.extractBytes(coverEntryPath);
@@ -721,136 +767,135 @@ export async function parseEpubFile(file) {
         else if (/\.gif$/i.test(coverEntryPath)) coverMime = 'image/gif';
 
         const img = await decodeImageFromBytes(imgBytes, coverMime);
+        const imgW = img.naturalWidth || img.width || 384;
+        const imgH = Math.max(1, img.naturalHeight || img.height || 512);
+        aspect = Number(clamp(imgW / imgH, 0.58, 0.88).toFixed(3));
+
         coverCanvas = document.createElement('canvas');
-        coverCanvas.width = 384;
         coverCanvas.height = 512;
+        coverCanvas.width = Math.round(512 * aspect);
         const ctx = coverCanvas.getContext('2d');
 
-        const targetAspect = coverCanvas.width / coverCanvas.height;
-        const imgAspect = (img.naturalWidth || img.width) / Math.max(1, img.naturalHeight || img.height);
-        let sx = 0;
-        let sy = 0;
-        let sw = img.naturalWidth || img.width;
-        let sh = img.naturalHeight || img.height;
-
-        if (imgAspect > targetAspect) {
-          sw = sh * targetAspect;
-          sx = ((img.naturalWidth || img.width) - sw) * 0.5;
-        } else {
-          sh = sw / targetAspect;
-          sy = ((img.naturalHeight || img.height) - sh) * 0.5;
-        }
-
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, coverCanvas.width, coverCanvas.height);
+        ctx.drawImage(img, 0, 0, coverCanvas.width, coverCanvas.height);
         palette = extractPaletteFromCanvas(coverCanvas, fallbackIndex);
         addBookbindingOverlay(ctx, coverCanvas.width, coverCanvas.height);
       } catch {
         coverCanvas = null;
+        aspect = 0.75;
       }
     }
   }
 
   if (!coverCanvas) {
     coverCanvas = renderGeneratedCoverCanvas(title, author, palette);
+    aspect = 0.75;
   }
 
-  const coverDataUrl = coverCanvas.toDataURL('image/jpeg', 0.84);
+  const coverBlob = await new Promise((resolve) => coverCanvas.toBlob(resolve, 'image/jpeg', 0.84));
+  const coverUrl = coverBlob ? URL.createObjectURL(coverBlob) : coverCanvas.toDataURL('image/jpeg', 0.84);
 
   const chapters = [];
+  let cjkChars = 0;
+  let otherChars = 0;
   const tocByPath = await readTocMap(zip, tocPath, tocIsNav);
-  try {
-    const contentEntries = spineHrefs.length > 0
+
+  const contentEntries =
+    spineHrefs.length > 0
       ? spineHrefs
-          .map((s) => ({ entry: zip.entries.get(s.path) || zip.entriesLower.get(s.path.toLowerCase()), item: s }))
+          .map((s) => ({
+            entry: zip.entries.get(s.path) || zip.entriesLower.get(s.path.toLowerCase()),
+            item: s,
+          }))
           .filter((it) => Boolean(it.entry))
       : Array.from(zip.entries.values())
           .filter((e) => /\.(x?html?|htm|xml)$/i.test(e.name))
           .map((e) => ({ entry: e, item: { path: e.name } }));
 
-    const yieldToUI = () => new Promise((resolve) => setTimeout(resolve, 0));
-    const htmlTexts = new Array(contentEntries.length);
-    const DECODE_BATCH = 8;
-    for (let i = 0; i < contentEntries.length; i += DECODE_BATCH) {
-      const batch = contentEntries.slice(i, i + DECODE_BATCH);
-      const texts = await Promise.all(batch.map(({ entry }) => zip.extractText(entry)));
-      for (let j = 0; j < texts.length; j++) htmlTexts[i + j] = texts[j];
-      if (i > 0 && i % 64 === 0) await yieldToUI();
-    }
+  const yieldToUI = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const htmlTexts = new Array(contentEntries.length);
+  const DECODE_BATCH = 8;
+  for (let i = 0; i < contentEntries.length; i += DECODE_BATCH) {
+    const batch = contentEntries.slice(i, i + DECODE_BATCH);
+    const texts = await Promise.all(batch.map(({ entry }) => zip.extractText(entry)));
+    for (let j = 0; j < texts.length; j++) htmlTexts[i + j] = texts[j];
+    if (i > 0 && i % 64 === 0) await yieldToUI();
+  }
 
-    const parser = new DOMParser();
-    const INNER_BLOCK_SELECTOR =
-      'p, div, h1, h2, h3, h4, h5, h6, blockquote, li, section, article';
+  const parser = new DOMParser();
 
-    for (let idx = 0; idx < contentEntries.length; idx++) {
-      const rawHtml = htmlTexts[idx];
-      if (!rawHtml) continue;
-      const entry = contentEntries[idx].entry;
-      
-      let doc = parser.parseFromString(rawHtml, 'text/html');
-      if (!doc || !doc.body) {
-        doc = parser.parseFromString(rawHtml, 'application/xhtml+xml');
-      }
-      if (!doc || !doc.body) continue;
+  for (let idx = 0; idx < contentEntries.length; idx++) {
+    const rawHtml = htmlTexts[idx];
+    if (!rawHtml) continue;
+    const entry = contentEntries[idx].entry;
 
-      doc.querySelectorAll('script, style, head, svg, nav, [hidden]').forEach((el) => el.remove());
+    let doc = parser.parseFromString(rawHtml, 'text/html');
+    if (!doc?.body) doc = parser.parseFromString(rawHtml, 'application/xhtml+xml');
+    if (!doc?.body) continue;
 
-      const tocInfo = tocByPath.get(normalizeZipPath(entry.name).toLowerCase());
-      let chTitle = tocInfo?.label || findFirstText(doc, ['h1', 'h2', 'h3', 'title']);
+    doc.querySelectorAll('script, style, head, svg, nav, [hidden]').forEach((el) => el.remove());
 
-      doc.querySelectorAll('br, hr').forEach((el) => el.replaceWith('\n'));
+    const tocItems = tocByPath.get(normalizeZipPath(entry.name).toLowerCase()) || null;
+    const domHeading = findFirstText(doc, ['h1', 'h2', 'h3']);
+    const sections = extractSectionsFromBody(doc.body, tocItems);
 
-      const paras = [];
-      
-      const blockNodes = doc.body.querySelectorAll(
-        'h1, h2, h3, h4, h5, h6, p, blockquote, div, section, article, li, dt, dd'
-      );
+    for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+      const sec = sections[sIdx];
+      const paras = sec.paragraphs;
+      if (paras.length === 0) continue;
 
-      if (blockNodes.length > 0) {
-        for (const node of blockNodes) {
+      let chTitle = sec.title || (sIdx === 0 ? domHeading : '');
+      const hasExplicitHeading = Boolean(chTitle);
 
-          if (node.children.length > 0 && node.querySelector(INNER_BLOCK_SELECTOR)) {
-            continue;
-          }
-          const text = (node.textContent || '').trim().replace(/[\t\r ]+/g, ' ');
-          if (text.length > 0) {
-            const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-            paras.push(...lines);
-          }
+      if (chTitle && paras.length > 0) {
+        const firstNorm = normalizeHeadingCompare(paras[0]);
+        const titleNorm = normalizeHeadingCompare(chTitle);
+        if (firstNorm && titleNorm && firstNorm === titleNorm) {
+          paras.shift();
         }
       }
 
-      if (paras.length === 0) {
-        const rawText = (doc.body.innerText || doc.body.textContent || '').trim();
-        if (rawText.length > 0) {
-          const lines = rawText.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-          paras.push(...lines);
+      for (const p of paras) {
+        const plain = stripHtml(p);
+        for (let i = 0; i < plain.length; i++) {
+          const code = plain.charCodeAt(i);
+          if (code >= 0x2e80 && code <= 0x9fff) cjkChars++;
+          else if (code > 32) otherChars++;
         }
       }
 
-      if (paras.length > 0) {
-        if (!chTitle && paras[0].length < 35 && paras.length > 1) {
-          chTitle = paras.shift();
+      if (paras.length === 0 && !chTitle) continue;
+
+      if (!sec.inToc && !hasExplicitHeading && chapters.length > 0) {
+        chapters[chapters.length - 1].paragraphs.push(...paras);
+      } else {
+        if (!chTitle && paras[0] && stripHtml(paras[0]).length < 35 && paras.length > 1) {
+          chTitle = stripHtml(paras.shift());
         }
         chapters.push({
           title: chTitle || '',
-          level: tocInfo?.level || 0,
+          level: sec.level || 0,
+          inToc: Boolean(sec.inToc || hasExplicitHeading),
           paragraphs: paras,
         });
       }
-
-      if ((idx & 15) === 15) await yieldToUI();
     }
-  } catch (err) {
-    console.warn(err);
+
+    if ((idx & 15) === 15) await yieldToUI();
   }
+
+  const effectiveChars = cjkChars + otherChars * 0.45;
+  const pages = declaredPages || clamp(Math.round(effectiveChars / 580) || 180, 45, 1600);
+  const thickness = computeBookThickness(pages);
 
   return {
     title,
     author,
     pages,
     thickness,
+    aspect,
     palette,
-    coverDataUrl,
+    coverBlob,
+    coverUrl,
     chapters,
   };
 }
@@ -874,7 +919,7 @@ function drawVerticalCjkColumn(ctx, text, centerX, topY, bottomY, maxFontSize, w
   const totalH = stepY * chars.length;
   const startY = topY + (availH - totalH) * 0.38 + stepY * 0.5;
 
-  ctx.font = `${weight} ${fontSize}px "KingHwa_OldSong", "京華老宋体", "Songti SC", "Noto Serif SC", "STSong", serif`;
+  ctx.font = `${weight} ${fontSize}px ${SERIF_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -928,10 +973,19 @@ function splitTitleParts(rawTitle) {
   return { main: clean, sub: '' };
 }
 
+function fitTextFont(ctx, text, maxW, maxFont, minFont, weight, family) {
+  let size = maxFont;
+  ctx.font = `${weight} ${size}px ${family}`;
+  while (ctx.measureText(text).width > maxW && size > minFont) {
+    size -= 1;
+    ctx.font = `${weight} ${size}px ${family}`;
+  }
+  return size;
+}
+
 export function renderSpineCanvas({ title, author, palette, thickness = 0.2 }) {
   const t = clamp(Number(thickness) || 0.2, 0.08, 0.45);
   const h = 1024;
-
   const w = Math.max(76, Math.round(h * clamp(t / 1.02, 0.075, 0.45)));
 
   const canvas = document.createElement('canvas');
@@ -956,36 +1010,22 @@ export function renderSpineCanvas({ title, author, palette, thickness = 0.2 }) {
   ctx.fillRect(0, 0, w, h);
 
   const shade = ctx.createLinearGradient(0, 0, w, 0);
-  if (isThin) {
-    shade.addColorStop(0, 'rgba(0, 0, 0, 0.28)');
-    shade.addColorStop(0.15, 'rgba(0, 0, 0, 0.05)');
-    shade.addColorStop(0.5, 'rgba(255, 252, 244, 0.09)');
-    shade.addColorStop(0.85, 'rgba(0, 0, 0, 0.06)');
-    shade.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
-  } else {
-    shade.addColorStop(0, 'rgba(0, 0, 0, 0.48)');
-    shade.addColorStop(0.12, 'rgba(0, 0, 0, 0.12)');
-    shade.addColorStop(0.32, 'rgba(255, 250, 240, 0.09)');
-    shade.addColorStop(0.5, 'rgba(255, 252, 244, 0.16)');
-    shade.addColorStop(0.68, 'rgba(255, 250, 240, 0.07)');
-    shade.addColorStop(0.88, 'rgba(0, 0, 0, 0.14)');
-    shade.addColorStop(1, 'rgba(0, 0, 0, 0.52)');
-  }
+  const stops = isThin
+    ? [[0, 'rgba(0,0,0,0.28)'], [0.15, 'rgba(0,0,0,0.05)'], [0.5, 'rgba(255,252,244,0.09)'], [0.85, 'rgba(0,0,0,0.06)'], [1, 'rgba(0,0,0,0.32)']]
+    : [[0, 'rgba(0,0,0,0.48)'], [0.12, 'rgba(0,0,0,0.12)'], [0.32, 'rgba(255,250,240,0.09)'], [0.5, 'rgba(255,252,244,0.16)'], [0.68, 'rgba(255,250,240,0.07)'], [0.88, 'rgba(0,0,0,0.14)'], [1, 'rgba(0,0,0,0.52)']];
+  for (const [pos, col] of stops) shade.addColorStop(pos, col);
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, w, h);
 
   ctx.fillStyle = 'rgba(255, 248, 232, 0.025)';
-  for (let y = 0; y < h; y += 4) {
-    ctx.fillRect(0, y, w, 1);
-  }
-  for (let x = 0; x < w; x += 4) {
-    ctx.fillRect(x, 0, 1, h);
-  }
+  for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+  for (let x = 0; x < w; x += 4) ctx.fillRect(x, 0, 1, h);
 
   const grooveInset = clamp(Math.round(w * 0.072), isThin ? 4 : 7, 22);
+  const grooveW = Math.max(1, Math.round(w * 0.012));
   ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
-  ctx.fillRect(grooveInset, 0, Math.max(1, Math.round(w * 0.012)), h);
-  ctx.fillRect(w - grooveInset - 1, 0, Math.max(1, Math.round(w * 0.012)), h);
+  ctx.fillRect(grooveInset, 0, grooveW, h);
+  ctx.fillRect(w - grooveInset - 1, 0, grooveW, h);
   ctx.fillStyle = 'rgba(255, 245, 222, 0.07)';
   ctx.fillRect(grooveInset + 2, 0, 1, h);
   ctx.fillRect(w - grooveInset - 3, 0, 1, h);
@@ -1028,7 +1068,6 @@ export function renderSpineCanvas({ title, author, palette, thickness = 0.2 }) {
   let authorBottomY = h - 68;
 
   if (isThin) {
-    
     drawGoldRule(44, 1.8, 0.82);
     drawGoldRule(h - 46, 1.8, 0.82);
     titleTopY = 72;
@@ -1036,47 +1075,31 @@ export function renderSpineCanvas({ title, author, palette, thickness = 0.2 }) {
     authorTopY = h - 195;
     authorBottomY = h - 64;
   } else if (isThick) {
-
     drawGoldRule(42, 2.5, 0.85);
-    const hubY1 = Math.round(h * 0.162);
-    const hubY2 = Math.round(h * 0.334);
-    const hubY3 = Math.round(h * 0.506);
-    const hubY4 = Math.round(h * 0.678);
-    const hubY5 = Math.round(h * 0.850);
-
-    drawRaisedHub(hubY1);
-    drawRaisedHub(hubY2);
-    drawRaisedHub(hubY3);
-    drawRaisedHub(hubY4);
-    drawRaisedHub(hubY5);
+    const hubs = [0.162, 0.334, 0.506, 0.678, 0.85].map((r) => Math.round(h * r));
+    hubs.forEach(drawRaisedHub);
     drawGoldRule(h - 44, 2.5, 0.85);
 
     const padX = Math.max(bandMargin + 8, Math.round(w * 0.11));
-    const cartY = hubY1 + 18;
-    const cartH = hubY3 - 18 - cartY;
+    const cartY = hubs[0] + 18;
+    const cartH = hubs[2] - 18 - cartY;
     const cartW = w - padX * 2;
 
     ctx.fillStyle = 'rgba(12, 8, 6, 0.34)';
     ctx.fillRect(padX, cartY, cartW, cartH);
-
     ctx.strokeStyle = 'rgba(218, 186, 122, 0.85)';
     ctx.lineWidth = 2.5;
     ctx.strokeRect(padX, cartY, cartW, cartH);
-
     ctx.strokeStyle = 'rgba(218, 186, 122, 0.40)';
     ctx.lineWidth = 1.2;
     ctx.strokeRect(padX + 5, cartY + 5, cartW - 10, cartH - 10);
 
     titleTopY = cartY + 18;
     titleBottomY = cartY + cartH - 18;
-
-    const comp4CenterY = Math.round((hubY3 + hubY4) * 0.5);
-    drawGoldOrnament(ctx, w / 2, comp4CenterY, clamp(Math.round(w * 0.085), 14, 26));
-
-    authorTopY = hubY4 + 20;
-    authorBottomY = hubY5 - 20;
+    drawGoldOrnament(ctx, w / 2, Math.round((hubs[2] + hubs[3]) * 0.5), clamp(Math.round(w * 0.085), 14, 26));
+    authorTopY = hubs[3] + 20;
+    authorBottomY = hubs[4] - 20;
   } else {
-    
     drawGoldRule(52, 3, 0.88);
     drawGoldRule(64, 2, 0.68);
     drawGoldRule(h - 224, 1.8, 0.45);
@@ -1093,235 +1116,130 @@ export function renderSpineCanvas({ title, author, palette, thickness = 0.2 }) {
 
   const { main: mainTitle, sub: subTitle } = splitTitleParts(cleanTitle);
   const isMostlyCjk = /[\u2e80-\u9fff]/.test(cleanTitle);
+  const latinFont = 'Georgia, "Times New Roman", serif';
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.48)';
   ctx.shadowBlur = 2.5;
   ctx.shadowOffsetY = 1;
 
   if (isMostlyCjk) {
-    
-    const useTwoColumns =
-      w >= 195 && ((subTitle && subTitle.length >= 2) || mainTitle.length > 11);
-
+    const useTwoColumns = w >= 195 && ((subTitle && subTitle.length >= 2) || mainTitle.length > 11);
     if (useTwoColumns) {
-      let colRightText = mainTitle;
-      let colLeftText = subTitle;
-      if (!colLeftText && mainTitle.length > 11) {
+      let colRight = mainTitle;
+      let colLeft = subTitle;
+      if (!colLeft && mainTitle.length > 11) {
         const splitIdx = Math.ceil(mainTitle.length * 0.55);
-        colRightText = mainTitle.slice(0, splitIdx);
-        colLeftText = mainTitle.slice(splitIdx);
+        colRight = mainTitle.slice(0, splitIdx);
+        colLeft = mainTitle.slice(splitIdx);
       }
-
-      const mainMaxFont = clamp(Math.round(w * 0.22), 34, 58);
-      const subMaxFont = clamp(Math.round(w * 0.15), 22, 38);
-      const rightX = Math.round(w * 0.58);
-      const leftX = Math.round(w * 0.36);
-
       ctx.fillStyle = '#f4e7cb';
-      drawVerticalCjkColumn(
-        ctx,
-        colRightText.slice(0, 12),
-        rightX,
-        titleTopY,
-        titleBottomY,
-        mainMaxFont,
-        600
-      );
-
+      drawVerticalCjkColumn(ctx, colRight.slice(0, 12), Math.round(w * 0.58), titleTopY, titleBottomY, clamp(Math.round(w * 0.22), 34, 58), 600);
       ctx.fillStyle = 'rgba(242, 228, 198, 0.86)';
-      drawVerticalCjkColumn(
-        ctx,
-        colLeftText.slice(0, 14),
-        leftX,
-        titleTopY + 24,
-        titleBottomY - 10,
-        subMaxFont,
-        500
-      );
+      drawVerticalCjkColumn(ctx, colLeft.slice(0, 14), Math.round(w * 0.36), titleTopY + 24, titleBottomY - 10, clamp(Math.round(w * 0.15), 22, 38), 500);
     } else {
-
       let singleColText = mainTitle;
       if (subTitle && subTitle.length >= 2) {
-        if (mainTitle.length + subTitle.length <= 8) {
-          singleColText = `${mainTitle}·${subTitle}`;
-        } else if (isThin && mainTitle.length <= 4) {
-          singleColText = `${mainTitle}·${subTitle.slice(0, 4)}`;
-        }
+        if (mainTitle.length + subTitle.length <= 8) singleColText = `${mainTitle}·${subTitle}`;
+        else if (isThin && mainTitle.length <= 4) singleColText = `${mainTitle}·${subTitle.slice(0, 4)}`;
       }
-
-      const maxFont = isThin
-        ? clamp(Math.round(w * 0.42), 20, 36)
-        : isThick
-          ? clamp(Math.round(w * 0.22), 44, 64)
-          : clamp(Math.round(w * 0.31), 34, 50);
-
-      const displayChars = singleColText.slice(0, 14);
+      const maxFont = isThin ? clamp(Math.round(w * 0.42), 20, 36) : isThick ? clamp(Math.round(w * 0.22), 44, 64) : clamp(Math.round(w * 0.31), 34, 50);
       ctx.fillStyle = '#f4e7cb';
-      drawVerticalCjkColumn(
-        ctx,
-        displayChars,
-        w / 2,
-        titleTopY,
-        titleBottomY,
-        maxFont,
-        600
-      );
+      drawVerticalCjkColumn(ctx, singleColText.slice(0, 14), w / 2, titleTopY, titleBottomY, maxFont, 600);
     }
+  } else if (isThick && w >= 270) {
+    const availW = w - (grooveInset + 18) * 2;
+    const centerY = (titleTopY + titleBottomY) * 0.5;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const words = cleanTitle.split(/\s+/);
+    const lines =
+      words.length <= 2
+        ? [cleanTitle]
+        : words.length <= 4
+          ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')]
+          : [
+              words.slice(0, Math.ceil(words.length / 3)).join(' '),
+              words.slice(Math.ceil(words.length / 3), Math.ceil((words.length * 2) / 3)).join(' '),
+              words.slice(Math.ceil((words.length * 2) / 3)).join(' '),
+            ];
+
+    let fontSize = clamp(Math.round(w * 0.12), 24, 38);
+    ctx.font = `600 ${fontSize}px ${latinFont}`;
+    while (Math.max(...lines.map((l) => ctx.measureText(l).width)) > availW && fontSize > 16) {
+      fontSize -= 1;
+      ctx.font = `600 ${fontSize}px ${latinFont}`;
+    }
+
+    ctx.fillStyle = '#f4e7cb';
+    const lineHeight = fontSize * 1.25;
+    const startLineY = centerY - (lineHeight * (lines.length - 1)) / 2;
+    lines.forEach((line, i) => ctx.fillText(line, w / 2, startLineY + i * lineHeight));
   } else {
+    const availSpan = Math.max(160, titleBottomY - titleTopY - 20);
+    ctx.save();
+    ctx.translate(w / 2, (titleTopY + titleBottomY) * 0.5);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-    if (isThick && w >= 270) {
-      const availW = w - (grooveInset + 18) * 2;
-      const centerY = (titleTopY + titleBottomY) * 0.5;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      const words = cleanTitle.split(/\s+/);
-      let lines = [];
-      if (words.length <= 2) {
-        lines = [cleanTitle];
-      } else if (words.length <= 4) {
+    if (w >= 220 && (subTitle || cleanTitle.length > 20)) {
+      let line1 = mainTitle;
+      let line2 = subTitle;
+      if (!line2) {
+        const words = mainTitle.split(' ');
         const mid = Math.ceil(words.length / 2);
-        lines = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
-      } else {
-        const p1 = Math.ceil(words.length / 3);
-        const p2 = Math.ceil((words.length * 2) / 3);
-        lines = [
-          words.slice(0, p1).join(' '),
-          words.slice(p1, p2).join(' '),
-          words.slice(p2).join(' '),
-        ];
+        line1 = words.slice(0, mid).join(' ');
+        line2 = words.slice(mid).join(' ');
       }
-
-      let fontSize = clamp(Math.round(w * 0.12), 24, 38);
-      ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
-      let maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
-      while (maxLineWidth > availW && fontSize > 16) {
-        fontSize -= 1;
-        ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
-        maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
-      }
-
+      const font1 = fitTextFont(ctx, line1, availSpan, clamp(Math.round(w * 0.17), 26, 42), 18, 600, latinFont);
       ctx.fillStyle = '#f4e7cb';
-      const lineHeight = fontSize * 1.25;
-      const totalH = lineHeight * lines.length;
-      const startLineY = centerY - totalH / 2 + lineHeight / 2;
+      ctx.fillText(line1, 0, -Math.round(font1 * 0.58));
 
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], w / 2, startLineY + i * lineHeight);
-      }
+      fitTextFont(ctx, line2, availSpan, clamp(Math.round(font1 * 0.72), 16, 30), 14, 400, latinFont);
+      ctx.fillStyle = 'rgba(242, 228, 198, 0.82)';
+      ctx.fillText(line2, 0, Math.round(font1 * 0.62));
     } else {
-      
-      const availSpan = Math.max(160, titleBottomY - titleTopY - 20);
-      const centerY = (titleTopY + titleBottomY) * 0.5;
-
-      ctx.save();
-      ctx.translate(w / 2, centerY);
-      ctx.rotate(Math.PI / 2);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      const useTwoLines = w >= 220 && (subTitle || cleanTitle.length > 20);
-      if (useTwoLines) {
-        let line1 = mainTitle;
-        let line2 = subTitle;
-        if (!line2) {
-          const words = mainTitle.split(' ');
-          const mid = Math.ceil(words.length / 2);
-          line1 = words.slice(0, mid).join(' ');
-          line2 = words.slice(mid).join(' ');
+      const maxF = isThin ? clamp(Math.round(w * 0.4), 20, 34) : clamp(Math.round(w * 0.25), 28, 46);
+      fitTextFont(ctx, cleanTitle, availSpan, maxF, 15, 600, latinFont);
+      ctx.fillStyle = '#f4e7cb';
+      let display = cleanTitle;
+      if (ctx.measureText(display).width > availSpan) {
+        while (ctx.measureText(display + '…').width > availSpan && display.length > 4) {
+          display = display.slice(0, -1);
         }
-        let font1 = clamp(Math.round(w * 0.17), 26, 42);
-        ctx.font = `600 ${font1}px Georgia, "Times New Roman", serif`;
-        while (ctx.measureText(line1).width > availSpan && font1 > 18) {
-          font1 -= 2;
-          ctx.font = `600 ${font1}px Georgia, "Times New Roman", serif`;
-        }
-        ctx.fillStyle = '#f4e7cb';
-        ctx.fillText(line1, 0, -Math.round(font1 * 0.58));
-
-        let font2 = clamp(Math.round(font1 * 0.72), 16, 30);
-        ctx.font = `400 ${font2}px Georgia, "Times New Roman", serif`;
-        while (ctx.measureText(line2).width > availSpan && font2 > 14) {
-          font2 -= 1;
-          ctx.font = `400 ${font2}px Georgia, "Times New Roman", serif`;
-        }
-        ctx.fillStyle = 'rgba(242, 228, 198, 0.82)';
-        ctx.fillText(line2, 0, Math.round(font1 * 0.62));
-      } else {
-        let fontSize = isThin
-          ? clamp(Math.round(w * 0.40), 20, 34)
-          : clamp(Math.round(w * 0.25), 28, 46);
-        ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
-        let curW = ctx.measureText(cleanTitle).width;
-        while (curW > availSpan && fontSize > 15) {
-          fontSize -= 1;
-          ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
-          curW = ctx.measureText(cleanTitle).width;
-        }
-        ctx.fillStyle = '#f4e7cb';
-        let display = cleanTitle;
-        if (curW > availSpan) {
-          while (ctx.measureText(display + '…').width > availSpan && display.length > 4) {
-            display = display.slice(0, -1);
-          }
-          display += '…';
-        }
-        ctx.fillText(display, 0, 0);
+        display += '…';
       }
-      ctx.restore();
+      ctx.fillText(display, 0, 0);
     }
+    ctx.restore();
   }
 
   if (author) {
-    
     let cleanAuthor = author.trim();
     if (w < 190) {
-      cleanAuthor =
-        cleanAuthor.replace(/^\s*[\[【（(][^\]】）)]+[\]】）)]\s*/, '').trim() ||
-        author.trim();
+      cleanAuthor = cleanAuthor.replace(/^\s*[\[【（(][^\]】）)]+[\]】）)]\s*/, '').trim() || author.trim();
     }
     const authorIsCjk = /[\u2e80-\u9fff]/.test(cleanAuthor);
     ctx.fillStyle = 'rgba(242, 228, 198, 0.82)';
 
     if (w < 150 || (authorIsCjk && cleanAuthor.length > 5 && w < 220)) {
-      
       if (authorIsCjk) {
         const shortAuthor = cleanAuthor.split(/[·•/]/)[0].slice(0, 6);
-        const maxAuthorFont = clamp(Math.round(w * 0.26), 15, 24);
-        drawVerticalCjkColumn(
-          ctx,
-          shortAuthor,
-          w / 2,
-          authorTopY,
-          authorBottomY,
-          maxAuthorFont,
-          400
-        );
+        drawVerticalCjkColumn(ctx, shortAuthor, w / 2, authorTopY, authorBottomY, clamp(Math.round(w * 0.26), 15, 24), 400);
       } else {
         ctx.save();
         ctx.translate(w / 2, (authorTopY + authorBottomY) * 0.5);
         ctx.rotate(Math.PI / 2);
-        let aFont = clamp(Math.round(w * 0.24), 14, 20);
-        ctx.font = `400 ${aFont}px Georgia, "Times New Roman", serif`;
-        const aSpan = Math.max(80, authorBottomY - authorTopY);
-        while (ctx.measureText(cleanAuthor).width > aSpan && aFont > 12) {
-          aFont -= 1;
-          ctx.font = `400 ${aFont}px Georgia, "Times New Roman", serif`;
-        }
+        fitTextFont(ctx, cleanAuthor, Math.max(80, authorBottomY - authorTopY), clamp(Math.round(w * 0.24), 14, 20), 12, 400, latinFont);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(cleanAuthor, 0, 0);
         ctx.restore();
       }
     } else {
-      
       const maxHorizW = w - (bandMargin + 8) * 2;
-      let aFont = clamp(Math.round(w * 0.095), 16, 26);
-      ctx.font = `500 ${aFont}px "KingHwa_OldSong", "京華老宋体", "Songti SC", "Noto Serif SC", Georgia, serif`;
-      while (ctx.measureText(cleanAuthor).width > maxHorizW && aFont > 12) {
-        aFont -= 1;
-        ctx.font = `500 ${aFont}px "KingHwa_OldSong", "京華老宋体", "Songti SC", "Noto Serif SC", Georgia, serif`;
-      }
+      fitTextFont(ctx, cleanAuthor, maxHorizW, clamp(Math.round(w * 0.095), 16, 26), 12, 500, SERIF_FONT);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(cleanAuthor, w / 2, (authorTopY + authorBottomY) * 0.5);

@@ -3,3 +3,6 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
+.workbuddy/
+node_modules/
+_site/

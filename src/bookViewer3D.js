@@ -1,402 +1,52 @@
-import * as THREE from 'three';
+import { clamp, stripHtml } from './epub.js';
+import { loadReaderPrefs, saveReaderPrefs } from './storage.js';
 
-export const BOOK_FONT = '"KingHwa_OldSong", "京華老宋体", "KingHwaOldSong", "Songti SC", "Noto Serif SC", "STSong", "Baskerville", serif';
-
-export const FONT_SCALE_KEY = 'shelf-reader-font-scale';
-export const DEFAULT_FONT_SCALE = 1.4;
-export const FONT_SCALE_MIN = 0.9;
-export const FONT_SCALE_MAX = 2.2;
-
-
-const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
-function loadFontScale() {
-  try {
-    const raw = Number.parseFloat(localStorage.getItem(FONT_SCALE_KEY));
-    if (Number.isFinite(raw)) return clamp(raw, FONT_SCALE_MIN, FONT_SCALE_MAX);
-  } catch {}
-  return DEFAULT_FONT_SCALE;
-}
-
-let fontLoadPromise = null;
-let fontReady = false;
-export function isCustomFontReady() {
-  return fontReady;
-}
-export function ensureCustomFontLoaded() {
-  if (!fontLoadPromise) {
-    fontLoadPromise = (async () => {
-      if (typeof document === 'undefined' || !document.fonts?.load) {
-        fontReady = true;
-        return;
-      }
-      try {
-        await document.fonts.load(`53px "KingHwa_OldSong"`);
-        await document.fonts.ready;
-      } catch (e) {
-        console.warn(e);
-      } finally {
-        fontReady = true;
-      }
-    })();
-  }
-  return fontLoadPromise;
-}
-
-export class PageLayoutEngine {
-  constructor(fontScale = DEFAULT_FONT_SCALE) {
-    this.canvasWidth = 1600;
-    this.canvasHeight = 2240;
-
-    this.paddingTop = 180;
-    this.paddingBottom = 220;
-    this.paddingSpine = 170; 
-    this.paddingEdge = 140;  
-
-    this.bodyStartY = 230;
-    this.bodyEndY = 1960; 
-    this.maxBodyH = this.bodyEndY - this.bodyStartY; 
-
-    this.measuringCanvas = document.createElement('canvas');
-    this.measuringCanvas.width = this.canvasWidth;
-    this.measuringCanvas.height = this.canvasHeight;
-    this.ctx = this.measuringCanvas.getContext('2d');
-
-    this.widthCache = new Map();
-    this.prefixBuffer = new Float64Array(2048);
-
-    this.setFontScale(fontScale);
-  }
-
-  invalidateWidthCache() {
-    this.widthCache.clear();
-    
-    this.ctx.font = `400 ${this.metrics.bodyFontSize}px ${BOOK_FONT}`;
-  }
-
-  setFontScale(scale) {
-    this.fontScale = clamp(Number(scale) || DEFAULT_FONT_SCALE, FONT_SCALE_MIN, FONT_SCALE_MAX);
-    const s = this.fontScale;
-    const body = Math.round(38 * s);
-    const chrome = Math.min(s, 1.3); 
-    this.metrics = {
-      bodyFontSize: body,
-      lineHeight: Math.round(68 * s),
-      headingFontSize: Math.round(52 * s),
-      headingHeight: Math.round(110 * s),
-      indent: body * 2,
-      paragraphGap: Math.round(24 * s),
-      headerFontSize: Math.round(30 * chrome),
-      footerFontSize: Math.round(32 * chrome),
-    };
-    this.ctx.font = `400 ${body}px ${BOOK_FONT}`;
-    this.invalidateWidthCache();
-    return this.fontScale;
-  }
-
-  breakParagraph(chars, contentW, indent, charOffsetBase) {
-    const ctx = this.ctx;
-    const n = chars.length;
-    if (n === 0) return [];
-
-    let sums = this.prefixBuffer;
-    if (sums.length < n + 1) {
-      sums = new Float64Array(n + 1);
-      this.prefixBuffer = sums;
-    }
-    const cache = this.widthCache;
-    for (let i = 0; i < n; i++) {
-      const ch = chars[i];
-      let w = cache.get(ch);
-      if (w === undefined) {
-        w = ctx.measureText(ch).width;
-        cache.set(ch, w);
-      }
-      sums[i + 1] = sums[i] + w;
-    }
-
-    const lines = [];
-    let start = 0;
-    const widthOf = (from, to) => ctx.measureText(chars.slice(from, to).join('')).width;
-
-    while (start < n) {
-      const curIndent = start === 0 ? indent : 0;
-      const avail = contentW - curIndent;
-
-      let lo = start + 1;
-      let hi = n;
-      let end = start;
-      while (lo <= hi) {
-        const mid = (lo + hi) >>> 1;
-        if (sums[mid] - sums[start] <= avail) {
-          end = mid;
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
-        }
-      }
-      if (end <= start) end = start + 1; 
-
-      const sumW = sums[end] - sums[start];
-      let measured = widthOf(start, end);
-      if (Math.abs(measured - sumW) >= 0.01 || measured > avail) {
-        while (measured > avail && end > start + 1) {
-          end--;
-          measured = widthOf(start, end);
-        }
-        while (end < n) {
-          if (widthOf(start, end + 1) > avail) break;
-          end++;
-        }
-      }
-
-      lines.push({
-        text: chars.slice(start, end).join(''),
-        indent: curIndent,
-        charOffset: charOffsetBase + start,
-      });
-      start = end;
-    }
-    return lines;
-  }
-
-  paginateBook(book) {
-    let bookContent = null;
-    if (book.chapters && book.chapters.length > 0) {
-      bookContent = {
-        title: book.title || '',
-        author: book.author || '',
-        chapters: book.chapters,
-      };
-    } else {
-      bookContent = {
-        title: book.title || '',
-        author: book.author || '',
-        chapters: [{ title: '', paragraphs: [''] }],
-      };
-    }
-
-    const m = this.metrics;
-    const pages = [];
-    const toc = [];
-    const contentW = this.canvasWidth - this.paddingSpine - this.paddingEdge;
-    let pageNumber = 1;
-
-    const pushPage = (items, cIdx, chapter) => {
-      if (!items.length) return;
-      const firstLine = items.find((item) => item.type === 'line');
-      pages.push({
-        type: 'content',
-        pageNum: pageNumber++,
-        chapterIndex: cIdx,
-        chapterTitle: chapter.title || '',
-        bookTitle: bookContent.title || '',
-        author: bookContent.author || '',
-        anchor: { chapterIndex: cIdx, charOffset: firstLine?.charOffset ?? 0 },
-        items,
-      });
-    };
-
-    for (let cIdx = 0; cIdx < bookContent.chapters.length; cIdx++) {
-      const chapter = bookContent.chapters[cIdx];
-      const paragraphs = Array.isArray(chapter.paragraphs) ? chapter.paragraphs : [];
-      const firstPageIndex = pages.length;
-
-      const chapterLines = [];
-      if (chapter.title) {
-        chapterLines.push({
-          type: 'heading',
-          text: chapter.title,
-          height: m.headingHeight,
-          charOffset: 0,
-        });
-      }
-
-      const paragraphBlocks = [];
-      let chapterCharOffset = 0;
-
-      for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
-        const chars = Array.from(String(paragraphs[pIdx] || '').trim());
-        if (!chars.length) continue;
-
-        const lines = this.breakParagraph(chars, contentW, m.indent, chapterCharOffset);
-        chapterCharOffset += chars.length + 1;
-        paragraphBlocks.push({ lines, marginBottom: m.paragraphGap });
-      }
-
-      let curPageItems = [];
-      let curPageUsedH = 0;
-
-      if (chapterLines.length > 0) {
-        curPageItems.push(chapterLines[0]);
-        curPageUsedH += chapterLines[0].height;
-      }
-
-      for (const block of paragraphBlocks) {
-        for (const line of block.lines) {
-          if (curPageUsedH + m.lineHeight > this.maxBodyH && curPageItems.length > 0) {
-            pushPage(curPageItems, cIdx, chapter);
-            curPageItems = [];
-            curPageUsedH = 0;
-          }
-
-          curPageItems.push({
-            type: 'line',
-            text: line.text,
-            indent: line.indent,
-            charOffset: line.charOffset,
-            height: m.lineHeight,
-          });
-          curPageUsedH += m.lineHeight;
-        }
-        curPageUsedH += block.marginBottom;
-      }
-
-      pushPage(curPageItems, cIdx, chapter);
-
-      const firstPage = pages[firstPageIndex];
-      toc.push({
-        chapterIndex: cIdx,
-        title: String(chapter.title || '').trim() || String(cIdx + 1),
-        excerpt: String(paragraphs[0] || '').replace(/\s+/g, ' ').slice(0, 60),
-        level: clamp(Number(chapter.level) || 0, 0, 2),
-        pageNum: firstPage?.pageNum ?? Math.max(1, pageNumber - 1),
-        spreadIndex: firstPageIndex,
-      });
-    }
-
-    const spreads = pages.map((page) => ({ left: page, right: null }));
-
-    return { spreads, toc, totalPages: pages.length };
-  }
-
-  findSpreadByAnchor(spreads, anchor) {
-    if (!anchor || !spreads.length) return 0;
-    let fallback = 0;
-    for (let i = 0; i < spreads.length; i++) {
-      for (const page of [spreads[i].left, spreads[i].right]) {
-        if (!page || page.chapterIndex !== anchor.chapterIndex) continue;
-        fallback = i;
-        if ((page.anchor?.charOffset ?? 0) >= anchor.charOffset) return i;
-      }
-    }
-    return fallback;
-  }
-
-  renderPageTexture(pageData, side = 'left') {
-    const canvas = document.createElement('canvas');
-    canvas.width = this.canvasWidth;
-    canvas.height = this.canvasHeight;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#fdfbf6';
-    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-
-    if (!pageData || pageData.type === 'empty') {
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      return tex;
-    }
-
-    const contentStartX = side === 'left' ? this.paddingEdge : this.paddingSpine;
-    const contentEndX = side === 'left' ? this.canvasWidth - this.paddingSpine : this.canvasWidth - this.paddingEdge;
-    const headerY = this.paddingTop - 30;
-
-    const m = this.metrics;
-    ctx.fillStyle = '#9a8c7b';
-    ctx.font = `400 ${m.headerFontSize}px ${BOOK_FONT}`;
-    ctx.textBaseline = 'bottom';
-    if (side === 'left') {
-      ctx.textAlign = 'left';
-      if (pageData.bookTitle) ctx.fillText(pageData.bookTitle, contentStartX, headerY);
-      ctx.textAlign = 'right';
-      if (pageData.author) ctx.fillText(pageData.author, contentEndX, headerY);
-    } else {
-      ctx.textAlign = 'left';
-      if (pageData.chapterTitle) ctx.fillText(pageData.chapterTitle, contentStartX, headerY);
-    }
-
-    ctx.strokeStyle = 'rgba(154, 140, 123, 0.28)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(contentStartX, headerY + 12);
-    ctx.lineTo(contentEndX, headerY + 12);
-    ctx.stroke();
-
-    const footerY = 2120;
-    ctx.font = `500 ${m.footerFontSize}px ${BOOK_FONT}`;
-    ctx.fillStyle = '#6f6254';
-    if (pageData.pageNum) {
-      if (side === 'left') {
-        ctx.textAlign = 'left';
-        ctx.fillText(String(pageData.pageNum), contentStartX, footerY);
-      } else {
-        ctx.textAlign = 'right';
-        ctx.fillText(String(pageData.pageNum), contentEndX, footerY);
-      }
-    }
-
-    let currentY = this.bodyStartY;
-    ctx.textBaseline = 'top';
-
-    if (pageData.items) {
-      for (const item of pageData.items) {
-        if (item.type === 'heading') {
-          ctx.fillStyle = '#2b241e';
-          
-          const maxW = contentEndX - contentStartX;
-          let headingSize = m.headingFontSize;
-          ctx.font = `700 ${headingSize}px ${BOOK_FONT}`;
-          while (ctx.measureText(item.text).width > maxW && headingSize > m.bodyFontSize) {
-            headingSize -= 2;
-            ctx.font = `700 ${headingSize}px ${BOOK_FONT}`;
-          }
-          ctx.textAlign = 'center';
-          ctx.fillText(item.text, (contentStartX + contentEndX) * 0.5, currentY + 10);
-          currentY += item.height;
-        } else if (item.type === 'line') {
-          ctx.fillStyle = '#2b241e';
-          ctx.font = `400 ${m.bodyFontSize}px ${BOOK_FONT}`;
-          ctx.textAlign = 'left';
-
-          const drawX = contentStartX + (item.indent || 0);
-          ctx.fillText(item.text, drawX, currentY);
-          currentY += item.height;
-        }
-      }
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
-    return tex;
-  }
-}
+export const FONT_SCALE_MIN = 0.75;
+export const FONT_SCALE_MAX = 1.65;
 
 export class BookViewer3D {
-  constructor(controls, onStateChange) {
-    this.controls = controls;
-    this.onStateChange = onStateChange;
+  constructor({ onProgressChange, onDeleteBook, onClose } = {}) {
+    this.onProgressChange = onProgressChange;
+    this.onDeleteBook = onDeleteBook;
+    this.onClose = onClose;
 
-    this.fontScale = loadFontScale();
-    this.layoutEngine = new PageLayoutEngine(this.fontScale);
+    const prefs = loadReaderPrefs();
+    this.fontScale = prefs.fontScale;
+    this.theme = prefs.theme;
+    this.lineHeight = prefs.lineHeight;
 
     this.isOpen = false;
-    this.currentSpread = 0;
-    this.spreads = [];
-    this.toc = [];
-    this.totalPages = 0;
     this.tocOpen = false;
+    this.chromeVisible = false;
+    this.toolbarHovered = false;
     this.activeBook = null;
     this.originRuntime = null;
 
-    this.paginationCache = new Map();
+    this.chapters = [];
+    this.chapterCharCounts = [];
+    this.totalBookChars = 1;
+    this.toc = [];
+
+    this.currentChapter = 0;
+    this.currentSpread = 0;
+    this.chapterSpreadCount = 1;
+    this.colsPerSpread = 2;
+    this.spreadStride = 1;
+
+    this.returnAnchor = null;
     this.contentToken = 0;
     this.contentReady = false;
-    this.pageTexture = null;
+    this.resizeTimer = 0;
+    this.chromeTimer = 0;
+    this.wheelAccum = 0;
+    this.wheelLocked = false;
+    this.wheelResetTimer = 0;
+    this.flipRaf = 0;
+    this.deleteConfirmPending = false;
 
-    this.buildHUD();
+    if (typeof document !== 'undefined') {
+      this.buildHUD();
+    }
   }
 
   buildHUD() {
@@ -409,64 +59,194 @@ export class BookViewer3D {
     }
 
     hud.innerHTML = `
-      <div class="hud-backdrop-dismiss" id="hud-backdrop-dismiss"></div>
-      <div class="hud-flat-pages" id="hud-flat-pages"></div>
-      <button class="hud-close" id="hud-close" type="button">×</button>
-      <button class="hud-turn-zone hud-turn-left" id="hud-btn-prev-zone" type="button"></button>
-      <button class="hud-turn-zone hud-turn-right" id="hud-btn-next-zone" type="button"></button>
+      <article class="hud-sheet" id="hud-sheet">
+        <div class="hud-spine-fold" id="hud-spine-fold" aria-hidden="true"></div>
 
-      <button class="hud-bookmark" id="hud-bookmark" type="button" aria-expanded="false">
-        <span class="hud-bookmark-ribbon" aria-hidden="true">
-          <span class="hud-bookmark-label"></span>
-        </span>
-      </button>
+        <nav class="hud-toolbar" id="hud-toolbar" aria-label="阅读控制栏">
+          <div class="hud-toolbar-group">
+            <button class="hud-ctrl-btn" id="hud-close" type="button" title="合上书本 (Esc)">← 书架</button>
+            <button class="hud-ctrl-btn" id="hud-toc-toggle" type="button" aria-expanded="false" title="目录 (T)">目录</button>
+            <button class="hud-ctrl-btn hud-return-btn" id="hud-return-pos" type="button" hidden>返回原位置</button>
+          </div>
+          <span class="hud-toolbar-divider" aria-hidden="true"></span>
+          <div class="hud-toolbar-group">
+            <button type="button" class="hud-ctrl-btn" id="hud-font-dec" title="缩小字号 (⌘-)">A−</button>
+            <button type="button" class="hud-ctrl-btn" id="hud-font-inc" title="放大字号 (⌘+)">A+</button>
+            <button type="button" class="hud-ctrl-btn" id="hud-lh-toggle" title="切换行距">行距</button>
+            <div class="hud-theme-dots" role="group" aria-label="阅读主题">
+              <button type="button" class="hud-theme-dot is-cream" data-theme="cream" title="米黄纸张"></button>
+              <button type="button" class="hud-theme-dot is-white" data-theme="white" title="纯白纸张"></button>
+              <button type="button" class="hud-theme-dot is-night" data-theme="night" title="夜间模式"></button>
+            </div>
+          </div>
+        </nav>
+
+        <header class="hud-page-header">
+          <span class="hud-header-book" id="hud-header-book"></span>
+          <span class="hud-header-chapter" id="hud-header-chapter"></span>
+        </header>
+
+        <div class="hud-viewport" id="hud-viewport">
+          <div class="hud-columns-track" id="hud-columns-track"></div>
+        </div>
+
+        <footer class="hud-page-footer" id="hud-page-footer">
+          <span class="hud-footer-progress" id="hud-footer-progress"></span>
+        </footer>
+
+        <div class="hud-flip-stage" id="hud-flip-stage" aria-hidden="true"></div>
+      </article>
 
       <div class="hud-toc-scrim" id="hud-toc-scrim"></div>
-      <section class="hud-toc-leaf" id="hud-toc-panel" aria-hidden="true">
-        <div class="hud-toc-leaf-inner">
-          <header class="hud-toc-head">
+      <aside class="hud-toc-drawer" id="hud-toc-panel" aria-hidden="true">
+        <header class="hud-toc-head">
+          <div class="hud-toc-head-titles">
+            <h2 class="hud-toc-heading">目录</h2>
             <p class="hud-toc-book" id="hud-toc-title"></p>
-            <h2 class="hud-toc-heading"></h2>
-            <span class="hud-toc-rule" aria-hidden="true"></span>
-          </header>
-          <div class="hud-toc-search">
-            <input id="hud-toc-search" type="search" placeholder="" autocomplete="off" />
           </div>
-          <div class="hud-toc-list" id="hud-toc-list"></div>
-          <footer class="hud-toc-footnote">
-            <span id="hud-toc-count"></span>
-            <span class="hud-toc-hint"></span>
-          </footer>
+          <button type="button" class="hud-toc-close" id="hud-toc-close" aria-label="关闭目录">×</button>
+        </header>
+        <div class="hud-toc-search">
+          <input id="hud-toc-search" type="search" placeholder="搜索章节或正文片段…" autocomplete="off" />
         </div>
-      </section>
-
+        <div class="hud-toc-list" id="hud-toc-list"></div>
+        <footer class="hud-toc-footnote">
+          <span id="hud-toc-count"></span>
+          <button type="button" class="hud-delete-book" id="hud-delete-book">删除本书</button>
+        </footer>
+      </aside>
     `;
 
     const $ = (id) => hud.querySelector(`#${id}`);
     this.hud = hud;
-    this.hudPages = $('hud-flat-pages');
-    $('hud-close').addEventListener('click', () => this.closeBook());
-    this.hudDismiss = $('hud-backdrop-dismiss');
-    this.hudPrevZone = $('hud-btn-prev-zone');
-    this.hudNextZone = $('hud-btn-next-zone');
-    this.hudBookmark = $('hud-bookmark');
+    this.hudSheet = $('hud-sheet');
+    this.hudToolbar = $('hud-toolbar');
+    this.hudSpineFold = $('hud-spine-fold');
+    this.hudHeaderBook = $('hud-header-book');
+    this.hudHeaderChapter = $('hud-header-chapter');
+    this.hudViewport = $('hud-viewport');
+    this.hudTrack = $('hud-columns-track');
+    this.hudFooter = $('hud-page-footer');
+    this.hudFlipStage = $('hud-flip-stage');
+    this.hudProgress = $('hud-footer-progress');
+    this.hudReturnBtn = $('hud-return-pos');
+    this.hudTocToggle = $('hud-toc-toggle');
     this.hudTocScrim = $('hud-toc-scrim');
     this.hudTocPanel = $('hud-toc-panel');
     this.hudTocTitle = $('hud-toc-title');
     this.hudTocSearch = $('hud-toc-search');
     this.hudTocList = $('hud-toc-list');
+    this.hudTocCount = $('hud-toc-count');
+    this.hudDeleteBtn = $('hud-delete-book');
 
-    this.hudDismiss.addEventListener('click', () => this.closeBook());
-    this.hudPrevZone.addEventListener('click', (e) => {
+    $('hud-close').addEventListener('click', (e) => {
       e.stopPropagation();
-      this.flipPrev();
+      this.closeBook();
     });
-    this.hudNextZone.addEventListener('click', (e) => {
+    $('hud-toc-close').addEventListener('click', () => this.closeToc());
+
+    $('hud-font-dec').addEventListener('click', (e) => {
       e.stopPropagation();
-      this.flipNext();
+      this.adjustFontScale(-0.08);
+      this.scheduleHideChrome();
+    });
+    $('hud-font-inc').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.adjustFontScale(0.08);
+      this.scheduleHideChrome();
+    });
+    $('hud-lh-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const steps = [1.6, 1.8, 2.05];
+      const next = steps[(steps.indexOf(this.lineHeight) + 1) % steps.length] || 1.8;
+      this.setLineHeight(next);
+      this.scheduleHideChrome();
     });
 
-    this.hudBookmark.addEventListener('click', (e) => {
+    hud.querySelectorAll('[data-theme]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.setTheme(btn.dataset.theme);
+        this.scheduleHideChrome();
+      });
+    });
+
+    this.hudReturnBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!this.returnAnchor) return;
+      const target = this.returnAnchor;
+      this.returnAnchor = null;
+      this.hudReturnBtn.hidden = true;
+      this.goToAnchor(target);
+      this.hideChrome();
+    });
+
+    this.hudToolbar.addEventListener('pointerenter', () => {
+      this.toolbarHovered = true;
+      clearTimeout(this.chromeTimer);
+    });
+    this.hudToolbar.addEventListener('pointerleave', () => {
+      this.toolbarHovered = false;
+      this.scheduleHideChrome(1600);
+    });
+
+    this.hudSheet.addEventListener('pointermove', (e) => {
+      if (!this.isOpen || this.tocOpen) return;
+      if (e.clientY <= 52) {
+        this.showChrome();
+      } else if (this.chromeVisible && !this.toolbarHovered && !this.chromeTimer) {
+        this.scheduleHideChrome(1800);
+      }
+    });
+
+    this.hudViewport.addEventListener('click', (e) => {
+      const sel = window.getSelection?.();
+      if (sel && sel.toString().trim().length > 0) return;
+      const rect = this.hudViewport.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / Math.max(1, rect.width);
+      if (relX < 0.35) {
+        this.hideChrome();
+        this.flipPrev();
+      } else if (relX > 0.65) {
+        this.hideChrome();
+        this.flipNext();
+      } else {
+        this.toggleChrome();
+      }
+    });
+
+    this.hudSheet.addEventListener(
+      'wheel',
+      (e) => {
+        if (!this.isOpen || this.tocOpen) return;
+        e.preventDefault();
+
+        if (e.ctrlKey) {
+          this.adjustFontScale(e.deltaY < 0 ? 0.04 : -0.04);
+          return;
+        }
+
+        clearTimeout(this.wheelResetTimer);
+        this.wheelResetTimer = setTimeout(() => {
+          this.wheelAccum = 0;
+          this.wheelLocked = false;
+        }, 140);
+
+        if (this.wheelLocked) return;
+        const primary = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        this.wheelAccum += primary;
+        if (Math.abs(this.wheelAccum) >= 52) {
+          this.hideChrome();
+          if (this.wheelAccum > 0) this.flipNext();
+          else this.flipPrev();
+          this.wheelAccum = 0;
+          this.wheelLocked = true;
+        }
+      },
+      { passive: false }
+    );
+
+    this.hudTocToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleToc();
     });
@@ -474,10 +254,28 @@ export class BookViewer3D {
 
     this.hudTocSearch.addEventListener('input', () => this.renderTocList(this.hudTocSearch.value));
     this.hudTocList.addEventListener('click', (e) => {
-      const item = e.target.closest('[data-spread]');
+      const item = e.target.closest('[data-chapter]');
       if (!item) return;
-      this.jumpToSpread(Number(item.dataset.spread));
+      const targetChapter = Number(item.dataset.chapter);
+      this.returnAnchor = this.getCurrentAnchor();
+      this.hudReturnBtn.hidden = false;
+      this.loadChapter(targetChapter, 0);
       this.closeToc();
+      this.hideChrome();
+    });
+
+    this.hudDeleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!this.activeBook) return;
+      if (!this.deleteConfirmPending) {
+        this.deleteConfirmPending = true;
+        this.hudDeleteBtn.textContent = '确认删除？';
+        this.hudDeleteBtn.classList.add('is-confirming');
+        return;
+      }
+      const bookId = this.activeBook.id;
+      this.closeBook(true);
+      this.onDeleteBook?.(bookId);
     });
 
     this.boundKeyDown = (e) => {
@@ -489,30 +287,563 @@ export class BookViewer3D {
         e.preventDefault();
         e.stopPropagation();
         if (this.tocOpen) this.closeToc();
+        else if (this.chromeVisible) this.hideChrome();
         else this.closeBook();
         return;
       }
       if (typing) return;
 
-      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        this.adjustFontScale(0.08);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+        e.preventDefault();
+        this.adjustFontScale(-0.08);
+        return;
+      }
+
+      if (
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'PageDown' ||
+        (e.key === ' ' && !e.shiftKey)
+      ) {
         e.preventDefault();
         e.stopPropagation();
+        this.hideChrome();
         this.flipNext();
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      } else if (
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'PageUp' ||
+        (e.key === ' ' && e.shiftKey)
+      ) {
         e.preventDefault();
         e.stopPropagation();
+        this.hideChrome();
         this.flipPrev();
       } else if (e.key === 't' || e.key === 'T' || e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         this.toggleToc();
       } else if (e.key === 'Home') {
         e.preventDefault();
-        this.jumpToSpread(0);
+        this.loadChapter(0, 0);
       } else if (e.key === 'End') {
         e.preventDefault();
-        this.jumpToSpread(this.spreads.length - 1);
+        this.loadChapter(Math.max(0, this.chapters.length - 1), Infinity);
       }
     };
+
+    this.applyThemeAndMetrics();
+  }
+
+  showChrome() {
+    if (!this.hud) return;
+    this.chromeVisible = true;
+    this.hud.classList.add('is-chrome-visible');
+    this.scheduleHideChrome(2600);
+  }
+
+  hideChrome() {
+    if (!this.hud) return;
+    this.chromeVisible = false;
+    clearTimeout(this.chromeTimer);
+    this.chromeTimer = 0;
+    this.hud.classList.remove('is-chrome-visible');
+  }
+
+  toggleChrome() {
+    if (this.chromeVisible) this.hideChrome();
+    else this.showChrome();
+  }
+
+  scheduleHideChrome(delayMs = 2400) {
+    clearTimeout(this.chromeTimer);
+    this.chromeTimer = setTimeout(() => {
+      this.chromeTimer = 0;
+      if (!this.toolbarHovered && !this.tocOpen) {
+        this.hideChrome();
+      }
+    }, delayMs);
+  }
+
+  applyThemeAndMetrics() {
+    if (!this.hud) return;
+    this.hud.dataset.theme = this.theme;
+    this.hud.querySelectorAll('[data-theme]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.theme === this.theme);
+    });
+    const fontSizePx = Math.round(19 * this.fontScale);
+    this.hudSheet.style.setProperty('--reader-font-size', `${fontSizePx}px`);
+    this.hudSheet.style.setProperty('--reader-line-height', String(this.lineHeight));
+  }
+
+  setTheme(theme) {
+    if (!['cream', 'white', 'night'].includes(theme)) return;
+    this.theme = theme;
+    this.applyThemeAndMetrics();
+    saveReaderPrefs({ fontScale: this.fontScale, theme: this.theme, lineHeight: this.lineHeight });
+  }
+
+  setLineHeight(lh) {
+    const anchor = this.getCurrentAnchor();
+    this.lineHeight = clamp(lh, 1.45, 2.2);
+    this.applyThemeAndMetrics();
+    saveReaderPrefs({ fontScale: this.fontScale, theme: this.theme, lineHeight: this.lineHeight });
+    if (this.contentReady) this.reflowCurrentChapter(anchor?.charOffset ?? 0);
+  }
+
+  adjustFontScale(delta) {
+    const next = clamp(Number((this.fontScale + delta).toFixed(2)), FONT_SCALE_MIN, FONT_SCALE_MAX);
+    if (next === this.fontScale) return;
+    const anchor = this.getCurrentAnchor();
+    this.fontScale = next;
+    this.applyThemeAndMetrics();
+    saveReaderPrefs({ fontScale: this.fontScale, theme: this.theme, lineHeight: this.lineHeight });
+    if (this.contentReady) this.reflowCurrentChapter(anchor?.charOffset ?? 0);
+  }
+
+  prepareBookMetadata(book) {
+    const rawChapters =
+      Array.isArray(book?.chapters) && book.chapters.length > 0
+        ? book.chapters
+        : [{ title: book?.title || '', paragraphs: ['（本书暂无正文内容）'] }];
+
+    this.chapters = rawChapters;
+    this.chapterCharCounts = [];
+    let totalChars = 0;
+
+    for (let i = 0; i < rawChapters.length; i++) {
+      const ch = rawChapters[i];
+      let chChars = 0;
+      for (const p of ch.paragraphs || []) {
+        chChars += stripHtml(p).length + 1;
+      }
+      const count = Math.max(1, chChars);
+      this.chapterCharCounts.push(count);
+      totalChars += count;
+    }
+    this.totalBookChars = Math.max(1, totalChars);
+
+    const hasExplicitToc = rawChapters.some((ch) => ch.inToc);
+    let cumulativeChars = 0;
+    this.toc = [];
+
+    for (let i = 0; i < rawChapters.length; i++) {
+      const ch = rawChapters[i];
+      const includeInToc = !hasExplicitToc || ch.inToc || Boolean(ch.title) || i === 0;
+      if (includeInToc) {
+        const estPage =
+          Math.max(
+            1,
+            Math.round(
+              (cumulativeChars / this.totalBookChars) *
+                Math.max(1, Math.round(this.totalBookChars / 550))
+            ) + 1
+          );
+        this.toc.push({
+          chapterIndex: i,
+          title: String(ch.title || '').trim() || `第 ${i + 1} 节`,
+          excerpt: stripHtml(ch.paragraphs?.[0] || '').replace(/\s+/g, ' ').slice(0, 60),
+          level: clamp(Number(ch.level) || 0, 0, 2),
+          pageNum: estPage,
+        });
+      }
+      cumulativeChars += this.chapterCharCounts[i];
+    }
+
+    if (this.hudTocCount) {
+      this.hudTocCount.textContent = `共 ${this.toc.length} 章`;
+    }
+  }
+
+  loadChapter(chapterIndex, targetCharOffset = 0) {
+    if (!this.chapters.length) return;
+    this.currentChapter = clamp(chapterIndex, 0, this.chapters.length - 1);
+    const chapter = this.chapters[this.currentChapter];
+
+    const frag = document.createDocumentFragment();
+    if (chapter.title) {
+      const h1 = document.createElement('h1');
+      h1.className = 'reader-chapter-heading';
+      h1.textContent = chapter.title;
+      h1.dataset.offset = '0';
+      frag.appendChild(h1);
+    }
+
+    let offset = 0;
+    const paragraphs = Array.isArray(chapter.paragraphs) ? chapter.paragraphs : [];
+    for (let i = 0; i < paragraphs.length; i++) {
+      const raw = String(paragraphs[i] || '').trim();
+      if (!raw) continue;
+      const p = document.createElement('p');
+      p.className = 'reader-para';
+      p.dataset.offset = String(offset);
+      p.innerHTML = raw;
+      frag.appendChild(p);
+      offset += stripHtml(raw).length + 1;
+    }
+
+    this.hudTrack.replaceChildren(frag);
+    this.reflowCurrentChapter(targetCharOffset);
+  }
+
+  reflowCurrentChapter(targetCharOffset = 0) {
+    if (!this.hudViewport || !this.hudTrack) return;
+
+    this.stopPageFlipAnimation();
+    const viewW = Math.max(260, Math.floor(this.hudViewport.clientWidth));
+    const viewH = Math.max(240, Math.floor(this.hudViewport.clientHeight));
+
+    this.colsPerSpread =
+      window.innerWidth >= 860 && window.innerWidth / window.innerHeight > 1.0 ? 2 : 1;
+    this.hudSheet.classList.toggle('is-dual-page', this.colsPerSpread === 2);
+    if (this.hudSpineFold) {
+      this.hudSpineFold.hidden = this.colsPerSpread !== 2;
+    }
+
+    const gap =
+      this.colsPerSpread === 2 ? clamp(Math.round(viewW * 0.068), 52, 108) : 48;
+    const colW = this.colsPerSpread === 2 ? Math.floor((viewW - gap) / 2) : viewW;
+    const effectiveW = this.colsPerSpread === 2 ? colW * 2 + gap : colW;
+
+    this.colW = colW;
+    this.colGap = gap;
+    this.viewH = viewH;
+
+    this.hudTrack.style.width = `${effectiveW}px`;
+    this.hudTrack.style.height = `${viewH}px`;
+    this.hudTrack.style.columnWidth = `${colW}px`;
+    this.hudTrack.style.columnGap = `${gap}px`;
+    this.hudTrack.style.transform = 'translate3d(0, 0, 0)';
+
+    this.spreadStride = effectiveW + gap;
+    const totalScrollW = Math.max(effectiveW, this.hudTrack.scrollWidth);
+    const totalCols = Math.max(1, Math.round((totalScrollW + gap) / (colW + gap)));
+    this.chapterSpreadCount = Math.max(1, Math.ceil(totalCols / this.colsPerSpread));
+
+    if (!Number.isFinite(targetCharOffset)) {
+      this.currentSpread = this.chapterSpreadCount - 1;
+    } else if (targetCharOffset <= 0) {
+      this.currentSpread = 0;
+    } else {
+      let targetEl = null;
+      const children = this.hudTrack.children;
+      for (let i = 0; i < children.length; i++) {
+        const el = children[i];
+        const off = Number(el.dataset.offset || 0);
+        if (off <= targetCharOffset) targetEl = el;
+        else break;
+      }
+      if (targetEl) {
+        const colIdx = Math.floor(Math.max(0, targetEl.offsetLeft) / (colW + gap));
+        this.currentSpread = clamp(
+          Math.floor(colIdx / this.colsPerSpread),
+          0,
+          this.chapterSpreadCount - 1
+        );
+      } else {
+        this.currentSpread = 0;
+      }
+    }
+
+    this.applySpreadTransform();
+  }
+
+  applySpreadTransform() {
+    const x = -this.currentSpread * this.spreadStride;
+    this.hudTrack.style.transform = `translate3d(${x}px, 0, 0)`;
+    this.updateHUD();
+    this.saveCurrentProgress();
+  }
+
+  getCurrentCharOffset() {
+    if (!this.hudTrack || this.currentSpread <= 0) return 0;
+    const targetLeft = this.currentSpread * this.spreadStride - 8;
+    const children = this.hudTrack.children;
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i];
+      if (el.offsetLeft >= targetLeft) {
+        return Number(el.dataset.offset || 0);
+      }
+    }
+    const last = children[children.length - 1];
+    return Number(last?.dataset.offset || 0);
+  }
+
+  getCurrentAnchor() {
+    const charOffset = this.getCurrentCharOffset();
+    let charsBefore = 0;
+    for (let i = 0; i < this.currentChapter; i++) {
+      charsBefore += this.chapterCharCounts[i] || 0;
+    }
+    const chTotal = this.chapterCharCounts[this.currentChapter] || 1;
+    const chFraction =
+      this.chapterSpreadCount > 1
+        ? this.currentSpread / (this.chapterSpreadCount - 1)
+        : 0;
+    const ratio = clamp((charsBefore + chTotal * chFraction) / this.totalBookChars, 0, 1);
+
+    return {
+      chapterIndex: this.currentChapter,
+      charOffset,
+      ratio: Number(ratio.toFixed(4)),
+    };
+  }
+
+  saveCurrentProgress() {
+    if (!this.activeBook || !this.contentReady) return;
+    const progress = this.getCurrentAnchor();
+    this.activeBook.progress = progress;
+    this.onProgressChange?.(this.activeBook, progress);
+  }
+
+  goToAnchor(anchor) {
+    if (!anchor) return;
+    this.loadChapter(anchor.chapterIndex || 0, anchor.charOffset || 0);
+  }
+
+  updateHUD() {
+    if (!this.hud) return;
+    const ch = this.chapters[this.currentChapter];
+    if (this.hudHeaderBook) {
+      this.hudHeaderBook.textContent = this.activeBook?.title || '';
+    }
+    if (this.hudHeaderChapter) {
+      this.hudHeaderChapter.textContent = ch?.title || '';
+    }
+
+    if (this.hudProgress) {
+      const anchor = this.getCurrentAnchor();
+      const pct = Math.round(anchor.ratio * 100);
+      this.hudProgress.textContent = `${this.currentSpread + 1} / ${this.chapterSpreadCount}  ·  ${pct}%`;
+    }
+
+    this.highlightTocItem();
+  }
+
+  flipNext() {
+    if (!this.isOpen || !this.contentReady || this.flipRaf) return;
+    const canFlipSpread = this.currentSpread < this.chapterSpreadCount - 1;
+    const canFlipChapter = this.currentChapter < this.chapters.length - 1;
+    if (!canFlipSpread && !canFlipChapter) return;
+
+    const oldTrack = this.hudFlipStage ? this.hudTrack.cloneNode(true) : null;
+    const oldSpread = this.currentSpread;
+
+    if (canFlipSpread) {
+      this.currentSpread += 1;
+      this.applySpreadTransform();
+    } else {
+      this.loadChapter(this.currentChapter + 1, 0);
+    }
+
+    if (oldTrack) {
+      this.runPageFlipAnimation(1, oldTrack, oldSpread);
+    }
+  }
+
+  flipPrev() {
+    if (!this.isOpen || !this.contentReady || this.flipRaf) return;
+    const canFlipSpread = this.currentSpread > 0;
+    const canFlipChapter = this.currentChapter > 0;
+    if (!canFlipSpread && !canFlipChapter) return;
+
+    const oldTrack = this.hudFlipStage ? this.hudTrack.cloneNode(true) : null;
+    const oldSpread = this.currentSpread;
+
+    if (canFlipSpread) {
+      this.currentSpread -= 1;
+      this.applySpreadTransform();
+    } else {
+      this.loadChapter(this.currentChapter - 1, Infinity);
+    }
+
+    if (oldTrack) {
+      this.runPageFlipAnimation(-1, oldTrack, oldSpread);
+    }
+  }
+
+  stopPageFlipAnimation() {
+    if (this.flipRaf) {
+      cancelAnimationFrame(this.flipRaf);
+      this.flipRaf = 0;
+    }
+    if (this.hudFlipStage) {
+      this.hudFlipStage.classList.remove('is-flipping');
+      this.hudFlipStage.replaceChildren();
+    }
+  }
+
+  runPageFlipAnimation(direction, oldTrack, oldSpread) {
+    if (!this.hudFlipStage || !this.hudSheet || !this.hudViewport) return;
+    this.stopPageFlipAnimation();
+
+    const sheetRect = this.hudSheet.getBoundingClientRect();
+    const viewRect = this.hudViewport.getBoundingClientRect();
+    if (sheetRect.width < 10 || viewRect.width < 10) return;
+
+    const isDual = this.colsPerSpread === 2;
+    const scale = this.hudSheet.clientWidth / sheetRect.width;
+    const sheetWidth = this.hudSheet.clientWidth;
+    const padLeft = (viewRect.left - sheetRect.left) * scale;
+    const padTop = (viewRect.top - sheetRect.top) * scale;
+    const colW = this.colW || Math.floor(viewRect.width);
+    const colGap = this.colGap || 48;
+    const viewH = this.viewH || Math.floor(viewRect.height);
+    const stride = this.spreadStride;
+
+    const makePagePlane = (side, trackNode, spreadIdx) => {
+      const plane = document.createElement('div');
+      plane.className = `hud-flip-page is-${side}`;
+      plane.style.backgroundSize = `${sheetWidth}px ${this.hudSheet.clientHeight}px`;
+      plane.style.backgroundPosition = side === 'right' ? `${-sheetWidth / 2}px 0` : '0 0';
+      if (trackNode) {
+        const win = document.createElement('div');
+        win.className = 'hud-flip-window';
+        win.style.top = `${padTop}px`;
+        win.style.width = `${colW}px`;
+        win.style.height = `${viewH}px`;
+        if (side === 'right') {
+          win.style.left = `${padLeft + colW + colGap - sheetWidth / 2}px`;
+          trackNode.style.transform = `translate3d(${-(spreadIdx * stride + colW + colGap)}px, 0, 0)`;
+        } else {
+          win.style.left = `${padLeft}px`;
+          trackNode.style.transform = `translate3d(${-spreadIdx * stride}px, 0, 0)`;
+        }
+        win.appendChild(trackNode);
+        plane.appendChild(win);
+      }
+      return plane;
+    };
+
+    const frag = document.createDocumentFragment();
+    const castFrom = document.createElement('div');
+    const castTo = document.createElement('div');
+    const leaf = document.createElement('div');
+    const frontFace = document.createElement('div');
+    const backFace = document.createElement('div');
+    const frontShade = document.createElement('div');
+    const backShade = document.createElement('div');
+
+    frontFace.className = 'hud-flip-face is-front';
+    backFace.className = 'hud-flip-face is-back';
+    frontShade.className = 'hud-flip-curl-shade';
+    backShade.className = 'hud-flip-curl-shade';
+
+    if (isDual) {
+      if (direction > 0) {
+        const underlayLeft = makePagePlane('left', oldTrack.cloneNode(true), oldSpread);
+        castFrom.className = 'hud-flip-cast is-right';
+        castTo.className = 'hud-flip-cast is-left';
+        leaf.className = 'hud-flip-leaf is-next';
+
+        frontFace.append(makePagePlane('right', oldTrack, oldSpread), frontShade);
+        backFace.append(
+          makePagePlane('left', this.hudTrack.cloneNode(true), this.currentSpread),
+          backShade
+        );
+        leaf.append(frontFace, backFace);
+        frag.append(underlayLeft, castFrom, castTo, leaf);
+      } else {
+        const underlayRight = makePagePlane('right', oldTrack.cloneNode(true), oldSpread);
+        castFrom.className = 'hud-flip-cast is-left';
+        castTo.className = 'hud-flip-cast is-right';
+        leaf.className = 'hud-flip-leaf is-prev';
+
+        frontFace.append(makePagePlane('left', oldTrack, oldSpread), frontShade);
+        backFace.append(
+          makePagePlane('right', this.hudTrack.cloneNode(true), this.currentSpread),
+          backShade
+        );
+        leaf.append(frontFace, backFace);
+        frag.append(underlayRight, castFrom, castTo, leaf);
+      }
+    } else {
+      castFrom.className = 'hud-flip-cast is-full';
+      leaf.className = 'hud-flip-leaf is-single';
+      if (direction > 0) {
+        frontFace.append(makePagePlane('full', oldTrack, oldSpread), frontShade);
+        backFace.append(makePagePlane('full', null, 0), backShade);
+        leaf.append(frontFace, backFace);
+        frag.append(castFrom, leaf);
+      } else {
+        const underlayFull = makePagePlane('full', oldTrack, oldSpread);
+        frontFace.append(
+          makePagePlane('full', this.hudTrack.cloneNode(true), this.currentSpread),
+          frontShade
+        );
+        backFace.append(makePagePlane('full', null, 0), backShade);
+        leaf.append(frontFace, backFace);
+        frag.append(underlayFull, castFrom, leaf);
+      }
+    }
+
+    this.hudFlipStage.replaceChildren(frag);
+    this.hudFlipStage.classList.add('is-flipping');
+
+    const leafWidth = isDual ? sheetWidth / 2 : sheetWidth;
+    const strips = [];
+    const stripCount = 12;
+    const stripWidth = leafWidth / stripCount;
+    for (let i = 0; i < stripCount; i++) {
+      const strip = document.createElement('div');
+      strip.className = 'hud-flip-strip';
+      strip.style.width = `${stripWidth + 0.75}px`;
+      for (const [face, isBack] of [[frontFace, false], [backFace, true]]) {
+        const side = document.createElement('div');
+        side.className = `hud-flip-strip-side${isBack ? ' is-back' : ''}`;
+        const content = face.cloneNode(true);
+        content.style.width = `${leafWidth}px`;
+        content.style.left = `${isBack ? -(leafWidth - (i + 1) * stripWidth - 0.75) : -i * stripWidth}px`;
+        content.style.transform = 'none';
+        side.appendChild(content);
+        strip.appendChild(side);
+      }
+      strips.push(strip);
+    }
+    leaf.replaceChildren(...strips);
+    const shades = leaf.querySelectorAll('.hud-flip-curl-shade');
+    const startTime = performance.now();
+    const duration = isDual ? 680 : 560;
+
+    const tick = (now) => {
+      const raw = clamp((now - startTime) / duration, 0, 1);
+      const eased = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2;
+
+      const p = isDual || direction > 0 ? eased : 1 - eased;
+      const arc = Math.sin(p * Math.PI);
+      const sign = isDual && direction < 0 ? 1 : -1;
+      const angle = sign * 180 * p;
+      leaf.style.transform = `rotateY(${angle}deg)`;
+      const bend = sign * 0.24 * arc;
+      let x = 0;
+      let z = 0;
+      for (let n = 0; n < stripCount; n++) {
+        const i = sign > 0 ? stripCount - 1 - n : n;
+        const theta = bend * (n + 0.5) / stripCount;
+        const origin = sign > 0 ? leafWidth - x - stripWidth : x;
+        strips[i].style.transformOrigin = sign > 0 ? 'right center' : 'left center';
+        strips[i].style.transform = `translate3d(${origin}px, 0, ${z}px) rotateY(${theta * 180 / Math.PI}deg)`;
+        x += stripWidth * Math.cos(theta);
+        z += (sign > 0 ? 1 : -1) * stripWidth * Math.sin(theta);
+      }
+      for (const shade of shades) shade.style.opacity = (arc * 0.55).toFixed(3);
+      castFrom.style.opacity = (arc * 0.3).toFixed(3);
+      castFrom.style.transformOrigin = isDual && direction > 0 ? 'left center' : 'right center';
+      castFrom.style.transform = `scaleX(${0.35 + arc * 0.65})`;
+      castTo.style.opacity = (arc * p * 0.38).toFixed(3);
+
+      if (raw < 1) {
+        this.flipRaf = requestAnimationFrame(tick);
+      } else {
+        this.stopPageFlipAnimation();
+      }
+    };
+
+    tick(startTime);
   }
 
   toggleToc() {
@@ -523,9 +854,15 @@ export class BookViewer3D {
   openToc() {
     if (!this.isOpen) return;
     this.tocOpen = true;
+    this.hideChrome();
+    this.deleteConfirmPending = false;
+    if (this.hudDeleteBtn) {
+      this.hudDeleteBtn.textContent = '删除本书';
+      this.hudDeleteBtn.classList.remove('is-confirming');
+    }
     this.hud.classList.add('toc-open');
     this.hudTocPanel.setAttribute('aria-hidden', 'false');
-    this.hudBookmark.setAttribute('aria-expanded', 'true');
+    this.hudTocToggle.setAttribute('aria-expanded', 'true');
     this.hudTocSearch.value = '';
     this.renderTocList();
   }
@@ -535,7 +872,7 @@ export class BookViewer3D {
     this.tocOpen = false;
     this.hud.classList.remove('toc-open');
     this.hudTocPanel.setAttribute('aria-hidden', 'true');
-    this.hudBookmark.setAttribute('aria-expanded', 'false');
+    this.hudTocToggle.setAttribute('aria-expanded', 'false');
     this.hudTocSearch.blur();
   }
 
@@ -550,33 +887,30 @@ export class BookViewer3D {
     if (!entries.length) {
       const empty = document.createElement('div');
       empty.className = 'hud-toc-empty';
+      empty.textContent = '未找到匹配的章节';
       frag.appendChild(empty);
     }
 
-    for (const entry of entries) {
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `hud-toc-item hud-toc-level-${entry.level}`;
-      item.dataset.spread = String(entry.spreadIndex);
       item.dataset.chapter = String(entry.chapterIndex);
 
       const index = document.createElement('span');
       index.className = 'hud-toc-index';
-      index.textContent = String(entry.chapterIndex + 1);
+      index.textContent = String(i + 1).padStart(2, '0');
 
       const name = document.createElement('span');
       name.className = 'hud-toc-item-title';
       name.textContent = entry.title;
 
-      const dots = document.createElement('span');
-      dots.className = 'hud-toc-dots';
-      dots.setAttribute('aria-hidden', 'true');
-
       const page = document.createElement('span');
       page.className = 'hud-toc-item-page';
-      page.textContent = String(entry.pageNum);
+      page.textContent = `${entry.pageNum}`;
 
-      item.append(index, name, dots, page);
+      item.append(index, name, page);
       frag.appendChild(item);
     }
 
@@ -586,82 +920,33 @@ export class BookViewer3D {
 
   highlightTocItem() {
     if (!this.hudTocList) return;
-    const chapter = this.getCurrentChapterIndex();
+    let activeTocChapter = 0;
+    for (const entry of this.toc) {
+      if (entry.chapterIndex <= this.currentChapter) {
+        activeTocChapter = entry.chapterIndex;
+      } else {
+        break;
+      }
+    }
     this.hudTocList.querySelectorAll('[data-chapter]').forEach((item) => {
-      item.classList.toggle('is-current', Number(item.dataset.chapter) === chapter);
+      item.classList.toggle('is-current', Number(item.dataset.chapter) === activeTocChapter);
     });
   }
 
-  getCurrentChapterIndex() {
-    const spread = this.spreads[this.currentSpread];
-    return spread?.left?.chapterIndex ?? spread?.right?.chapterIndex ?? -1;
-  }
-
-
-  notifyState() {
-    if (typeof this.onStateChange === 'function') {
-      this.onStateChange({
-        isOpen: true,
-        currentSpread: this.currentSpread,
-        totalSpreads: this.spreads.length,
-      });
-    }
-  }
-
-  updateHUD() {
-    if (!this.hud) return;
-    const cur = this.currentSpread;
-    const total = this.spreads.length;
-
-    this.hudPrevZone.classList.toggle('is-disabled', cur <= 0);
-    this.hudNextZone.classList.toggle('is-disabled', cur >= total - 1);
-    this.highlightTocItem();
-  }
-
-  repaginate(anchor = null) {
-    const result = this.getPagination(this.activeBook);
-    this.spreads = result.spreads;
-    this.toc = result.toc;
-    this.totalPages = result.totalPages;
-    this.currentSpread = anchor
-      ? this.layoutEngine.findSpreadByAnchor(this.spreads, anchor)
-      : 0;
-
-    this.updateSpreadTextures(this.currentSpread);
-    this.updateHUD();
-    this.renderTocList(this.hudTocSearch.value);
-    this.notifyState();
-  }
-
-  getPagination(book) {
-    const b = book || {};
-    const key = `${b.id || b.title || 'book'}|${this.fontScale}|${this.layoutEngine.canvasWidth}|${b.chapters?.length || 0}`;
-    let result = this.paginationCache.get(key);
-    if (!result) {
-      result = this.layoutEngine.paginateBook(b);
-      this.paginationCache.set(key, result);
-      if (this.paginationCache.size > 3) {
-        this.paginationCache.delete(this.paginationCache.keys().next().value);
-      }
-    }
-    return result;
-  }
-
   onResize() {
-    if (!this.isOpen) return;
-
-    const anchor = this.spreads[this.currentSpread]?.left?.anchor;
-    this.resizeReadingPage();
-    if (this.contentReady) this.repaginate(anchor);
+    if (!this.isOpen || !this.contentReady) return;
+    const anchor = this.getCurrentAnchor();
+    clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      if (this.isOpen && this.contentReady) {
+        this.reflowCurrentChapter(anchor.charOffset);
+      }
+    }, 100);
   }
 
-  resizeReadingPage() {
-    const layout = this.layoutEngine;
-    const width = Math.max(1, window.innerWidth);
-    const height = Math.max(1, window.innerHeight);
-    layout.canvasHeight = 2240;
-    layout.canvasWidth = Math.round(layout.canvasHeight * width / height);
-    layout.paddingSpine = layout.paddingEdge = Math.round(layout.canvasWidth * 0.08);
+  revealSheet() {
+    if (!this.isOpen || !this.hud) return;
+    this.hud.classList.add('is-active');
   }
 
   async openBook(runtime, bookData, chaptersPromise = null) {
@@ -670,13 +955,8 @@ export class BookViewer3D {
     this.isOpen = true;
     this.activeBook = bookData;
     this.originRuntime = runtime;
-
-    this.savedDamping = this.controls.enableDamping;
-    this.controls.enableDamping = false;
-    if (this.controls._sphericalDelta?.set) this.controls._sphericalDelta.set(0, 0, 0);
-    if ('_scale' in this.controls) this.controls._scale = 1;
-    this.controls.update();
-    this.controls.enabled = false;
+    this.returnAnchor = null;
+    if (this.hudReturnBtn) this.hudReturnBtn.hidden = true;
 
     const addDock = document.getElementById('add-dock');
     if (addDock) addDock.style.display = 'none';
@@ -684,115 +964,67 @@ export class BookViewer3D {
     this.hudTocTitle.textContent = bookData.title || '';
     this.hudTocSearch.value = '';
     this.closeToc();
-    this.layoutEngine.setFontScale(this.fontScale);
-    this.resizeReadingPage();
+    this.hideChrome();
+    this.applyThemeAndMetrics();
 
     window.addEventListener('keydown', this.boundKeyDown, { capture: true });
 
-    runtime.group.visible = false;
-    runtime.shadow.visible = false;
-
-    this.hudPages.replaceChildren();
-    this.hud.classList.add('is-active');
-    this.updateHUD();
-
+    this.hudTrack.replaceChildren();
     this.contentReady = false;
-    this.prepareBookContent(chaptersPromise);
-  }
 
-  async prepareBookContent(chaptersPromise = null) {
     const token = ++this.contentToken;
-    await ensureCustomFontLoaded();
-    if (token !== this.contentToken || !this.isOpen) return;
-
     if (chaptersPromise) {
       const chapters = await chaptersPromise;
       if (token !== this.contentToken || !this.isOpen) return;
-      if (chapters && this.activeBook && !this.activeBook.chapters) {
+      if (chapters && this.activeBook) {
         this.activeBook.chapters = chapters;
       }
     }
 
-    this.layoutEngine.invalidateWidthCache();
-
-    await new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-      requestAnimationFrame(() => requestAnimationFrame(finish));
-      setTimeout(finish, 120);
-    });
     if (token !== this.contentToken || !this.isOpen) return;
-
+    this.prepareBookMetadata(this.activeBook);
     this.contentReady = true;
-    this.repaginate();
+
+    const saved = this.activeBook.progress;
+    this.loadChapter(saved?.chapterIndex || 0, saved?.charOffset || 0);
+    this.renderTocList();
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (token === this.contentToken && this.isOpen && this.contentReady) {
+          const curOffset = this.getCurrentCharOffset();
+          this.reflowCurrentChapter(curOffset);
+        }
+      });
+    }
   }
 
-  updateSpreadTextures(spreadIndex) {
-    const spread = this.spreads[spreadIndex];
-    if (!spread) return;
-
-    if (this.pageTexture) this.pageTexture.dispose();
-    this.pageTexture = this.layoutEngine.renderPageTexture(spread.left, 'left');
-    this.hudPages.replaceChildren(this.pageTexture.image);
-    this.hudPages.scrollTop = 0;
-  }
-
-  jumpToSpread(index) {
-    if (!this.isOpen || !this.spreads.length) return;
-    const target = clamp(Math.round(Number(index) || 0), 0, this.spreads.length - 1);
-    if (target === this.currentSpread) return;
-    if (target > this.currentSpread) this.flipNext(target);
-    else this.flipPrev(target);
-  }
-
-  flipNext(targetSpreadIndex = null) {
-    if (!this.isOpen) return;
-    const target = targetSpreadIndex == null ? this.currentSpread + 1 : targetSpreadIndex;
-    if (target > this.spreads.length - 1) return;
-    this.setFlatSpread(target);
-  }
-
-  flipPrev(targetSpreadIndex = null) {
-    if (!this.isOpen || !this.spreads.length) return;
-    const target = targetSpreadIndex == null ? this.currentSpread - 1 : targetSpreadIndex;
-    if (target < 0) return;
-    this.setFlatSpread(target);
-  }
-
-  setFlatSpread(target) {
-    this.currentSpread = target;
-    this.updateSpreadTextures(target);
-    this.updateHUD();
-    this.notifyState();
-  }
-
-  closeBook() {
+  closeBook(wasDeleted = false) {
     if (!this.isOpen) return;
 
+    const originRuntime = this.originRuntime;
     this.contentToken++;
     this.contentReady = false;
+    clearTimeout(this.resizeTimer);
+    clearTimeout(this.chromeTimer);
+    this.stopPageFlipAnimation();
     window.removeEventListener('keydown', this.boundKeyDown, { capture: true });
     this.closeToc();
+    this.hideChrome();
     this.hud.classList.remove('is-active');
 
-    if (this.originRuntime) {
-      this.originRuntime.group.visible = true;
-      this.originRuntime.shadow.visible = true;
+    if (this.activeBook) {
+      delete this.activeBook.chapters;
     }
+    this.chapters = [];
+    this.hudTrack.replaceChildren();
+
     const addDock = document.getElementById('add-dock');
     if (addDock) addDock.style.display = '';
-    this.hudPages.replaceChildren();
-    if (this.pageTexture) {
-      this.pageTexture.dispose();
-      this.pageTexture = null;
-    }
+
     this.isOpen = false;
-    this.controls.enableDamping = this.savedDamping ?? true;
-    this.controls.enabled = true;
-    this.controls.update();
+    this.activeBook = null;
+    this.originRuntime = null;
+    this.onClose?.(originRuntime, wasDeleted);
   }
 }

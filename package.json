@@ -1,0 +1,9 @@
+{
+  "name": "3d-bookshelf",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/physics.test.mjs && node tests/bookViewer3D.test.mjs",
+    "test:browser": "node tests/bookViewer3D.browser.mjs"
+  }
+}
