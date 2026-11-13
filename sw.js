@@ -28,17 +28,18 @@ function isShellAsset(url) {
   return SHELL_PATHS.has(url.pathname);
 }
 
-function cacheFirst(request) {
-  return caches.match(request).then((cached) => {
-    if (cached) return cached;
-    return fetch(request).then((response) => {
-      if (response && response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-      }
-      return response;
-    });
-  });
+function staleWhileRevalidate(request) {
+  return caches.open(CACHE_NAME).then((cache) =>
+    cache.match(request).then((cached) => {
+      const networkFetch = fetch(request).then((response) => {
+        if (response && response.ok) {
+          cache.put(request, response.clone());
+        }
+        return response;
+      });
+      return cached || networkFetch;
+    })
+  );
 }
 
 function networkFirstNavigation(request) {
@@ -89,6 +90,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isShellAsset(url)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(staleWhileRevalidate(request));
   }
 });
