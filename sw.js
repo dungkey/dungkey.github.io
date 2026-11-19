@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-shell-v20261113';
+const CACHE_NAME = 'workbench-shell-v20261114';
 const BASE = new URL('./', self.location.href);
 
 const SHELL = [
@@ -8,9 +8,9 @@ const SHELL = [
   './index.html',
   './assets/tokens.css?v=20261113',
   './assets/ambient-gl.js',
-  './styles.css?v=20261028',
-  './app.js?v=20261028',
-  './reader/store.js',
+  './assets/instruments.js?v=20261114',
+  './styles.css?v=20261114',
+  './app.js?v=20261114',
   './manifest.webmanifest',
   './icon.svg',
   './icon-180.png',
@@ -32,7 +32,9 @@ function isShellAsset(url) {
 
 function staleWhileRevalidate(request) {
   return caches.open(CACHE_NAME).then((cache) =>
-    cache.match(request).then((cached) => {
+    cache.match(request).then((matched) =>
+      matched || cache.match(request, { ignoreSearch: true })
+    ).then((cached) => {
       const networkFetch = fetch(request).then((response) => {
         if (response && response.ok) {
           cache.put(request, response.clone());
@@ -80,8 +82,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // 阅读器 / 围棋各自有独立页面与资源，不拦截。
-  // reader/store.js 是“继续阅读”卡片需要的共享脚本，单独缓存。
-  if (url.pathname.startsWith('/reader/') && url.pathname !== '/reader/store.js') return;
+  if (url.pathname.startsWith('/reader/')) return;
   if (url.pathname.startsWith('/weiqi/')) return;
   if (url.pathname.startsWith('/music/')) return;
 

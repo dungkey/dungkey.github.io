@@ -122,6 +122,7 @@ body {
   letter-spacing: 0.08em;
   color: var(--ink-dim);
   width: fit-content;
+  white-space: nowrap;
 }
 
 .pulse-dot {
@@ -395,11 +396,13 @@ h1 {
 
 :root[data-theme="light"] .seek::-webkit-slider-thumb,
 :root[data-theme="light"] .vol-range::-webkit-slider-thumb {
-  background: var(--accent);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
 }
 :root[data-theme="light"] .seek::-moz-range-thumb,
 :root[data-theme="light"] .vol-range::-moz-range-thumb {
-  background: var(--accent);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
 }
 
 .deck-time-row {
@@ -1212,6 +1215,11 @@ html.is-theme-switching .theme-toggle-wrap {
   box-shadow: var(--shadow-md);
 }
 
+.link-card.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-wash), var(--shadow-md);
+}
+
 .link-main-info {
   display: flex;
   align-items: center;
@@ -1350,7 +1358,7 @@ html.is-theme-switching .theme-toggle-wrap {
   .rail-header {
     flex-direction: row;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 16px;
   }
   .clock-section {
@@ -1365,17 +1373,21 @@ html.is-theme-switching .theme-toggle-wrap {
   .link-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .site-foot {
+    grid-column: 1;
+  }
 }
 
 @media (min-width: 641px) and (max-width: 960px) {
   .rail {
     display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(200px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "header header"
-      "deck theme";
+      "header"
+      "deck"
+      "theme";
     align-items: start;
-    gap: 18px 20px;
+    gap: 16px;
   }
   .rail-header { grid-area: header; }
   .sound-deck { grid-area: deck; }
@@ -1399,7 +1411,7 @@ html.is-theme-switching .theme-toggle-wrap {
   .rail-header {
     flex-direction: row;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
   }
   .brand {
@@ -1414,9 +1426,14 @@ html.is-theme-switching .theme-toggle-wrap {
   }
   .clock-section {
     text-align: right;
+    padding-right: 52px;
+  }
+  .chrono-dial-canvas {
+    width: 44px !important;
+    height: 44px !important;
   }
   .clock-digits {
-    font-size: 24px;
+    font-size: 22px;
   }
   .clock-meta {
     margin-top: 4px;
@@ -1495,6 +1512,7 @@ html.is-theme-switching .theme-toggle-wrap {
   .sound-deck:not(.is-expanded) .deck-playlist {
     grid-column: 1 / -1;
   }
+  .sound-deck:not(.is-expanded) .deck-scope-wrap,
   .sound-deck:not(.is-expanded) .deck-seek-wrap,
   .sound-deck:not(.is-expanded) .btn-step,
   .sound-deck:not(.is-expanded) .btn-tool,
@@ -1563,40 +1581,164 @@ html.is-theme-switching .theme-toggle-wrap {
   font-variant-numeric: tabular-nums;
 }
 
-.card,
-.panel {
+
+/* ==========================================================================
+   精密光学与机械仪器交互层 (Precision Optical & Mechanical Instruments)
+   ========================================================================== */
+
+/* 1. WebGL2 双色棱镜主题切换器 */
+.theme-toggle-wrap.has-prism-gl {
   position: relative;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
 }
 
-.card::after,
-.panel::after {
+.theme-toggle-wrap.has-prism-gl .theme-toggle-slider {
+  display: none;
+}
+
+.theme-prism-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.theme-toggle-wrap.has-prism-gl > button {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+/* 2. 精密机械-光学天文钟 */
+.clock-section {
+  position: relative;
+  padding-right: 68px;
+}
+
+.chrono-dial-canvas {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+/* 3. 声学示波器与游标寻道 */
+.deck-scope-wrap {
+  width: 100%;
+  height: 28px;
+  margin: 10px 0 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(128, 128, 128, 0.05);
+  border: 1px solid var(--line-subtle);
+}
+
+.deck-scope-canvas {
+  display: block;
+  width: 100%;
+  height: 28px;
+}
+
+.seek-preview-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-family: var(--mono);
+  background: var(--surface-elevated);
+  color: var(--ink);
+  border: 1px solid var(--line-focus);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+/* 4. 搜索光学准星与匹配率仪表 */
+.search-inner {
+  position: relative;
+  --match-ratio: 1;
+}
+
+.search-scan-line {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent, #f59e0b) calc(var(--match-ratio) * 100%),
+    rgba(128, 128, 128, 0.18) calc(var(--match-ratio) * 100%)
+  );
+  opacity: 0.35;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.search-inner:focus-within .search-scan-line {
+  opacity: 0.9;
+}
+
+.search-inner.is-scanning .search-scan-line {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px var(--accent, #f59e0b));
+}
+
+/* 5. 卡片 3D 微倾角、镜面高光与角标对准 */
+.link-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.link-card:hover {
+  transform: perspective(700px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-2px);
+}
+
+.link-card::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.28s ease;
+  transition: opacity 0.25s ease;
   background: radial-gradient(
-    240px circle at var(--mx, 50%) var(--my, 50%),
-    var(--accent-wash),
-    transparent 70%
+    220px circle at var(--glint-x, 50%) var(--glint-y, 50%),
+    rgba(255, 255, 255, 0.12),
+    transparent 65%
   );
 }
 
-.card:hover::after,
-.panel:hover::after {
+.link-card:hover::after {
   opacity: 1;
 }
 
-:root[data-theme="light"] .seek::-webkit-slider-thumb,
-:root[data-theme="light"] .vol-range::-webkit-slider-thumb {
-  background: var(--surface);
-  border: 1.5px solid var(--accent);
+:root[data-theme="light"] .link-card::after {
+  background: radial-gradient(
+    220px circle at var(--glint-x, 50%) var(--glint-y, 50%),
+    var(--accent-wash),
+    transparent 65%
+  );
 }
 
-:root[data-theme="light"] .seek::-moz-range-thumb,
-:root[data-theme="light"] .vol-range::-moz-range-thumb {
-  background: var(--surface);
-  border: 1.5px solid var(--accent);
+@media (prefers-reduced-motion: reduce) {
+  .link-card:hover {
+    transform: none;
+  }
+  .link-card::after {
+    display: none;
+  }
 }

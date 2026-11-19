@@ -9,6 +9,7 @@
   var scheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
   var themeBtns = Array.prototype.slice.call(document.querySelectorAll('[data-set-theme]'));
   var switchTimer = null;
+  var activeTransition = null;
 
   function resolveTheme(mode) {
     if (mode === 'dark' || mode === 'light') return mode;
@@ -27,6 +28,11 @@
     if (remember) {
       try { localStorage.setItem('desk-theme', mode); } catch (e) {}
     }
+    try {
+      window.dispatchEvent(new CustomEvent('workbench:themechange', {
+        detail: { theme: resolved, mode: mode }
+      }));
+    } catch (e) {}
   }
 
   function paintTheme(mode, remember, event) {
@@ -45,6 +51,11 @@
     }
 
     if (canViewTransition) {
+      if (activeTransition && typeof activeTransition.skipTransition === 'function') {
+        try { activeTransition.skipTransition(); } catch (e) {}
+        activeTransition = null;
+      }
+
       var x = window.innerWidth / 2;
       var y = window.innerHeight / 2;
       if (event && (typeof event.clientX === 'number') && (event.clientX !== 0 || event.clientY !== 0)) {
@@ -70,6 +81,13 @@
         var transition = document.startViewTransition(function () {
           applyThemeState(mode, remember);
         });
+        activeTransition = transition;
+        var clearTransition = function () {
+          if (activeTransition === transition) activeTransition = null;
+        };
+        if (transition.finished && transition.finished.then) {
+          transition.finished.then(clearTransition, clearTransition);
+        }
 
         transition.ready.then(function () {
           var clipPath = [
@@ -77,19 +95,24 @@
             'circle(' + endRadius + 'px at ' + x + 'px ' + y + 'px)'
           ];
 
-          document.documentElement.animate(
+          var anim = document.documentElement.animate(
             {
               clipPath: clipPath
             },
             {
-              duration: 400,
+              duration: 380,
               easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
               pseudoElement: '::view-transition-new(root)'
             }
           );
-        }).catch(function () {});
+          if (anim && anim.finished && anim.finished.catch) {
+            anim.finished.catch(function () {});
+          }
+        }).catch(clearTransition);
         return;
-      } catch (e) {}
+      } catch (e) {
+        activeTransition = null;
+      }
     }
 
     root.classList.add('is-theme-switching');
@@ -345,8 +368,58 @@
 
   /* ---------------- 继续阅读 ---------------- */
 
+  function getBookMeta(id) {
+    if (window.ReaderStore && typeof window.ReaderStore.get === 'function') {
+      return Promise.resolve(window.ReaderStore.get(id));
+    }
+    if (!window.indexedDB) return Promise.resolve(null);
+    return new Promise(function (resolve) {
+      var req;
+      try {
+        req = window.indexedDB.open('reader');
+      } catch (e) {
+        resolve(null);
+        return;
+      }
+      var aborted = false;
+      req.onupgradeneeded = function () {
+        aborted = true;
+        try { req.transaction.abort(); } catch (e) {}
+      };
+      req.onerror = function () { resolve(null); };
+      req.onblocked = function () { resolve(null); };
+      req.onsuccess = function () {
+        var db = req.result;
+        if (aborted || !db || !db.objectStoreNames.contains('books')) {
+          if (db) db.close();
+          resolve(null);
+          return;
+        }
+        try {
+          var tx = db.transaction(['books'], 'readonly');
+          var getReq = tx.objectStore('books').get(id);
+          tx.oncomplete = function () {
+            db.close();
+            resolve(getReq.result || null);
+          };
+          tx.onerror = function () {
+            db.close();
+            resolve(null);
+          };
+          tx.onabort = function () {
+            db.close();
+            resolve(null);
+          };
+        } catch (e) {
+          db.close();
+          resolve(null);
+        }
+      };
+    });
+  }
+
   function initResume() {
-    if (!resumeCard || !window.ReaderStore) return;
+    if (!resumeCard) return;
     var raw;
     try {
       raw = JSON.parse(localStorage.getItem('dengxia.progress.v1') || 'null');
@@ -375,7 +448,7 @@
     function tryNext() {
       if (index >= entries.length) return;
       var entry = entries[index++];
-      Promise.resolve(window.ReaderStore.get(entry.id)).then(function (book) {
+      getBookMeta(entry.id).then(function (book) {
         if (!book || typeof book.title !== 'string' || !book.title) {
           tryNext();
           return;
@@ -681,53 +754,124 @@
     };
   }
 
-  function loadFromListing() {
-    return fetch(MUSIC_DIR, { cache: 'no-store' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.text();
-    }).then(function (html) {
-      var doc = new DOMParser().parseFromString(html, 'text/html');
-      var base = new URL(MUSIC_DIR, location.href);
-      var seen = Object.create(null);
-      var out = [];
+  function buildWavBlobUrl(durationSec, sampleFn) {
+    var sampleRate = 11025;
+    var numSamples = Math.floor(sampleRate * durationSec);
+    var dataSize = numSamples * 2;
+    var buffer = new ArrayBuffer(44 + dataSize);
+    var view = new DataView(buffer);
 
-      Array.prototype.forEach.call(doc.querySelectorAll('a[href]'), function (a) {
-        var href = a.getAttribute('href');
-        if (!href) return;
-        var url;
-        try { url = new URL(href, base); } catch (e) { return; }
-        if (url.origin !== base.origin) return;
-        var file = decodeName(url.pathname.split('/').pop() || '');
-        if (!AUDIO_RE.test(file) || seen[url.href]) return;
-        seen[url.href] = true;
-        out.push(makeTrack(url.href, file));
-      });
+    function writeStr(offset, str) {
+      for (var i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    }
 
-      if (!out.length) throw new Error('目录里没有音频');
-      return out;
-    });
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    var fadeSamples = Math.floor(sampleRate * 0.04);
+    var offset = 44;
+    for (var i = 0; i < numSamples; i++) {
+      var t = i / sampleRate;
+      var env = 1;
+      if (i < fadeSamples) env = i / fadeSamples;
+      else if (i > numSamples - fadeSamples) env = (numSamples - i) / fadeSamples;
+      var s = Math.max(-0.95, Math.min(0.95, sampleFn(t, durationSec) * env));
+      view.setInt16(offset, Math.round(s * 32767), true);
+      offset += 2;
+    }
+
+    var blob = new Blob([buffer], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
   }
 
-  function loadFromManifest() {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = MUSIC_DIR + 'tracks.js';
-      s.onload = function () {
-        var list = window.__MUSIC__;
-        if (!Array.isArray(list) || !list.length) { reject(new Error('清单为空')); return; }
-        var out = [];
-        list.forEach(function (item) {
-          var raw = typeof item === 'string' ? item : (item && item.file) || '';
-          if (!raw) return;
-          var file = decodeName(raw);
-          if (!AUDIO_RE.test(file)) return;
-          var src = MUSIC_DIR + file.split('/').map(encodeURIComponent).join('/');
-          out.push(makeTrack(src, file, typeof item === 'string' ? null : item));
-        });
-        resolve(out);
+  function createSynthPlaylist() {
+    var TAU = Math.PI * 2;
+    function snapFreq(hz, dur) {
+      return Math.round(hz * dur) / dur;
+    }
+    var specs = [
+      {
+        file: 'synth-01-tape-drone.wav',
+        title: 'Tape Drone in D',
+        artist: 'Studio Synth · Ambient',
+        duration: 16,
+        fn: function (t, dur) {
+          var f1 = snapFreq(146.83, dur);
+          var f2 = snapFreq(220.0, dur);
+          var f3 = snapFreq(329.63, dur);
+          var f4 = snapFreq(369.99, dur);
+          var lfo = 0.7 + 0.3 * Math.sin(TAU * snapFreq(0.125, dur) * t);
+          var breath = 0.65 + 0.35 * Math.sin(TAU * snapFreq(0.1875, dur) * t + 1.1);
+          return (
+            0.26 * Math.sin(TAU * f1 * t) +
+            0.18 * Math.sin(TAU * f2 * t) * lfo +
+            0.11 * Math.sin(TAU * f3 * t) * breath +
+            0.07 * Math.sin(TAU * f4 * t) * (1.0 - 0.4 * lfo)
+          );
+        }
+      },
+      {
+        file: 'synth-02-glass-harmonics.wav',
+        title: 'Glass Harmonics',
+        artist: 'Studio Synth · Chimes',
+        duration: 20,
+        fn: function (t, dur) {
+          var f1 = snapFreq(261.63, dur);
+          var f2 = snapFreq(392.0, dur);
+          var f3 = snapFreq(587.33, dur);
+          var f4 = snapFreq(659.25, dur);
+          var cycle = (t % 4.0) / 4.0;
+          var chime = Math.exp(-cycle * 3.6) * Math.sin(Math.min(1, cycle * 24) * Math.PI * 0.5);
+          var pad = 0.6 + 0.4 * Math.sin(TAU * snapFreq(0.1, dur) * t);
+          return (
+            0.18 * Math.sin(TAU * f1 * t) * pad +
+            0.15 * Math.sin(TAU * f2 * t) * (0.4 + 0.6 * chime) +
+            0.14 * Math.sin(TAU * f3 * t) * chime +
+            0.08 * Math.sin(TAU * f4 * t) * (1.0 - 0.5 * chime)
+          );
+        }
+      },
+      {
+        file: 'synth-03-midnight-pulse.wav',
+        title: 'Midnight Pulse',
+        artist: 'Studio Synth · Lo-Fi',
+        duration: 18,
+        fn: function (t, dur) {
+          var f1 = snapFreq(110.0, dur);
+          var f2 = snapFreq(164.81, dur);
+          var f3 = snapFreq(246.94, dur);
+          var f4 = snapFreq(329.63, dur);
+          var pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(TAU * snapFreq(1.0, dur) * t));
+          var sway = 0.6 + 0.4 * Math.sin(TAU * snapFreq(0.1667, dur) * t);
+          return (
+            0.25 * Math.sin(TAU * f1 * t) * pulse +
+            0.16 * Math.sin(TAU * f2 * t) * sway +
+            0.11 * Math.sin(TAU * f3 * t) * (0.5 + 0.5 * pulse) +
+            0.06 * Math.sin(TAU * f4 * t) * (1.0 - 0.4 * sway)
+          );
+        }
+      }
+    ];
+    return specs.map(function (sp) {
+      return {
+        src: buildWavBlobUrl(sp.duration, sp.fn),
+        file: sp.file,
+        title: sp.title,
+        artist: sp.artist
       };
-      s.onerror = function () { reject(new Error('没有 tracks.js')); };
-      document.head.appendChild(s);
     });
   }
 
@@ -738,11 +882,20 @@
   }
 
   function loadPlaylist() {
-    var isStaticHost = location.hostname.endsWith('github.io') || location.protocol === 'file:';
-    var first = (!isStaticHost && /^https?:$/.test(location.protocol))
-      ? loadFromListing()
-      : Promise.reject(new Error('静态环境直读 tracks.js'));
-    return first.catch(loadFromManifest).then(sortTracks);
+    var list = window.__MUSIC__;
+    if (Array.isArray(list) && list.length) {
+      var out = [];
+      list.forEach(function (item) {
+        var raw = typeof item === 'string' ? item : (item && item.file) || '';
+        if (!raw) return;
+        var file = decodeName(raw);
+        if (!AUDIO_RE.test(file)) return;
+        var src = MUSIC_DIR + file.split('/').map(encodeURIComponent).join('/');
+        out.push(makeTrack(src, file, typeof item === 'string' ? null : item));
+      });
+      if (out.length) return Promise.resolve(sortTracks(out));
+    }
+    return Promise.resolve(createSynthPlaylist());
   }
 
   function stampTime(sec) {

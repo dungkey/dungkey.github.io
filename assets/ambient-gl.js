@@ -209,7 +209,7 @@
       gl.viewport(0, 0, width, height);
     }
 
-    function render(now) {
+    function drawFrame(now) {
       const elapsed = (now - startTime) * 0.001;
 
       currentMouse[0] += (targetMouse[0] - currentMouse[0]) * 0.045;
@@ -230,6 +230,10 @@
       gl.uniform1f(uLight, currentLight);
       gl.uniform1f(uAudio, currentAudio);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    function render(now) {
+      drawFrame(now);
 
       if (!reducedMotion && !document.hidden) {
         rafId = requestAnimationFrame(render);
@@ -239,38 +243,28 @@
     }
 
     function start() {
-      if (!rafId) {
+      if (reducedMotion) {
+        drawFrame(performance.now());
+      } else if (!rafId) {
         rafId = requestAnimationFrame(render);
       }
     }
 
     window.addEventListener('resize', () => {
       resize();
-      if (reducedMotion) render(performance.now());
+      if (reducedMotion) drawFrame(performance.now());
     }, { passive: true });
-
-    let cardHoverRaf = 0;
-    let lastPointerEvent = null;
 
     window.addEventListener('pointermove', (e) => {
       targetMouse[0] = e.clientX / Math.max(window.innerWidth, 1);
       targetMouse[1] = 1.0 - e.clientY / Math.max(window.innerHeight, 1);
-
-      lastPointerEvent = e;
-      if (!cardHoverRaf) {
-        cardHoverRaf = requestAnimationFrame(() => {
-          cardHoverRaf = 0;
-          const ev = lastPointerEvent;
-          if (!ev) return;
-          const card = ev.target && ev.target.closest ? ev.target.closest('.card, .panel') : null;
-          if (card) {
-            const rect = card.getBoundingClientRect();
-            card.style.setProperty('--mx', `${ev.clientX - rect.left}px`);
-            card.style.setProperty('--my', `${ev.clientY - rect.top}px`);
-          }
-        });
-      }
     }, { passive: true });
+
+    window.addEventListener('workbench:themechange', () => {
+      targetLight = document.documentElement.getAttribute('data-theme') === 'light' ? 1 : 0;
+      currentLight = targetLight;
+      drawFrame(performance.now());
+    });
 
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
@@ -300,7 +294,7 @@
       targetLight = document.documentElement.getAttribute('data-theme') === 'light' ? 1 : 0;
       if (reducedMotion) {
         currentLight = targetLight;
-        render(performance.now());
+        drawFrame(performance.now());
       }
     }).observe(document.documentElement, {
       attributes: true,
