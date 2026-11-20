@@ -77,7 +77,6 @@ const el = {
   readerErrorText: $('readerErrorText'),
   retryChapterBtn: $('retryChapterBtn'),
   errorBackBtn: $('errorBackBtn'),
-  modeHint: $('modeHint'),
   chapterArticle: $('chapterArticle'),
   chapterKicker: $('chapterKicker'),
   chapterStats: $('chapterStats'),
@@ -268,11 +267,6 @@ function applySettings() {
   $$('[data-set-mode]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.setMode === settings.mode));
   });
-  if (el.modeHint) {
-    el.modeHint.textContent = settings.mode === 'pager'
-      ? '点击翻页：左右点击翻页；支持时会进入全屏。'
-      : '滚动阅读：上下滑动浏览。';
-  }
 
   el.fontSizeRange.value = String(settings.fontSize);
   el.fontSizeValue.textContent = `${settings.fontSize} px`;

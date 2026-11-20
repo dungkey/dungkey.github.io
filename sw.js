@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-shell-v20261120';
+const CACHE_NAME = 'workbench-shell-v20261120-2';
 const BASE = new URL('./', self.location.href);
 
 const SHELL = [

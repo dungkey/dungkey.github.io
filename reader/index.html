@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f3eee4" id="themeColor">
-<meta name="description" content="一个安静、离线可用的本地阅读器：EPUB / TXT，可选宣纸与素白阅读页及霞鹜文楷；深色模式使用墨石夜读页。">
+<meta name="description" content="EPUB / TXT 本地阅读器。">
 <title>阅读 · 工作台</title>
 <link rel="canonical" href="https://dungkey.github.io/reader/">
 <meta property="og:type" content="website">
@@ -93,7 +93,6 @@
         <span class="seal" aria-hidden="true">壹</span>
         <span class="brand-copy">
           <strong>阅读</strong>
-          <small>本地书架 · 离线重读</small>
         </span>
       </a>
       <div class="library-header-end">
@@ -115,7 +114,6 @@
     <section class="shelf" aria-labelledby="shelfHeading">
       <div class="shelf-head">
         <div>
-          <p class="shelf-eyebrow"><span>壹</span> 藏书目</p>
           <h2 id="shelfHeading">书架</h2>
           <p class="shelf-summary" id="shelfSummary">正在读取书库…</p>
         </div>
@@ -353,26 +351,24 @@
 
     <div class="settings-scroll">
       <section class="setting-group">
-        <div class="setting-title"><span>外观</span><small>界面配色</small></div>
+        <div class="setting-title"><span>外观</span></div>
         <div class="theme-switch theme-switch-panel" role="group" aria-label="界面配色">
           <button type="button" data-set-theme="light" aria-pressed="false" title="浅色">明</button>
           <button type="button" data-set-theme="dark" aria-pressed="false" title="深色">暗</button>
           <button type="button" data-set-theme="auto" aria-pressed="true" title="跟随系统">自动</button>
         </div>
-        <p class="setting-hint setting-hint-block">配色与工作台首页同步；自动跟随系统外观。</p>
       </section>
 
       <section class="setting-group">
-        <div class="setting-title"><span>阅读模式</span><small>翻阅方式</small></div>
+        <div class="setting-title"><span>阅读模式</span></div>
         <div class="segmented segmented-2" role="group" aria-label="阅读模式">
           <button type="button" data-set-mode="scroll" aria-pressed="true">滚动</button>
           <button type="button" data-set-mode="pager" aria-pressed="false">点击翻页</button>
         </div>
-        <p class="setting-hint setting-hint-block" id="modeHint">滚动阅读：上下滑动浏览。</p>
       </section>
 
       <section class="setting-group">
-        <div class="setting-title"><span>阅读纸色</span><small>书页底色</small></div>
+        <div class="setting-title"><span>阅读纸色</span></div>
         <div class="paper-grid" role="group" aria-label="阅读纸色">
           <button class="paper-swatch" type="button" data-set-paper="cream" aria-pressed="true">
             <span class="paper-preview paper-tone-cream" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -383,23 +379,20 @@
             <span>素白</span>
           </button>
         </div>
-        <p class="setting-hint setting-hint-block paper-hint-light">宣纸为工作台同源底色；素白只作用于阅读页面。</p>
-        <p class="setting-hint setting-hint-block paper-hint-dark">深色模式固定使用墨石夜读页；切回浅色可选择纸色。</p>
       </section>
 
       <section class="setting-group">
-        <div class="setting-title"><span>正文字体</span><small>字形</small></div>
+        <div class="setting-title"><span>正文字体</span></div>
         <div class="segmented segmented-4" role="group" aria-label="正文字体">
           <button type="button" data-set-font="serif" class="font-serif">宋体</button>
           <button type="button" data-set-font="sans" class="font-sans">黑体</button>
           <button type="button" data-set-font="kai" class="font-kai">楷体</button>
           <button type="button" data-set-font="wenkai" class="font-wenkai" title="霞鹜文楷（LXGW WenKai）">霞鹜文楷</button>
         </div>
-        <p class="setting-hint win-only">Windows 默认使用「黑体」，屏幕笔画更清晰。若文字仍然发虚，请确认浏览器缩放为 100%。</p>
       </section>
 
       <section class="setting-group">
-        <div class="setting-title"><span>字体粗细</span><small>字重</small></div>
+        <div class="setting-title"><span>字体粗细</span></div>
         <div class="segmented" role="group" aria-label="字体粗细">
           <button type="button" data-set-weight="300" class="weight-300">细体</button>
           <button type="button" data-set-weight="400" class="weight-400">常规</button>
@@ -431,7 +424,7 @@
       </section>
 
       <section class="setting-group setting-toggle">
-        <div class="setting-title"><label for="indentToggle">段落首行缩进</label><small>空两格</small></div>
+        <div class="setting-title"><label for="indentToggle">段落首行缩进</label></div>
         <label class="switch">
           <input type="checkbox" id="indentToggle" checked>
           <span aria-hidden="true"></span>
@@ -439,7 +432,6 @@
       </section>
 
       <button class="reset-settings" id="resetSettingsBtn" type="button">恢复默认格式</button>
-      <p class="settings-note">格式设置会保存在此浏览器中，下次打开仍然有效。</p>
     </div>
   </div>
 </dialog>

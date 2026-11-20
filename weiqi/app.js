@@ -9,7 +9,7 @@
   const REVIEW_PLAYOUTS = 20;
   const REVIEW_TOP_N = 5;
   const MAX_ARCHIVES = 8;
-  const REVIEW_RANK_COLORS = ['#2f7d5b', '#3b6fa0', '#b07a2a'];
+  const REVIEW_RANK_COLORS = ['var(--review-rank-1)', 'var(--review-rank-2)', 'var(--review-rank-3)'];
 
   const LEVEL_CONFIG = {
     easy: { timeLimit: 450, fallbackLimit: 380, label: '入门' },
@@ -193,7 +193,6 @@
     reviewLastBtn: $('reviewLastBtn'),
     reviewChart: $('reviewChart'),
     reviewTableBody: $('reviewTableBody'),
-    reviewFootnote: $('reviewFootnote'),
 
     gameMeta: $('gameMeta'),
     statusStone: $('statusStone'),
@@ -1371,10 +1370,6 @@
     if (els.reviewNextBtn) els.reviewNextBtn.disabled = state.review.selected >= maxIdx;
     if (els.reviewLastBtn) els.reviewLastBtn.disabled = state.review.selected >= maxIdx;
 
-    els.reviewFootnote.textContent =
-      `每个局面会对棋盘上所有合法点（含停一手）各做 ${REVIEW_PLAYOUTS} 次推演；`
-      + '胜率为行棋方视角，折线图换算为黑棋胜率。';
-
     renderReviewBoard(archive);
     renderReviewChart(archive);
     renderReviewTable(archive);
@@ -1405,51 +1400,30 @@
     const pointX = (idx) => pad + (idx % size) * cell;
     const pointY = (idx) => pad + Math.floor(idx / size) * cell;
 
-    const gradients = `
-      <defs>
-        <radialGradient id="reviewStoneBlack" cx="34%" cy="28%" r="76%">
-          <stop offset="0" stop-color="#6d7069"/>
-          <stop offset="0.42" stop-color="#2a2c28"/>
-          <stop offset="1" stop-color="#080907"/>
-        </radialGradient>
-        <radialGradient id="reviewStoneWhite" cx="34%" cy="28%" r="76%">
-          <stop offset="0" stop-color="#ffffff"/>
-          <stop offset="0.62" stop-color="#f0eade"/>
-          <stop offset="1" stop-color="#c6bcaa"/>
-        </radialGradient>
-        <linearGradient id="reviewWood" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#e0b97f"/>
-          <stop offset="0.55" stop-color="#d3a465"/>
-          <stop offset="1" stop-color="#bd884b"/>
-        </linearGradient>
-      </defs>`;
+    let svg = `<rect width="${width}" height="${width}" fill="var(--board-bg)"/>`;
 
-    let svg = `${gradients}<rect width="${width}" height="${width}" rx="18" fill="url(#reviewWood)"/>`;
-    svg += `<rect x="1" y="1" width="${width - 2}" height="${width - 2}" rx="17" fill="none" stroke="rgba(90,56,24,0.25)"/>`;
-
-    const gridStroke = 'rgba(65, 42, 19, 0.72)';
+    const gridStroke = 'var(--board-grid)';
     for (let line = 0; line < size; line += 1) {
       const pos = pad + line * cell;
       svg += `<line x1="${pad}" y1="${pos}" x2="${width - pad}" y2="${pos}" stroke="${gridStroke}" stroke-width="1"/>`;
       svg += `<line x1="${pos}" y1="${pad}" x2="${pos}" y2="${width - pad}" stroke="${gridStroke}" stroke-width="1"/>`;
     }
+    svg += `<rect x="${pad}" y="${pad}" width="${width - pad * 2}" height="${width - pad * 2}" fill="none" stroke="var(--board-grid-outer)" stroke-width="1.5"/>`;
 
     for (const [sx, sy] of reviewStarPoints(size)) {
-      svg += `<circle cx="${pad + sx * cell}" cy="${pad + sy * cell}" r="2" fill="rgba(60,38,17,0.8)"/>`;
+      svg += `<circle cx="${pad + sx * cell}" cy="${pad + sy * cell}" r="2.2" fill="var(--board-star)"/>`;
     }
 
     for (let i = 0; i < size; i += 1) {
-      svg += `<text x="${pad + i * cell}" y="${width - pad * 0.34}" text-anchor="middle" font-size="9.5" fill="rgba(71,45,20,0.64)">${Go.LETTERS[i]}</text>`;
-      svg += `<text x="${pad * 0.34}" y="${pad + i * cell + 3}" text-anchor="middle" font-size="9.5" fill="rgba(71,45,20,0.64)">${size - i}</text>`;
+      svg += `<text x="${pad + i * cell}" y="${width - pad * 0.34}" text-anchor="middle" font-size="10" fill="var(--board-coord)">${Go.LETTERS[i]}</text>`;
+      svg += `<text x="${pad * 0.34}" y="${pad + i * cell + 3}" text-anchor="middle" font-size="10" fill="var(--board-coord)">${size - i}</text>`;
     }
 
     position.board.forEach((color, idx) => {
       if (color === Go.EMPTY) return;
-      const fill = color === Go.BLACK ? 'url(#reviewStoneBlack)' : 'url(#reviewStoneWhite)';
-      const stroke = color === Go.BLACK
-        ? 'rgba(255,255,255,0.08)'
-        : 'rgba(112,99,79,0.35)';
-      svg += `<circle cx="${pointX(idx)}" cy="${pointY(idx)}" r="${cell * 0.44}" fill="${fill}" stroke="${stroke}" stroke-width="0.8"/>`;
+      const fill = color === Go.BLACK ? 'var(--stone-black-fill)' : 'var(--stone-white-fill)';
+      const stroke = color === Go.BLACK ? 'var(--stone-black-stroke)' : 'var(--stone-white-stroke)';
+      svg += `<circle cx="${pointX(idx)}" cy="${pointY(idx)}" r="${cell * 0.44}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
     });
 
     const playedMove = position.playedMove;
@@ -1462,7 +1436,7 @@
     const playedInCandidates = pointCandidates.some((c) => c.idx === playedMove);
 
     if (hasPlayedMove && !playedInCandidates) {
-      svg += `<circle cx="${pointX(playedMove)}" cy="${pointY(playedMove)}" r="${cell * 0.4}" fill="none" stroke="#b23a25" stroke-width="2" stroke-dasharray="4 3"/>`;
+      svg += `<circle cx="${pointX(playedMove)}" cy="${pointY(playedMove)}" r="${cell * 0.4}" fill="none" stroke="var(--zhu)" stroke-width="1.8" stroke-dasharray="4 3"/>`;
     }
 
     pointCandidates.forEach((candidate, rank) => {
@@ -1471,10 +1445,10 @@
       const x = pointX(candidate.idx);
       const y = pointY(candidate.idx);
       if (isPlayed) {
-        svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="#b23a25" stroke-width="2.2" stroke-dasharray="4 3"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="var(--zhu)" stroke-width="1.8" stroke-dasharray="4 3"/>`;
       }
-      svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="rgba(243,238,228,0.9)" stroke="${color}" stroke-width="2.4"/>`;
-      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="600" fill="${color}">${rank + 1}</text>`;
+      svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="var(--review-badge-bg)" stroke="${color}" stroke-width="1.8"/>`;
+      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="400" fill="${color}">${rank + 1}</text>`;
     });
 
     els.reviewBoardSvg.innerHTML = svg;
@@ -1887,6 +1861,43 @@
    * Canvas rendering
    * --------------------------------------------------------------------- */
 
+  let boardPaletteCache = null;
+
+  function invalidateBoardPalette() {
+    boardPaletteCache = null;
+  }
+
+  function getBoardPalette() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    if (boardPaletteCache && boardPaletteCache.theme === theme) {
+      return boardPaletteCache.palette;
+    }
+
+    const styles = getComputedStyle(document.documentElement);
+    const read = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+
+    const palette = {
+      bg: read('--board-bg', '#efe9dc'),
+      grid: read('--board-grid', 'rgba(29, 27, 24, 0.56)'),
+      gridOuter: read('--board-grid-outer', 'rgba(29, 27, 24, 0.88)'),
+      star: read('--board-star', '#1d1b18'),
+      coord: read('--board-coord', '#57514a'),
+      blackFill: read('--stone-black-fill', '#1d1b18'),
+      blackStroke: read('--stone-black-stroke', '#1d1b18'),
+      blackNum: read('--stone-black-num', '#f3eee4'),
+      whiteFill: read('--stone-white-fill', '#fbf8f1'),
+      whiteStroke: read('--stone-white-stroke', '#1d1b18'),
+      whiteNum: read('--stone-white-num', '#1d1b18'),
+      markOnWhite: read('--board-mark-on-white', '#b23a25'),
+      markOnBlack: read('--board-mark-on-black', '#e86f54'),
+      cursor: read('--board-cursor', '#b23a25'),
+      displayFont: read('--display', 'serif'),
+    };
+
+    boardPaletteCache = { theme, palette };
+    return palette;
+  }
+
   function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !state.board) return;
@@ -1913,31 +1924,16 @@
     const n = state.size;
     const gridStart = view.pad;
     const gridEnd = view.pad + view.cell * (n - 1);
+    const palette = getBoardPalette();
 
     ctx.clearRect(0, 0, size, size);
 
-    // 木盘底色
-    const wood = ctx.createLinearGradient(0, 0, size, size);
-    wood.addColorStop(0, '#ddb277');
-    wood.addColorStop(0.44, '#d2a263');
-    wood.addColorStop(1, '#c18d4f');
-    ctx.fillStyle = wood;
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, size, size);
 
-    const sheen = ctx.createRadialGradient(
-      size * 0.2, size * 0.13, size * 0.02,
-      size * 0.23, size * 0.19, size * 0.78,
-    );
-    sheen.addColorStop(0, 'rgba(255, 245, 219, 0.24)');
-    sheen.addColorStop(0.46, 'rgba(255, 243, 214, 0.04)');
-    sheen.addColorStop(1, 'rgba(77, 44, 16, 0.10)');
-    ctx.fillStyle = sheen;
-    ctx.fillRect(0, 0, size, size);
-
-    drawGrain(size);
-    drawGrid(gridStart, gridEnd);
-    drawStarPoints();
-    drawCoordinates();
+    drawGrid(gridStart, gridEnd, palette);
+    drawStarPoints(palette);
+    drawCoordinates(palette);
 
     let needsAnimationFrame = false;
     let lastMoveScale = 1;
@@ -1974,7 +1970,7 @@
         lastMoveScale = scale;
       }
 
-      drawStone(x, y, view.cell * 0.42, color, { scale });
+      drawStone(x, y, view.cell * 0.42, color, { scale }, palette);
 
       if (state.showMoveNumbers) {
         const moveNum = stoneNumbers.get(idx);
@@ -1982,9 +1978,13 @@
           ctx.save();
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          const fontSize = Math.max(9, Math.min(14, view.cell * 0.34)) * scale;
-          ctx.font = `600 ${fontSize}px ui-monospace, "SF Mono", Menlo, monospace`;
-          ctx.fillStyle = color === Go.BLACK ? 'rgba(255, 255, 255, 0.92)' : 'rgba(26, 30, 26, 0.92)';
+          const fontSize = Math.max(11, Math.min(22, view.cell * 0.28)) * scale;
+          ctx.font = `400 ${fontSize}px ${palette.displayFont}`;
+          if (idx === state.lastMove) {
+            ctx.fillStyle = color === Go.BLACK ? palette.markOnBlack : palette.markOnWhite;
+          } else {
+            ctx.fillStyle = color === Go.BLACK ? palette.blackNum : palette.whiteNum;
+          }
           ctx.fillText(String(moveNum), x, y + 0.5);
           ctx.restore();
         }
@@ -1996,31 +1996,32 @@
       const y = gridStart + Math.floor(state.lastMove / n) * view.cell;
       if (state.showMoveNumbers) {
         ctx.save();
-        ctx.strokeStyle = '#b23a25';
-        ctx.lineWidth = Math.max(1.8, view.cell * 0.045);
+        ctx.strokeStyle = palette.cursor;
+        ctx.lineWidth = Math.max(1.5, view.cell * 0.022);
         ctx.beginPath();
-        ctx.arc(x, y, view.cell * 0.45 * lastMoveScale, 0, TAU);
+        ctx.arc(x, y, view.cell * 0.46 * lastMoveScale, 0, TAU);
         ctx.stroke();
         ctx.restore();
       } else {
-        drawLastMarker(x, y, lastMoveScale, state.board[state.lastMove]);
+        drawLastMarker(x, y, lastMoveScale, state.board[state.lastMove], palette);
       }
     }
 
     if (state.hover !== null && canHumanPlay() && state.board[state.hover] === Go.EMPTY) {
       const x = gridStart + (state.hover % n) * view.cell;
       const y = gridStart + Math.floor(state.hover / n) * view.cell;
-      drawStone(x, y, view.cell * 0.42, state.humanColor, { alpha: 0.34, ghost: true });
+      drawStone(x, y, view.cell * 0.42, state.humanColor, { ghost: true }, palette);
     }
 
     if (state.kbCursor !== null && state.kbCursor >= 0 && state.kbCursor < state.board.length) {
       const x = gridStart + (state.kbCursor % n) * view.cell;
       const y = gridStart + Math.floor(state.kbCursor / n) * view.cell;
       ctx.save();
-      ctx.strokeStyle = 'rgba(178, 58, 37, 0.85)';
-      ctx.lineWidth = Math.max(1.4, view.cell * 0.022);
+      ctx.strokeStyle = palette.cursor;
+      ctx.lineWidth = Math.max(1.5, view.cell * 0.022);
+      ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.arc(x, y, view.cell * 0.47, 0, TAU);
+      ctx.arc(x, y, view.cell * 0.46, 0, TAU);
       ctx.stroke();
       ctx.restore();
     }
@@ -2034,42 +2035,11 @@
     }
   }
 
-  function drawGrain(size) {
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    for (let i = 0; i < 11; i += 1) {
-      const baseY = (i / 11) * size + 8;
-      ctx.beginPath();
-      for (let x = -10; x <= size + 10; x += 16) {
-        const y = baseY
-          + Math.sin(x * 0.018 + i * 1.31) * 3.2
-          + Math.sin(x * 0.005 + i) * 2.1;
-        if (x <= -10) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = i % 3 === 0
-        ? 'rgba(93, 57, 24, 0.075)'
-        : 'rgba(255, 243, 217, 0.07)';
-      ctx.lineWidth = i % 3 === 0 ? 1.1 : 0.8;
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    const vignette = ctx.createRadialGradient(
-      size * 0.5, size * 0.46, size * 0.16,
-      size * 0.5, size * 0.5, size * 0.74,
-    );
-    vignette.addColorStop(0, 'rgba(75, 43, 16, 0)');
-    vignette.addColorStop(1, 'rgba(70, 40, 15, 0.16)');
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, size, size);
-  }
-
-  function drawGrid(start, end) {
+  function drawGrid(start, end, palette = getBoardPalette()) {
     const n = state.size;
     ctx.save();
-    ctx.strokeStyle = 'rgba(65, 42, 19, 0.7)';
-    ctx.lineWidth = Math.max(0.85, view.cssSize * 0.0016);
+    ctx.strokeStyle = palette.grid;
+    ctx.lineWidth = Math.max(1, view.cssSize * 0.0018);
     ctx.beginPath();
     for (let i = 0; i < n; i += 1) {
       const position = start + i * view.cell;
@@ -2080,8 +2050,9 @@
     }
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(65, 42, 19, 0.25)';
-    ctx.lineWidth = Math.max(0.8, view.cssSize * 0.001);
+    ctx.strokeStyle = palette.gridOuter;
+    ctx.lineWidth = Math.max(1.8, view.cssSize * 0.0034);
+    ctx.lineCap = 'square';
     ctx.strokeRect(start, start, end - start, end - start);
     ctx.restore();
   }
@@ -2093,10 +2064,10 @@
     return [[2, 2], [2, 3], [3, 2], [3, 3]];
   }
 
-  function drawStarPoints() {
-    const radius = Math.max(1.8, Math.min(4.6, view.cell * 0.05));
+  function drawStarPoints(palette = getBoardPalette()) {
+    const radius = Math.max(2.2, Math.min(4.2, view.cell * 0.046));
     ctx.save();
-    ctx.fillStyle = 'rgba(60, 38, 17, 0.78)';
+    ctx.fillStyle = palette.star;
     for (const [x, y] of starPoints()) {
       ctx.beginPath();
       ctx.arc(view.pad + x * view.cell, view.pad + y * view.cell, radius, 0, TAU);
@@ -2105,100 +2076,70 @@
     ctx.restore();
   }
 
-  function drawCoordinates() {
+  function drawCoordinates(palette = getBoardPalette()) {
     const n = state.size;
-    const fontSize = Math.max(9.5, Math.min(12, view.cssSize * 0.017));
+    const fontSize = Math.max(11, Math.min(13.5, view.cssSize * 0.021));
     ctx.save();
-    ctx.fillStyle = 'rgba(71, 45, 20, 0.72)';
-    ctx.font = `500 ${fontSize}px "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.fillStyle = palette.coord;
+    ctx.font = `400 ${fontSize}px ${palette.displayFont}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     for (let i = 0; i < n; i += 1) {
       const x = view.pad + i * view.cell;
-      ctx.fillText(Go.LETTERS[i], x, view.cssSize - view.pad * 0.31);
+      ctx.fillText(Go.LETTERS[i], x, view.cssSize - view.pad * 0.34);
     }
 
     for (let i = 0; i < n; i += 1) {
       const y = view.pad + i * view.cell;
-      ctx.fillText(String(n - i), view.pad * 0.31, y);
+      ctx.fillText(String(n - i), view.pad * 0.34, y);
     }
     ctx.restore();
   }
 
-  function drawStone(x, y, radius, color, options = {}) {
+  function drawStone(x, y, radius, color, options = {}, palette = getBoardPalette()) {
     const { alpha = 1, scale = 1, ghost = false } = options;
+    const fill = color === Go.BLACK ? palette.blackFill : palette.whiteFill;
+    const stroke = color === Go.BLACK ? palette.blackStroke : palette.whiteStroke;
+
     ctx.save();
-    ctx.globalAlpha = alpha;
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    if (!ghost) {
-      ctx.shadowColor = color === Go.BLACK
-        ? 'rgba(22, 16, 9, 0.32)'
-        : 'rgba(64, 44, 21, 0.24)';
-      ctx.shadowBlur = radius * 0.26;
-      ctx.shadowOffsetY = radius * 0.12;
-    }
-
-    const gradient = ctx.createRadialGradient(
-      -radius * 0.34, -radius * 0.4, radius * 0.06,
-      0, 0, radius * 1.03,
-    );
-
-    if (color === Go.BLACK) {
-      gradient.addColorStop(0, '#66695f');
-      gradient.addColorStop(0.25, '#3a3d37');
-      gradient.addColorStop(0.65, '#1c1e1a');
-      gradient.addColorStop(0.9, '#0a0b09');
-      gradient.addColorStop(1, '#050604');
-    } else {
-      gradient.addColorStop(0, '#fffdf8');
-      gradient.addColorStop(0.3, '#f8f3e9');
-      gradient.addColorStop(0.72, '#e8e0d3');
-      gradient.addColorStop(0.94, '#d1c8b8');
-      gradient.addColorStop(1, '#c0b6a5');
-    }
-
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, TAU);
-    ctx.fillStyle = gradient;
-    ctx.fill();
 
-    ctx.shadowColor = 'transparent';
-    ctx.lineWidth = Math.max(0.6, radius * 0.035);
-    ctx.strokeStyle = color === Go.BLACK
-      ? 'rgba(255, 255, 255, 0.08)'
-      : 'rgba(112, 99, 79, 0.38)';
-    ctx.stroke();
-
-    if (!ghost) {
-      const highlight = ctx.createRadialGradient(
-        -radius * 0.38, -radius * 0.44, 0,
-        -radius * 0.35, -radius * 0.4, radius * 0.65,
-      );
-      highlight.addColorStop(0, color === Go.BLACK
-        ? 'rgba(255, 255, 255, 0.11)'
-        : 'rgba(255, 255, 255, 0.42)');
-      highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.beginPath();
-      ctx.arc(-radius * 0.24, -radius * 0.28, radius * 0.42, 0, TAU);
-      ctx.fillStyle = highlight;
+    if (ghost) {
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = fill;
       ctx.fill();
+
+      ctx.globalAlpha = 0.72;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1.2, radius * 0.04);
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = fill;
+      ctx.fill();
+
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1.25, radius * 0.048);
+      ctx.stroke();
     }
 
     ctx.restore();
   }
 
-  function drawLastMarker(x, y, scale = 1, color = Go.BLACK) {
-    const radius = Math.max(2.4, view.cell * 0.062) * scale;
+  function drawLastMarker(x, y, scale = 1, color = Go.BLACK, palette = getBoardPalette()) {
+    const radius = Math.max(4, view.cell * 0.16) * scale;
     ctx.save();
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, TAU);
-    ctx.fillStyle = color === Go.BLACK
-      ? 'rgba(255, 246, 230, 0.9)'
-      : 'rgba(30, 42, 35, 0.82)';
-    ctx.fill();
+    ctx.strokeStyle = color === Go.BLACK ? palette.markOnBlack : palette.markOnWhite;
+    ctx.lineWidth = Math.max(1.6, view.cell * 0.025);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -2444,6 +2385,8 @@
     if (remember) {
       try { localStorage.setItem(THEME_STORAGE_KEY, mode); } catch (e) {}
     }
+    invalidateBoardPalette();
+    if (state.board && view.cssSize) drawBoard();
     if (state.review.open) renderReview();
   }
 
@@ -2564,6 +2507,12 @@
     }
 
     startNewGame();
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        invalidateBoardPalette();
+        drawBoard();
+      });
+    }
     window.requestAnimationFrame(resizeCanvas);
   }
 

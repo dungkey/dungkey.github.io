@@ -355,15 +355,6 @@ hr { border: 0; border-top: 1px solid var(--line); }
   line-height: 1.1;
   color: var(--ink);
 }
-.brand-copy small {
-  overflow: hidden;
-  color: var(--ink-3);
-  font-family: var(--serif);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .library-header-end { display: flex; flex: 0 0 auto; align-items: center; gap: 18px; }
 
@@ -427,17 +418,6 @@ hr { border: 0; border-top: 1px solid var(--line); }
   gap: 28px;
   padding-bottom: 24px;
   border-bottom: 3px double var(--rule-strong);
-}
-.shelf-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-  color: var(--zhu);
-  font-family: var(--display);
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 0.14em;
 }
 .shelf-head h2 {
   margin: 0 0 8px;
@@ -1601,7 +1581,6 @@ dialog::backdrop {
   letter-spacing: 0.08em;
 }
 .setting-title label { cursor: pointer; }
-.setting-title small { color: var(--ink-3); font-family: var(--serif); font-size: 12px; letter-spacing: 0.04em; }
 .setting-title output { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
 
 .paper-grid {
@@ -1648,21 +1627,8 @@ dialog::backdrop {
 .paper-preview i:nth-child(3) { width: 68%; }
 .paper-tone-paper { background: #faf8f3; color: #191816; }
 .paper-tone-cream { background: #f3eee4; color: #1d1b18; }
-.setting-hint.paper-hint-dark { display: none; }
-:root[data-theme="dark"] .setting-hint.paper-hint-light { display: none; }
-:root[data-theme="dark"] .setting-hint.paper-hint-dark { display: block; }
 .paper-swatch:disabled { cursor: not-allowed; opacity: 0.6; }
 .paper-swatch:disabled:hover { border-color: var(--rule); background: transparent; }
-.setting-hint {
-  display: none;
-  margin: 10px 1px 0;
-  color: var(--ink-3);
-  font-size: 12px;
-  line-height: 1.75;
-}
-.setting-hint-block { display: block; }
-.win-only { display: none; }
-:root[data-os="windows"] .win-only { display: block; }
 
 .segmented {
   display: grid;
@@ -1782,7 +1748,6 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
 }
 .reset-settings:hover { border-color: var(--zhu); background: var(--paper-deep); color: var(--zhu); }
-.settings-note { margin: 14px 2px 0; color: var(--ink-3); font-size: 12px; line-height: 1.8; }
 
 .bookmarks-dialog {
   position: fixed;
@@ -2038,7 +2003,6 @@ input[type="range"]::-moz-range-thumb {
   .brand { gap: 10px; }
   .seal { width: 24px; height: 24px; font-size: 14px; }
   .brand-copy strong { font-size: 21px; }
-  .brand-copy small { display: none; }
   .library-header-end { gap: 10px; }
   .theme-switch button { padding: 4px 3px 4px 10px; font-size: 14px; }
   .theme-switch button[aria-pressed="true"]::before { left: 1px; }

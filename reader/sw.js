@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-reader-v20261120';
+const CACHE_NAME = 'workbench-reader-v20261120-2';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,6 @@ const ASSETS = [
   './library.js?v=20261120',
   './store.js?v=20261120',
   './app.js?v=20261120',
-  './README.md',
   '../assets/tokens.css?v=20261120',
   '../assets/fonts/kinghwa-oldsong.woff2',
 ];

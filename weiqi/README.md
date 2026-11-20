@@ -2,8 +2,6 @@
 
 一个无需安装、打开即玩的网页围棋。支持 **5 × 5** 与 **6 × 6** 棋盘，玩家可以选择执黑或执白，由启发式蒙特卡洛树搜索（MCTS）AI 担任对手。
 
-![对局预览](preview.png)
-
 ## 运行
 
 直接双击 `index.html` 即可游玩。页面为纯静态 HTML/CSS/JavaScript，不依赖任何第三方库，也不需构建。
@@ -86,7 +84,6 @@ weiqi/
 ├── ai.js           MCTS 搜索、停一手与复盘逐点分析
 ├── ai-worker.js    AI / 复盘 Web Worker 入口
 ├── app.js          界面交互、棋盘绘制、对局流程与复盘面板
-├── preview.png     页面预览图
 └── README.md
 ```
 
