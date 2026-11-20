@@ -1,14 +1,16 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-reader-v20261027';
+const CACHE_NAME = 'workbench-reader-v20261120';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './library.js',
-  './store.js',
-  './app.js',
+  './styles.css?v=20261120',
+  './library.js?v=20261120',
+  './store.js?v=20261120',
+  './app.js?v=20261120',
   './README.md',
+  '../assets/tokens.css?v=20261120',
+  '../assets/fonts/kinghwa-oldsong.woff2',
 ];
 
 self.addEventListener('install', (event) => {

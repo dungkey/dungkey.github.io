@@ -143,9 +143,7 @@
 
   const els = {
     soundToggleBtn: $('soundToggleBtn'),
-    soundIcon: $('soundIcon'),
     moveNumberToggleBtn: $('moveNumberToggleBtn'),
-    moveNumberIcon: $('moveNumberIcon'),
 
     boardKicker: $('boardKicker'),
     boardTitle: $('boardTitle'),
@@ -1464,7 +1462,7 @@
     const playedInCandidates = pointCandidates.some((c) => c.idx === playedMove);
 
     if (hasPlayedMove && !playedInCandidates) {
-      svg += `<circle cx="${pointX(playedMove)}" cy="${pointY(playedMove)}" r="${cell * 0.4}" fill="none" stroke="#b1482e" stroke-width="2" stroke-dasharray="4 3"/>`;
+      svg += `<circle cx="${pointX(playedMove)}" cy="${pointY(playedMove)}" r="${cell * 0.4}" fill="none" stroke="#b23a25" stroke-width="2" stroke-dasharray="4 3"/>`;
     }
 
     pointCandidates.forEach((candidate, rank) => {
@@ -1473,9 +1471,9 @@
       const x = pointX(candidate.idx);
       const y = pointY(candidate.idx);
       if (isPlayed) {
-        svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="#b1482e" stroke-width="2.2" stroke-dasharray="4 3"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="#b23a25" stroke-width="2.2" stroke-dasharray="4 3"/>`;
       }
-      svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="rgba(255,252,245,0.88)" stroke="${color}" stroke-width="2.4"/>`;
+      svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="rgba(243,238,228,0.9)" stroke="${color}" stroke-width="2.4"/>`;
       svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="600" fill="${color}">${rank + 1}</text>`;
     });
 
@@ -1573,16 +1571,16 @@
     let svg = `
       <defs>
         <linearGradient id="reviewWinArea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="rgba(30,42,35,0.22)"/>
-          <stop offset="1" stop-color="rgba(30,42,35,0.01)"/>
+          <stop offset="0" stop-color="var(--zhu)" stop-opacity="0.22"/>
+          <stop offset="1" stop-color="var(--zhu)" stop-opacity="0.01"/>
         </linearGradient>
       </defs>`;
 
     for (const value of [0, 0.25, 0.5, 0.75, 1]) {
       const y = yFor(value);
       const isMid = value === 0.5;
-      svg += `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="${isMid ? 'rgba(177,72,46,0.32)' : 'rgba(58,72,60,0.12)'}" stroke-width="1" ${isMid ? 'stroke-dasharray="4 4"' : ''}/>`;
-      svg += `<text x="${padLeft - 9}" y="${y + 3.5}" text-anchor="end" font-size="10.5" fill="var(--ink-faint)">${Math.round(value * 100)}%</text>`;
+      svg += `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="${isMid ? 'var(--zhu)' : 'var(--rule)'}" stroke-opacity="${isMid ? '0.45' : '0.85'}" stroke-width="1" ${isMid ? 'stroke-dasharray="4 4"' : ''}/>`;
+      svg += `<text x="${padLeft - 9}" y="${y + 3.5}" text-anchor="end" font-size="10.5" fill="var(--ink-3)">${Math.round(value * 100)}%</text>`;
     }
 
     const tickStep = Math.max(1, Math.ceil(Math.max(1, total - 1) / 6));
@@ -1591,10 +1589,10 @@
 
     for (const index of Array.from(ticks).sort((a, b) => a - b)) {
       const x = xFor(index);
-      svg += `<line x1="${x}" y1="${height - padBottom}" x2="${x}" y2="${height - padBottom + 4}" stroke="rgba(58,72,60,0.2)"/>`;
-      svg += `<text x="${x}" y="${height - padBottom + 16}" text-anchor="middle" font-size="10.5" fill="var(--ink-faint)">${index}</text>`;
+      svg += `<line x1="${x}" y1="${height - padBottom}" x2="${x}" y2="${height - padBottom + 4}" stroke="var(--rule-strong)" stroke-opacity="0.4"/>`;
+      svg += `<text x="${x}" y="${height - padBottom + 16}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${index}</text>`;
     }
-    svg += `<text x="${width - padRight}" y="${height - 5}" text-anchor="end" font-size="10.5" fill="var(--ink-faint)">手数</text>`;
+    svg += `<text x="${width - padRight}" y="${height - 5}" text-anchor="end" font-size="10.5" fill="var(--ink-3)">手数</text>`;
 
     for (const current of segments) {
       if (current.length === 0) continue;
@@ -1604,14 +1602,14 @@
       if (current.length > 1) {
         const areaPath = `${linePath} L${xFor(current[current.length - 1].index).toFixed(1)},${height - padBottom} L${xFor(current[0].index).toFixed(1)},${height - padBottom} Z`;
         svg += `<path d="${areaPath}" fill="url(#reviewWinArea)"/>`;
-        svg += `<path d="${linePath}" fill="none" stroke="#1e2a23" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+        svg += `<path d="${linePath}" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
       }
     }
 
     const selected = state.review.selected;
     if (selected >= 0 && selected < total) {
       const x = xFor(selected);
-      svg += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${height - padBottom}" stroke="rgba(177,72,46,0.45)" stroke-width="1" stroke-dasharray="3 4"/>`;
+      svg += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${height - padBottom}" stroke="var(--zhu)" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="3 4"/>`;
     }
 
     for (const point of points) {
@@ -1619,9 +1617,9 @@
       const y = yFor(point.rate);
       const active = point.index === selected;
       if (active) {
-        svg += `<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="#b1482e" stroke-width="1.6"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="var(--zhu)" stroke-width="1.6"/>`;
       }
-      svg += `<circle cx="${x}" cy="${y}" r="${active ? 4 : 3.1}" fill="${active ? '#b1482e' : '#1e2a23'}" stroke="#fbf7ee" stroke-width="1.2"><title>第 ${point.index} 手后 · 黑棋胜率 ${percentText(point.rate)}</title></circle>`;
+      svg += `<circle cx="${x}" cy="${y}" r="${active ? 4 : 3.1}" fill="${active ? 'var(--zhu)' : 'var(--ink)'}" stroke="var(--paper-card)" stroke-width="1.2"><title>第 ${point.index} 手后 · 黑棋胜率 ${percentText(point.rate)}</title></circle>`;
       svg += `<circle class="review-chart-hit" data-index="${point.index}" cx="${x}" cy="${y}" r="9" fill="transparent" tabindex="0" role="button" aria-label="查看第 ${point.index} 手之后的局面"/>`;
     }
 
@@ -1645,6 +1643,7 @@
       let rateCell = '<span class="review-pending">分析中…</span>';
       let topCell = '';
       let rankCell = '—';
+      let qualityBadge = '';
 
       if (analysis) {
         rateCell = analysis.playedRate === null
@@ -1672,7 +1671,6 @@
           topCell += `<span class="review-point rank-pass">停一手 <em>${percentText(passCandidate.winRate)}</em></span>`;
         }
 
-        let qualityBadge = '';
         if (analysis.playedRank !== null) {
           rankCell = `第 ${analysis.playedRank} <span>/ ${analysis.evaluated}</span>`;
           if (analysis.playedRank === 1) {
@@ -1799,11 +1797,11 @@
     if (els.soundToggleBtn) {
       const isSound = AudioFX.isSoundEnabled();
       els.soundToggleBtn.classList.toggle('is-active', isSound);
-      if (els.soundIcon) els.soundIcon.textContent = isSound ? '🔊' : '🔇';
+      els.soundToggleBtn.setAttribute('aria-pressed', String(isSound));
     }
     if (els.moveNumberToggleBtn) {
       els.moveNumberToggleBtn.classList.toggle('is-active', state.showMoveNumbers);
-      if (els.moveNumberIcon) els.moveNumberIcon.textContent = state.showMoveNumbers ? '①' : '⚪';
+      els.moveNumberToggleBtn.setAttribute('aria-pressed', String(state.showMoveNumbers));
     }
 
     els.boardKicker.textContent = `${CHINESE_NUMERALS[state.size]}路棋盘`;
@@ -1998,7 +1996,7 @@
       const y = gridStart + Math.floor(state.lastMove / n) * view.cell;
       if (state.showMoveNumbers) {
         ctx.save();
-        ctx.strokeStyle = '#b1482e';
+        ctx.strokeStyle = '#b23a25';
         ctx.lineWidth = Math.max(1.8, view.cell * 0.045);
         ctx.beginPath();
         ctx.arc(x, y, view.cell * 0.45 * lastMoveScale, 0, TAU);
@@ -2019,7 +2017,7 @@
       const x = gridStart + (state.kbCursor % n) * view.cell;
       const y = gridStart + Math.floor(state.kbCursor / n) * view.cell;
       ctx.save();
-      ctx.strokeStyle = 'rgba(177, 72, 46, 0.85)';
+      ctx.strokeStyle = 'rgba(178, 58, 37, 0.85)';
       ctx.lineWidth = Math.max(1.4, view.cell * 0.022);
       ctx.beginPath();
       ctx.arc(x, y, view.cell * 0.47, 0, TAU);
@@ -2242,7 +2240,7 @@
       els.soundToggleBtn.addEventListener('click', () => {
         const active = AudioFX.toggleSound();
         els.soundToggleBtn.classList.toggle('is-active', active);
-        if (els.soundIcon) els.soundIcon.textContent = active ? '🔊' : '🔇';
+        els.soundToggleBtn.setAttribute('aria-pressed', String(active));
         showToast(active ? '已开启音效' : '已静音');
       });
     }
@@ -2252,7 +2250,7 @@
         state.showMoveNumbers = !state.showMoveNumbers;
         localStorage.setItem('weiqi_move_numbers', String(state.showMoveNumbers));
         els.moveNumberToggleBtn.classList.toggle('is-active', state.showMoveNumbers);
-        if (els.moveNumberIcon) els.moveNumberIcon.textContent = state.showMoveNumbers ? '①' : '⚪';
+        els.moveNumberToggleBtn.setAttribute('aria-pressed', String(state.showMoveNumbers));
         drawBoard();
         showToast(state.showMoveNumbers ? '已开启手数显示' : '已隐藏手数');
       });
@@ -2423,14 +2421,139 @@
     });
   }
 
+  const THEME_STORAGE_KEY = 'desk-theme';
+  const darkScheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const themeBtns = Array.from(document.querySelectorAll('[data-set-theme]'));
+  let themeSwitchTimer = 0;
+
+  function resolveTheme(mode) {
+    if (mode === 'dark' || mode === 'light') return mode;
+    return darkScheme && darkScheme.matches ? 'dark' : 'light';
+  }
+
+  function applyThemeState(mode, remember) {
+    const resolved = resolveTheme(mode);
+    const root = document.documentElement;
+    root.setAttribute('data-theme-mode', mode);
+    root.setAttribute('data-theme', resolved);
+    const meta = document.getElementById('themeColor');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#12110f' : '#f3eee4');
+    themeBtns.forEach((btn) => {
+      btn.setAttribute('aria-pressed', String(btn.dataset.setTheme === mode));
+    });
+    if (remember) {
+      try { localStorage.setItem(THEME_STORAGE_KEY, mode); } catch (e) {}
+    }
+    if (state.review.open) renderReview();
+  }
+
+  function paintTheme(mode, remember, event) {
+    const root = document.documentElement;
+    const currentMode = root.getAttribute('data-theme-mode') || 'auto';
+    const currentTheme = root.getAttribute('data-theme') || resolveTheme(currentMode);
+    const targetTheme = resolveTheme(mode);
+
+    if (currentMode === mode && currentTheme === targetTheme) return;
+
+    const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const canViewTransition = typeof document.startViewTransition === 'function' && !reducedMotion;
+
+    if (currentTheme === targetTheme) {
+      applyThemeState(mode, remember);
+      return;
+    }
+
+    if (canViewTransition) {
+      let x = window.innerWidth / 2;
+      let y = window.innerHeight / 2;
+      if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
+        x = event.clientX;
+        y = event.clientY;
+      } else {
+        const activeBtn = themeBtns.find((b) => b.dataset.setTheme === mode);
+        if (activeBtn) {
+          const rect = activeBtn.getBoundingClientRect();
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
+        }
+      }
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+
+      try {
+        const transition = document.startViewTransition(() => {
+          applyThemeState(mode, remember);
+        });
+        transition.ready.then(() => {
+          root.animate(
+            {
+              clipPath: [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${endRadius}px at ${x}px ${y}px)`,
+              ],
+            },
+            {
+              duration: 400,
+              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              pseudoElement: '::view-transition-new(root)',
+            }
+          );
+        }).catch(() => {});
+        return;
+      } catch (e) {}
+    }
+
+    root.classList.add('is-theme-switching');
+    applyThemeState(mode, remember);
+    window.clearTimeout(themeSwitchTimer);
+    themeSwitchTimer = window.setTimeout(() => {
+      root.classList.remove('is-theme-switching');
+    }, 350);
+  }
+
+  function bindThemeControls() {
+    const initialMode = document.documentElement.getAttribute('data-theme-mode') || 'auto';
+    applyThemeState(initialMode, false);
+
+    themeBtns.forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        paintTheme(btn.dataset.setTheme, true, event);
+      });
+    });
+
+    if (darkScheme) {
+      const onChange = () => {
+        if ((document.documentElement.getAttribute('data-theme-mode') || 'auto') === 'auto') {
+          paintTheme('auto', false);
+        }
+      };
+      if (darkScheme.addEventListener) darkScheme.addEventListener('change', onChange);
+      else if (darkScheme.addListener) darkScheme.addListener(onChange);
+    }
+
+    window.addEventListener('storage', (event) => {
+      if (event.key !== THEME_STORAGE_KEY) return;
+      const nextMode = event.newValue;
+      if (nextMode === 'light' || nextMode === 'dark' || nextMode === 'auto') {
+        applyThemeState(nextMode, false);
+      }
+    });
+  }
+
   function init() {
     if (!Go || !GoAI) {
       console.error('围棋引擎加载失败。');
       return;
     }
 
+    const yearEl = $('year');
+    if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
     canvas.setAttribute('tabindex', '0');
     els.boardFrame.tabIndex = -1;
+    bindThemeControls();
     bindEvents();
 
     if (typeof ResizeObserver !== 'undefined') {

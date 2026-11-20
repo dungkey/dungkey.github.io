@@ -1,71 +1,211 @@
 /* ------------------------------------------------------------------ */
-/* 共享设计令牌（Workbench / Reader / 子应用通用）                    */
+/* 工作台 · 书卷排版共享令牌（Reader / Weiqi 通用）                    */
+/* 宣纸底、墨色字、朱砂一点；京华老宋体作标题，系统宋体作正文。         */
 /* ------------------------------------------------------------------ */
 
+@font-face {
+  font-family: "KingHwa OldSong";
+  src: url("fonts/kinghwa-oldsong.woff2") format("woff2");
+  font-display: swap;
+}
+
 :root {
-  --bg: #090a0d;
-  --surface: #15181f;
-  --surface-elevated: #1b1f27;
-  --surface-hover: #1e232c;
-  --surface-active: #272d38;
-  --line: rgba(255, 255, 255, 0.11);
-  --line-subtle: rgba(255, 255, 255, 0.055);
-  --line-focus: rgba(255, 255, 255, 0.28);
-  --line-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --paper: #f3eee4;
+  --paper-deep: #e9e2d4;
+  --paper-card: #f8f4ec;
+  --ink: #1d1b18;
+  --ink-2: #57514a;
+  --ink-3: #746c60;
+  --rule: rgba(29, 27, 24, 0.16);
+  --rule-subtle: rgba(29, 27, 24, 0.08);
+  --rule-strong: rgba(29, 27, 24, 0.72);
+  --zhu: #b23a25;
+  --zhu-deep: #8f2c1b;
+  --zhu-wash: rgba(178, 58, 37, 0.08);
+  --zhu-ink: #f3eee4;
+  --grain-opacity: 0.07;
 
-  --ink: #f2f4f8;
-  --ink-dim: #9aa2b2;
-  --ink-faint: #7f889a;
-  --track: #242a34;
-
-  /* 瑞士工业克制暖琥珀金，替代刺目工装橙 */
-  --accent: #f59e0b;
-  --accent-text: #f59e0b;
-  --accent-hover: #fbbf24;
-  --accent-glow: rgba(245, 158, 11, 0.18);
-  --accent-wash: rgba(245, 158, 11, 0.08);
-  --accent-ink: #090a0d;
-
+  --display: "KingHwa OldSong", "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* 语义别名映射 */
+  --bg: var(--paper);
+  --surface: var(--paper-card);
+  --surface-elevated: var(--paper);
+  --surface-hover: var(--paper-deep);
+  --surface-active: var(--paper-deep);
+  --line: var(--rule);
+  --line-subtle: var(--rule-subtle);
+  --line-strong: var(--rule-strong);
+  --line-focus: var(--rule-strong);
+  --line-inset: none;
+
+  --ink-dim: var(--ink-2);
+  --ink-soft: var(--ink-2);
+  --ink-faint: var(--ink-3);
+  --track: var(--rule);
+
+  --accent: var(--zhu);
+  --accent-text: var(--zhu);
+  --accent-deep: var(--zhu-deep);
+  --accent-hover: var(--zhu-deep);
+  --accent-glow: rgba(178, 58, 37, 0.14);
+  --accent-wash: var(--zhu-wash);
+  --accent-ink: var(--zhu-ink);
+
+  --shadow-sm: none;
+  --shadow-md: 0 18px 40px -24px rgba(29, 27, 24, 0.22);
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
   --radius-full: 999px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #12110f;
+  --paper-deep: #1c1a17;
+  --paper-card: #171512;
+  --ink: #e9e3d6;
+  --ink-2: #aaa294;
+  --ink-3: #888073;
+  --rule: rgba(233, 227, 214, 0.14);
+  --rule-subtle: rgba(233, 227, 214, 0.07);
+  --rule-strong: rgba(233, 227, 214, 0.6);
+  --zhu: #d65a3f;
+  --zhu-deep: #e06d53;
+  --zhu-wash: rgba(214, 90, 63, 0.12);
+  --zhu-ink: #12110f;
+  --grain-opacity: 0.05;
+
+  --accent-glow: rgba(214, 90, 63, 0.18);
+  --shadow-md: 0 18px 40px -20px rgba(0, 0, 0, 0.55);
 
   color-scheme: dark;
 }
 
-:root[data-theme="light"] {
-  --bg: #f4f5f8;
-  --surface: #ffffff;
-  --surface-elevated: #fbfcfe;
-  --surface-hover: #eff2f7;
-  --surface-active: #e5eaf2;
-  --line: rgba(0, 0, 0, 0.11);
-  --line-subtle: rgba(0, 0, 0, 0.05);
-  --line-focus: rgba(0, 0, 0, 0.24);
-  --line-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+html {
+  background: var(--paper);
+}
 
-  --ink: #101319;
-  --ink-dim: #4f5869;
-  --ink-faint: #67708a;
-  --track: #dfe4ec;
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  accent-color: var(--zhu);
+}
 
-  /* 浅色下极度沉静的陶土暖红棕，保持高对比度同时绝不刺眼 */
-  --accent: #c2410c;
-  --accent-text: #9a3412;
-  --accent-hover: #ea580c;
-  --accent-glow: rgba(194, 65, 12, 0.12);
-  --accent-wash: rgba(194, 65, 12, 0.06);
-  --accent-ink: #ffffff;
+/* 纸面颗粒：静态噪点，与主页保持一致 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.03);
-  --shadow-md: 0 4px 16px -2px rgba(16, 24, 40, 0.06);
+:root[data-theme="dark"] body::before {
+  filter: invert(1);
+}
 
-  color-scheme: light;
+::selection {
+  background: var(--zhu);
+  color: var(--zhu-ink);
+}
+
+/* ---------- 共享朱砂印章与三字配色切换 ---------- */
+
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  background: var(--zhu);
+  color: var(--zhu-ink);
+  border-radius: 3px;
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(-2deg);
+  box-shadow: inset 0 0 0 2px var(--zhu), inset 0 0 0 3px var(--zhu-ink);
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.theme-switch button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 4px 4px 12px;
+  min-height: 32px;
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.theme-switch button:hover {
+  color: var(--ink);
+}
+
+.theme-switch button[aria-pressed="true"] {
+  color: var(--ink);
+}
+
+.theme-switch button[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--zhu);
+}
+
+/* ---------- 主题切换过渡 ---------- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+html.is-theme-switching,
+html.is-theme-switching * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

@@ -16,7 +16,7 @@ const DARK_MEDIA = window.matchMedia ? window.matchMedia('(prefers-color-scheme:
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: 'auto',
-  paper: 'paper',
+  paper: 'cream',
   mode: 'scroll',
   font: DEFAULT_FONT,
   fontSize: 19,
@@ -27,10 +27,10 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 const THEME_NAMES = { dark: '深色', light: '浅色', auto: '跟随系统' };
-const THEME_COLORS = { dark: '#090a0d', light: '#f4f5f8' };
+const THEME_COLORS = { dark: '#12110f', light: '#f3eee4' };
 const THEME_ORDER = ['dark', 'light', 'auto'];
 const PAPER_ORDER = ['paper', 'cream'];
-const PAPER_NAMES = { paper: '纸色', cream: '米色' };
+const PAPER_NAMES = { paper: '素白', cream: '宣纸' };
 const WEIGHTS = [300, 400, 700];
 
 const $ = (id) => document.getElementById(id);
@@ -302,9 +302,82 @@ function changeSetting(key, value) {
   if (key === 'theme') persistSharedTheme(value);
 }
 
+let themeSwitchTimer = 0;
+
+function changeTheme(mode, event, remember = true) {
+  const root = document.documentElement;
+  const currentMode = settings.theme;
+  const currentTheme = root.dataset.theme || resolveTheme(currentMode);
+  const targetTheme = resolveTheme(mode);
+
+  const commit = () => {
+    settings.theme = mode;
+    applySettings();
+    if (remember) {
+      persistSettings();
+      persistSharedTheme(mode);
+    }
+  };
+
+  if (currentTheme === targetTheme) {
+    commit();
+    return;
+  }
+
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canViewTransition = typeof document.startViewTransition === 'function' && !reducedMotion;
+
+  if (canViewTransition) {
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
+      x = event.clientX;
+      y = event.clientY;
+    } else if (event?.currentTarget instanceof HTMLElement) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      x = rect.left + rect.width / 2;
+      y = rect.top + rect.height / 2;
+    }
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    try {
+      const transition = document.startViewTransition(() => {
+        commit();
+      });
+      transition.ready.then(() => {
+        root.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${endRadius}px at ${x}px ${y}px)`,
+            ],
+          },
+          {
+            duration: 400,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            pseudoElement: '::view-transition-new(root)',
+          }
+        );
+      }).catch(() => {});
+      return;
+    } catch {}
+  }
+
+  root.classList.add('is-theme-switching');
+  commit();
+  window.clearTimeout(themeSwitchTimer);
+  themeSwitchTimer = window.setTimeout(() => {
+    root.classList.remove('is-theme-switching');
+  }, 350);
+}
+
 function bindSettings() {
   $$('[data-set-theme]').forEach((button) => {
-    button.addEventListener('click', () => changeSetting('theme', button.dataset.setTheme));
+    button.addEventListener('click', (event) => changeTheme(button.dataset.setTheme, event, true));
   });
   $$('[data-set-font]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -720,7 +793,7 @@ function createBookCard(book, rawProgress, index) {
   const coverTitle = document.createElement('h3');
   coverTitle.textContent = book.title;
   const coverAuthor = document.createElement('p');
-  coverAuthor.textContent = book.author || 'LOCAL LIBRARY';
+  coverAuthor.textContent = book.author || '本地藏书';
   copy.append(coverTitle, coverAuthor);
   fallback.append(coverTop, copy);
 
@@ -1381,7 +1454,7 @@ function renderChapter() {
   const unit = state.hasParts ? chapterUnit(chapter) : '章';
   el.chapterKicker.textContent = state.hasParts
     ? chapterPartName(chapter)
-    : `CHAPTER ${String(chapter.index + 1).padStart(3, '0')}`;
+    : `第 ${formatNumber(chapter.index + 1)} 章`;
   el.chapterKicker.classList.toggle('is-part', state.hasParts);
   el.chapterStats.textContent = state.hasParts
     ? `${formatNumber(chapter.chars)} 字 · 第 ${formatNumber(chapter.inPart)} / ${formatNumber(chapter.partCount)} ${unit}`

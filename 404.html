@@ -1,47 +1,68 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>页面不存在 · 工作台</title>
 <meta name="description" content="这个地址没有对应的页面。">
 <meta name="robots" content="noindex">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#090a0d" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f59e0b'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23090a0d' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3eee4" id="themeColor">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23b23a25'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23f3eee4' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<script>
+  (function () {
+    var mode = 'auto';
+    try {
+      var saved = localStorage.getItem('desk-theme');
+      if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
+    } catch (e) {}
+    var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+    document.documentElement.setAttribute('data-theme', resolved);
+    var meta = document.getElementById('themeColor');
+    if (meta) meta.setAttribute('content', resolved === 'light' ? '#f3eee4' : '#12110f');
+  })();
+</script>
 <style>
+  @font-face {
+    font-family: "KingHwa OldSong";
+    src: url("/assets/fonts/kinghwa-oldsong.woff2") format("woff2");
+    font-display: swap;
+  }
+
   :root {
-    --bg: #090a0d;
-    --surface: #15181f;
-    --ink: #f2f4f8;
-    --dim: #9aa2b2;
-    --faint: #7f889a;
-    --line: rgba(255, 255, 255, 0.12);
-    --line-strong: rgba(255, 255, 255, 0.22);
-    --accent: #f59e0b;
-    --accent-wash: rgba(245, 158, 11, 0.08);
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --paper: #f3eee4;
+    --paper-deep: #e9e2d4;
+    --ink: #1d1b18;
+    --ink-2: #57514a;
+    --ink-3: #746c60;
+    --rule: rgba(29, 27, 24, 0.16);
+    --rule-strong: rgba(29, 27, 24, 0.72);
+    --zhu: #b23a25;
+    --zhu-ink: #f3eee4;
+    --grain-opacity: 0.07;
+    --display: "KingHwa OldSong", "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #12110f;
+    --paper-deep: #1c1a17;
+    --ink: #e9e3d6;
+    --ink-2: #aaa294;
+    --ink-3: #888073;
+    --rule: rgba(233, 227, 214, 0.14);
+    --rule-strong: rgba(233, 227, 214, 0.6);
+    --zhu: #d65a3f;
+    --zhu-ink: #12110f;
+    --grain-opacity: 0.05;
     color-scheme: dark;
   }
 
-  @media (prefers-color-scheme: light) {
-    :root {
-      --bg: #f4f5f8;
-      --surface: #ffffff;
-      --ink: #101319;
-      --dim: #4f5869;
-      --faint: #67708a;
-      --line: rgba(0, 0, 0, 0.12);
-      --line-strong: rgba(0, 0, 0, 0.22);
-      --accent: #c2410c;
-      --accent-wash: rgba(194, 65, 12, 0.07);
-      color-scheme: light;
-    }
-  }
-
   *, *::before, *::after { box-sizing: border-box; }
+
+  html { background: var(--paper); }
 
   body {
     margin: 0;
@@ -51,108 +72,138 @@
     align-items: center;
     justify-content: center;
     padding: 48px 24px;
-    background:
-      radial-gradient(900px 520px at 88% -10%, var(--accent-wash), transparent 62%),
-      radial-gradient(700px 420px at 0% 110%, rgba(255, 255, 255, 0.03), transparent 60%),
-      var(--bg);
+    background: var(--paper);
     color: var(--ink);
-    font-family: var(--sans);
+    font-family: var(--serif);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  :root[data-theme="dark"] body::before { filter: invert(1); }
+
+  ::selection { background: var(--zhu); color: var(--zhu-ink); }
+
   .wrap {
-    width: min(100%, 760px);
-    border: 1px solid var(--line);
-    background: var(--surface);
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
-    box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7);
-    padding: clamp(28px, 6vw, 64px);
+    position: relative;
+    z-index: 1;
+    width: min(100%, 680px);
+    border-top: 3px double var(--rule-strong);
+    border-bottom: 1px solid var(--rule);
+    padding: clamp(32px, 6vw, 56px) 0;
   }
 
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    color: var(--faint);
-    font: 500 12px/1 var(--mono);
-    letter-spacing: 0.16em;
+    gap: 12px;
+    color: var(--ink-2);
+    font-family: var(--display);
+    font-size: 16px;
+    letter-spacing: 0.14em;
     text-decoration: none;
-    text-transform: uppercase;
   }
 
-  .brand::before {
-    content: "";
-    width: 9px;
-    height: 9px;
-    background: var(--accent);
-    box-shadow: 0 0 18px var(--accent);
+  .seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--zhu);
+    color: var(--zhu-ink);
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 1;
+    transform: rotate(-2deg);
+    box-shadow: inset 0 0 0 2px var(--zhu), inset 0 0 0 3px var(--zhu-ink);
   }
 
   .code {
-    margin-top: clamp(40px, 9vw, 88px);
-    color: var(--accent);
-    font: 600 clamp(64px, 15vw, 120px)/0.9 var(--mono);
-    letter-spacing: -0.06em;
+    margin-top: clamp(32px, 7vw, 64px);
+    color: var(--zhu);
+    font-family: var(--display);
+    font-size: clamp(64px, 14vw, 112px);
+    line-height: 0.9;
+    letter-spacing: 0.04em;
   }
 
   h1 {
-    margin: 28px 0 0;
-    font-size: clamp(24px, 4vw, 34px);
+    margin: 22px 0 0;
+    font-family: var(--display);
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: 400;
     line-height: 1.35;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.08em;
   }
 
   p {
     margin: 14px 0 0;
-    max-width: 46ch;
-    color: var(--dim);
-    font-size: 15px;
+    max-width: 44ch;
+    color: var(--ink-2);
+    font-size: 16px;
     line-height: 1.8;
   }
 
   nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 36px;
-    padding-top: 28px;
-    border-top: 1px solid var(--line);
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
   }
 
   nav a {
     display: inline-flex;
     align-items: center;
-    min-height: 42px;
+    min-height: 40px;
     padding: 0 18px;
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
     color: var(--ink);
     text-decoration: none;
-    font: 500 13px/1 var(--mono);
-    letter-spacing: 0.04em;
-    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    font-family: var(--display);
+    font-size: 14.5px;
+    letter-spacing: 0.1em;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
   }
 
   nav a:hover {
-    border-color: var(--accent);
-    background: var(--accent-wash);
+    border-color: var(--zhu);
+    color: var(--zhu);
+    background: var(--paper-deep);
   }
 
   nav a.primary {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--rule-strong);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  nav a.primary:hover {
+    border-color: var(--zhu);
+    background: var(--zhu);
+    color: var(--zhu-ink);
   }
 
   footer {
-    margin-top: 40px;
-    color: var(--faint);
-    font: 400 11px/1 var(--mono);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    margin-top: 32px;
+    color: var(--ink-3);
+    font-size: 13px;
+    letter-spacing: 0.04em;
   }
 
   @media (max-width: 480px) {
-    body { padding: 24px 16px; }
-    .wrap { padding: 28px 22px; }
+    body { padding: 24px 18px; }
     nav { gap: 8px; }
     nav a { flex: 1 1 auto; justify-content: center; padding: 0 12px; }
   }
@@ -160,7 +211,7 @@
 </head>
 <body>
 <main class="wrap">
-  <a class="brand" href="/">Workbench · Studio</a>
+  <a class="brand" href="/"><span class="seal" aria-hidden="true">零</span>工作台</a>
   <div class="code">404</div>
   <h1>这条路没有通向任何页面。</h1>
   <p>地址可能写错了，或者页面已经搬走。回到工作台，从已知的入口重新开始。</p>
@@ -169,7 +220,7 @@
     <a href="/reader/">阅读</a>
     <a href="/weiqi/">围棋</a>
   </nav>
-  <footer>dungkey.github.io</footer>
+  <footer>© 工作台 · dungkey.github.io</footer>
 </main>
 </body>
 </html>

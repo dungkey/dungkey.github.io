@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light" data-theme-mode="auto">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f2ecdf" id="themeColor">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f3eee4" id="themeColor">
   <meta name="description" content="五路与六路网页围棋，支持对弈与复盘分析。">
   <title>围棋 · 工作台</title>
   <link rel="canonical" href="https://dungkey.github.io/weiqi/">
@@ -22,7 +23,7 @@
   <meta name="twitter:title" content="围棋 · 工作台">
   <meta name="twitter:description" content="5×5 / 6×6 网页围棋，MCTS AI 对弈与逐手复盘分析。">
   <meta name="twitter:image" content="https://dungkey.github.io/og.png">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b1482e'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23fff7eb'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%231e2a23'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23b23a25'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23f3eee4'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%231d1b18'/%3E%3C/svg%3E">
   <script>
     (function () {
       var mode = 'auto';
@@ -30,39 +31,45 @@
         var saved = localStorage.getItem('desk-theme');
         if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
       } catch (e) {}
-      var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
       var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
       document.documentElement.setAttribute('data-theme-mode', mode);
       document.documentElement.setAttribute('data-theme', resolved);
       var meta = document.getElementById('themeColor');
-      if (meta) meta.setAttribute('content', resolved === 'dark' ? '#090a0d' : '#f2ecdf');
+      if (meta) meta.setAttribute('content', resolved === 'dark' ? '#12110f' : '#f3eee4');
     })();
   </script>
-  <link rel="stylesheet" href="../assets/tokens.css?v=20261113">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="preload" href="../assets/fonts/kinghwa-oldsong.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../assets/tokens.css?v=20261120">
+  <link rel="stylesheet" href="styles.css?v=20261120">
 </head>
 <body>
   <div class="app-shell">
     <header class="masthead">
       <a class="brand" href="./index.html" aria-label="围棋">
-        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="seal" aria-hidden="true">贰</span>
         <span class="brand-copy">
           <strong>围棋</strong>
-          <small>WEIQI</small>
+          <small>五路与六路 · 对弈与复盘</small>
         </span>
       </a>
       <div class="masthead-aside">
         <div class="masthead-controls">
-          <button class="icon-toggle-btn is-active" id="soundToggleBtn" type="button" aria-label="音效开关" title="音效开关">
-            <span id="soundIcon" aria-hidden="true">🔊</span>
+          <button class="icon-toggle-btn is-active" id="soundToggleBtn" type="button" aria-label="音效开关" aria-pressed="true" title="音效开关">
+            <span class="toggle-dot" aria-hidden="true"></span>
             <span class="btn-text">音效</span>
           </button>
-          <button class="icon-toggle-btn" id="moveNumberToggleBtn" type="button" aria-label="显示手数" title="显示手数">
-            <span id="moveNumberIcon" aria-hidden="true">①</span>
+          <button class="icon-toggle-btn" id="moveNumberToggleBtn" type="button" aria-label="显示手数" aria-pressed="false" title="显示手数">
+            <span class="toggle-dot" aria-hidden="true"></span>
             <span class="btn-text">手数</span>
           </button>
         </div>
-        <a class="home-link" href="../index.html">工作台</a>
+        <div class="theme-switch" role="group" aria-label="界面配色">
+          <button type="button" data-set-theme="light" aria-pressed="false" title="浅色">明</button>
+          <button type="button" data-set-theme="dark" aria-pressed="false" title="深色">暗</button>
+          <button type="button" data-set-theme="auto" aria-pressed="true" title="跟随系统">自动</button>
+        </div>
+        <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 工作台</a>
       </div>
     </header>
 
@@ -257,10 +264,10 @@
           <svg id="reviewBoardSvg" class="review-board-svg" viewBox="0 0 320 320"
                role="img" aria-label="复盘棋盘"></svg>
           <div class="review-nav-bar" role="group" aria-label="复盘步进">
-            <button class="ghost-btn nav-btn" id="reviewFirstBtn" type="button" title="开局 (Home)">⏮ 首手</button>
-            <button class="secondary-btn nav-btn" id="reviewPrevBtn" type="button" title="上一手 (←)">◀ 上一手</button>
-            <button class="secondary-btn nav-btn" id="reviewNextBtn" type="button" title="下一手 (→)">下一手 ▶</button>
-            <button class="ghost-btn nav-btn" id="reviewLastBtn" type="button" title="终局 (End)">末手 ⏭</button>
+            <button class="ghost-btn nav-btn" id="reviewFirstBtn" type="button" title="开局 (Home)">首手</button>
+            <button class="secondary-btn nav-btn" id="reviewPrevBtn" type="button" title="上一手 (←)">上一手</button>
+            <button class="secondary-btn nav-btn" id="reviewNextBtn" type="button" title="下一手 (→)">下一手</button>
+            <button class="ghost-btn nav-btn" id="reviewLastBtn" type="button" title="终局 (End)">末手</button>
           </div>
           <p class="review-board-note" id="reviewBoardNote">点击下方表格或折线节点切换局面，支持键盘 ← / → 翻手。</p>
         </div>
@@ -280,7 +287,7 @@
         </div>
       </div>
 
-      <div class="review-table-wrap">
+      <div class="review-table-wrap" tabindex="0" role="region" aria-label="复盘手数表">
         <table class="review-table">
           <thead>
             <tr>
@@ -300,15 +307,20 @@
     </section>
 
     <footer class="footer">
-      <span>围棋 · 5×5 / 6×6 对弈与复盘</span>
+      <p>© <span id="year">2026</span> 工作台 · 围棋</p>
+      <nav aria-label="本站导航">
+        <a href="../index.html">工作台</a>
+        <a href="../reader/index.html">阅读</a>
+        <a href="https://github.com/dungkey" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
     </footer>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <p class="sr-only" id="liveRegion" aria-live="polite"></p>
 
-  <script src="engine.js"></script>
-  <script src="ai.js"></script>
-  <script src="app.js"></script>
+  <script src="engine.js?v=20261120"></script>
+  <script src="ai.js?v=20261120"></script>
+  <script src="app.js?v=20261120"></script>
 </body>
 </html>

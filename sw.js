@@ -1,15 +1,15 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-shell-v20261119';
+const CACHE_NAME = 'workbench-shell-v20261120';
 const BASE = new URL('./', self.location.href);
 
 const SHELL = [
   './',
   './index.html',
   './assets/fonts/kinghwa-oldsong.woff2',
-  './styles.css?v=20261119',
-  './app.js?v=20261119',
-  './reader/store.js',
+  './styles.css?v=20261120',
+  './app.js?v=20261120',
+  './reader/store.js?v=20261120',
   './manifest.webmanifest',
   './icon.svg',
   './icon-180.png',
