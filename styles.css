@@ -247,6 +247,7 @@ h1 {
 
 .motto {
   margin: 28px 0 0;
+  text-wrap: pretty;
   max-width: 30em;
   font-size: 17px;
   line-height: 1.8;
@@ -350,6 +351,7 @@ a.entry:focus-visible { outline-offset: -1px; }
 }
 .resume-text {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 14px;
   min-width: 0;
@@ -389,10 +391,26 @@ a.entry:focus-visible { outline-offset: -1px; }
 }
 .resume:hover .resume-title { border-bottom-color: var(--ink-3); }
 
-/* ---------- 音乐 ---------- */
+/* ---------- 随身听 ---------- */
+/* 音乐是“此刻”的一部分：与时钟并排，退居目录之上的页眉，不与去处平级。 */
 
-.entry-music { position: relative; }
-.entry-music > audio {
+.now-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 48px;
+  margin-top: 14px;
+}
+.now-row .clock { margin: 0; }
+
+.deck {
+  position: relative;
+  flex: 0 1 300px;
+  min-width: 260px;
+  padding: 2px 0 4px 28px;
+  border-left: 1px solid var(--rule);
+}
+.deck > audio {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -400,37 +418,60 @@ a.entry:focus-visible { outline-offset: -1px; }
   pointer-events: none;
 }
 
+.deck-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.deck-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+.deck-state::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+.state-on { display: none; }
+.deck.is-playing .deck-state { color: var(--zhu); }
+.deck.is-playing .deck-state::before { opacity: 1; animation: breathe 2.4s ease-in-out infinite; }
+.deck.is-playing .state-on { display: inline; }
+.deck.is-playing .state-off { display: none; }
+@keyframes breathe { 50% { opacity: 0.25; } }
+
 .now {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-  margin: 14px 0 0;
+  flex-direction: column;
+  margin: 10px 0 0;
   min-width: 0;
 }
-.now-title {
-  font-size: 17px;
-  color: var(--ink);
-  max-width: 100%;
+.now-title,
+.now-artist {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.now-artist {
-  font-size: 14.5px;
-  color: var(--ink-3);
-}
+.now-title { font-size: 17px; line-height: 1.5; color: var(--ink); }
+.now-artist { font-size: 14px; line-height: 1.5; color: var(--ink-3); }
 
 .seek-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  margin-top: 18px;
-  max-width: 520px;
+  gap: 10px;
+  margin-top: 10px;
 }
 .time {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
   min-width: 3.2ch;
@@ -488,8 +529,8 @@ a.entry:focus-visible { outline-offset: -1px; }
 .deck-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin: 14px 0 0 -8px;
+  justify-content: space-between;
+  margin: 6px -8px 0;
 }
 
 .btn-icon {
@@ -508,8 +549,8 @@ a.entry:focus-visible { outline-offset: -1px; }
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 .btn-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -526,21 +567,20 @@ a.entry:focus-visible { outline-offset: -1px; }
   appearance: none;
   border: 0;
   background: none;
-  padding: 6px 8px;
-  min-height: 36px;
+  padding: 4px 0;
+  min-height: 32px;
   font-family: var(--display);
-  font-size: 14.5px;
+  font-size: 14px;
   letter-spacing: 0.08em;
-  color: var(--ink-2);
+  color: var(--ink-3);
+  white-space: nowrap;
   cursor: pointer;
   transition: color 0.2s ease;
 }
-.btn-list { margin-left: 6px; white-space: nowrap; }
 .btn-list span {
   font-family: var(--serif);
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
 }
 .btn-list:hover:not(:disabled),
 .btn-list[aria-expanded="true"],
@@ -548,37 +588,95 @@ a.entry:focus-visible { outline-offset: -1px; }
 .btn-list:disabled, .btn-text:disabled { opacity: 0.35; cursor: default; }
 .btn-text.is-muted { color: var(--zhu); }
 
+/* 播放键：墨线圆，播放时填朱砂 */
+.btn-play {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.3s var(--ease);
+}
+.btn-play svg { width: 15px; height: 15px; fill: currentColor; }
+.btn-play .icon-play { margin-left: 2px; }
+.btn-play:hover:not(:disabled) { border-color: var(--zhu); color: var(--zhu); }
+.btn-play:active:not(:disabled) { transform: scale(0.95); }
+.btn-play:disabled { opacity: 0.35; cursor: default; }
+
+.icon-pause { display: none; }
+.deck.is-playing .icon-play { display: none; }
+.deck.is-playing .icon-pause { display: block; }
+.deck.is-playing .btn-play {
+  background: var(--zhu);
+  border-color: var(--zhu);
+  color: var(--zhu-ink);
+}
+
+.deck.is-buffering .btn-play svg { opacity: 0; }
+.deck.is-buffering .btn-play::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 15px;
+  height: 15px;
+  margin: auto;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 浮层：音量与曲目都悬在页面上，不推挤版面 */
+.vol-popover,
+.deck-playlist {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 10px);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.35);
+}
+
 .vol-popover {
+  left: 28px;
+  right: 0;
   display: none;
   align-items: center;
   gap: 14px;
-  max-width: 320px;
-  margin-top: 6px;
+  padding: 6px 14px;
 }
 .vol-popover.is-open { display: flex; }
 
-/* 曲目列表 */
 .deck-playlist {
-  margin-top: 16px;
-  max-width: 520px;
-  border-top: 1px solid var(--rule);
+  right: 0;
+  width: 360px;
+  padding: 4px 18px 6px;
 }
 .deck-playlist-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
   font-family: var(--display);
   font-size: 14px;
   letter-spacing: 0.1em;
   color: var(--ink-3);
 }
-.deck-playlist-header .btn-text { margin-right: -8px; }
 .deck-playlist-items {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 240px;
+  max-height: 260px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--rule-strong) transparent;
@@ -620,55 +718,6 @@ a.entry:focus-visible { outline-offset: -1px; }
   color: var(--ink-3);
 }
 .deck-playlist-item.is-active .deck-playlist-artist { color: inherit; opacity: 0.75; }
-
-/* 播放键：墨线圆，播放时填朱砂 */
-.btn-play {
-  appearance: none;
-  position: relative;
-  align-self: start;
-  margin-top: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  padding: 0;
-  border: 1px solid var(--rule-strong);
-  border-radius: 50%;
-  background: none;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.3s var(--ease);
-}
-.btn-play svg { width: 18px; height: 18px; fill: currentColor; }
-.btn-play .icon-play { margin-left: 2px; }
-.btn-play:hover:not(:disabled) { border-color: var(--zhu); color: var(--zhu); }
-.btn-play:active:not(:disabled) { transform: scale(0.95); }
-.btn-play:disabled { opacity: 0.35; cursor: default; }
-
-.icon-pause { display: none; }
-.entry-music.is-playing .icon-play { display: none; }
-.entry-music.is-playing .icon-pause { display: block; }
-.entry-music.is-playing .btn-play {
-  background: var(--zhu);
-  border-color: var(--zhu);
-  color: var(--zhu-ink);
-}
-
-.entry-music.is-buffering .btn-play svg { opacity: 0; }
-.entry-music.is-buffering .btn-play::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: 18px;
-  height: 18px;
-  margin: auto;
-  border: 1.5px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 版权页 ---------- */
 
@@ -728,6 +777,46 @@ html.is-theme-switching * {
   .entry-title { font-size: 46px; }
 }
 
+@media (max-width: 820px) {
+  .now-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+  }
+  .deck {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 420px;
+    padding: 18px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .vol-popover { left: 0; }
+
+  /* 窄屏：随身听收成一行，只留 播放 / 曲名 / 下一首 与一根进度线 */
+  .deck {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head head head"
+      "play now next"
+      "seek seek seek";
+    align-items: center;
+    column-gap: 14px;
+    padding-top: 14px;
+  }
+  .deck-head { grid-area: head; margin-bottom: 8px; }
+  .deck-controls { display: contents; }
+  .deck .btn-play { grid-area: play; width: 40px; height: 40px; }
+  .deck #next { grid-area: next; margin-right: -8px; }
+  .deck #modeBtn, .deck #prev, .deck .deck-vol-wrap, .deck .time { display: none; }
+  .now { grid-area: now; margin: 0; }
+  .now-title { font-size: 16px; }
+  .now-artist { font-size: 13px; }
+  .seek-row { grid-area: seek; display: block; margin-top: 6px; }
+  .deck .seek { height: 24px; display: block; }
+}
+
 @media (max-width: 640px) {
   .page {
     grid-template-columns: minmax(0, 1fr);
@@ -765,14 +854,11 @@ html.is-theme-switching * {
   .entry-title { font-size: 38px; }
   .entry-desc { margin-top: 10px; font-size: 14.5px; }
   .entry-arrow, .entry-arrow svg { width: 28px; }
-  .resume { margin-left: 42px; padding-bottom: 26px; grid-template-columns: minmax(0, 1fr); }
-  .resume-track { grid-column: 1; }
-  .btn-play { width: 52px; height: 52px; }
-  .entry-music .entry-body { grid-column: 2 / -1; }
-  .entry-music .btn-play { position: absolute; top: 26px; right: 0; margin: 0; }
-  .seek-row { gap: 10px; }
+  .resume { margin-left: 42px; padding-bottom: 26px; column-gap: 12px; }
+  .resume-text { flex-wrap: wrap; row-gap: 0; }
+
   .btn-icon { width: 40px; height: 40px; }
-  .seek { height: 32px; }
+  .deck-playlist { left: 0; width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -785,3 +871,5 @@ html.is-theme-switching * {
   ::view-transition-old(*),
   ::view-transition-new(*) { animation: none !important; }
 }
+
+.nowrap { white-space: nowrap; }

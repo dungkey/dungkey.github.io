@@ -69,8 +69,67 @@
   <main class="leaf" id="main" tabindex="-1">
     <header class="masthead">
       <p class="date" id="date">&nbsp;</p>
-      <p class="clock"><time id="clock">00:00</time><span class="clock-sec" id="clockSec" aria-hidden="true">00</span></p>
-      <p class="motto">阅读、围棋与音乐，一个安静的个人工作台。</p>
+      <div class="now-row">
+        <p class="clock"><time id="clock">00:00</time><span class="clock-sec" id="clockSec" aria-hidden="true">00</span></p>
+
+        <!-- 随身听：伴随当下的背景音乐，不是目录里的去处 -->
+        <section class="deck" id="track" aria-label="音乐播放器">
+          <audio id="audio" preload="metadata"></audio>
+          <div class="deck-head">
+            <span class="deck-state" aria-hidden="true"><span class="state-on">正在听</span><span class="state-off">待播</span></span>
+            <button class="btn-list" id="trackListBtn" type="button" aria-label="曲目列表 – / –" aria-expanded="false" aria-controls="deckPlaylist" title="查看曲目列表" disabled>
+              曲目 <span id="trackCount">– / –</span>
+            </button>
+          </div>
+          <p class="now" aria-live="polite" aria-atomic="true">
+            <span class="now-title" id="trackTitle">正在载入曲目…</span>
+            <span class="now-artist" id="trackArtist"></span>
+          </p>
+          <div class="seek-row">
+            <span class="time" id="cur">0:00</span>
+            <input class="seek" id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度" disabled>
+            <span class="time" id="dur">--:--</span>
+          </div>
+          <div class="deck-controls">
+            <button class="btn-icon" id="modeBtn" type="button" aria-label="播放模式：列表循环" title="切换播放模式 (当前：列表循环)" disabled>
+              <svg class="icon-mode-loop" viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              <svg class="icon-mode-single" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>
+              <svg class="icon-mode-shuffle" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M16 3h5v5M4 20l17-17M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+            </button>
+            <button class="btn-icon" id="prev" type="button" aria-label="上一首" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z"/></svg>
+            </button>
+            <button class="btn-play" id="play" type="button" aria-label="播放" disabled>
+              <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg>
+            </button>
+            <button class="btn-icon" id="next" type="button" aria-label="下一首" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
+            </button>
+            <span class="deck-vol-wrap">
+              <button class="btn-icon" id="volBtn" type="button" aria-label="音量控制" aria-controls="volPopover" aria-expanded="false" title="音量控制" disabled>
+                <svg class="icon-vol-high" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                <svg class="icon-vol-low" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <svg class="icon-vol-mute" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
+              </button>
+            </span>
+          </div>
+
+          <div class="vol-popover" id="volPopover" role="group" aria-label="音量控制">
+            <input class="vol-range" id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="音量大小" disabled>
+            <button class="btn-text" id="volMuteBtn" type="button" aria-label="静音" disabled>静音</button>
+          </div>
+
+          <div class="deck-playlist" id="deckPlaylist" hidden>
+            <div class="deck-playlist-header">
+              <span>曲目</span>
+              <button class="btn-text" id="deckPlaylistClose" type="button" aria-label="关闭列表">收起</button>
+            </div>
+            <ul class="deck-playlist-items" id="deckPlaylistItems" aria-label="曲目列表"></ul>
+          </div>
+        </section>
+      </div>
+      <p class="motto"><span class="nowrap">读书，下棋，听一点音乐。</span><span class="nowrap">一个安静的个人工作台。</span></p>
     </header>
     <script>
       (function () {
@@ -148,68 +207,6 @@
         </a>
       </li>
 
-      <!-- 叁 音乐 -->
-      <li class="entry-wrap">
-        <section class="entry entry-music" id="track" aria-label="音乐播放器">
-          <audio id="audio" preload="metadata"></audio>
-          <span class="entry-num" aria-hidden="true">叁</span>
-          <div class="entry-body">
-            <h2 class="entry-title">音乐</h2>
-            <p class="now" aria-live="polite" aria-atomic="true">
-              <span class="now-title" id="trackTitle">正在载入曲目…</span>
-              <span class="now-artist" id="trackArtist"></span>
-            </p>
-
-            <div class="seek-row">
-              <span class="time" id="cur">0:00</span>
-              <input class="seek" id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度" disabled>
-              <span class="time" id="dur">--:--</span>
-            </div>
-
-            <div class="deck-controls">
-              <button class="btn-icon" id="modeBtn" type="button" aria-label="播放模式：列表循环" title="切换播放模式 (当前：列表循环)" disabled>
-                <svg class="icon-mode-loop" viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
-                <svg class="icon-mode-single" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>
-                <svg class="icon-mode-shuffle" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M16 3h5v5M4 20l17-17M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-              </button>
-              <button class="btn-icon" id="prev" type="button" aria-label="上一首" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z"/></svg>
-              </button>
-              <button class="btn-icon" id="next" type="button" aria-label="下一首" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
-              </button>
-              <span class="deck-vol-wrap">
-                <button class="btn-icon" id="volBtn" type="button" aria-label="音量控制" aria-controls="volPopover" aria-expanded="false" title="音量控制" disabled>
-                  <svg class="icon-vol-high" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                  <svg class="icon-vol-low" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                  <svg class="icon-vol-mute" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
-                </button>
-              </span>
-              <button class="btn-list" id="trackListBtn" type="button" aria-label="曲目列表 – / –" aria-expanded="false" aria-controls="deckPlaylist" title="查看曲目列表" disabled>
-                曲目 <span id="trackCount">– / –</span>
-              </button>
-            </div>
-
-            <div class="vol-popover" id="volPopover" role="group" aria-label="音量控制">
-              <input class="vol-range" id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="音量大小" disabled>
-              <button class="btn-text" id="volMuteBtn" type="button" aria-label="静音" disabled>静音</button>
-            </div>
-
-            <div class="deck-playlist" id="deckPlaylist" hidden>
-              <div class="deck-playlist-header">
-                <span>曲目</span>
-                <button class="btn-text" id="deckPlaylistClose" type="button" aria-label="关闭列表">收起</button>
-              </div>
-              <ul class="deck-playlist-items" id="deckPlaylistItems" aria-label="曲目列表"></ul>
-            </div>
-          </div>
-
-          <button class="btn-play" id="play" type="button" aria-label="播放" disabled>
-            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg>
-          </button>
-        </section>
-      </li>
     </ol>
 
     <footer class="colophon">
