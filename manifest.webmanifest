@@ -1,15 +1,15 @@
 {
   "name": "工作台 · Workbench",
   "short_name": "工作台",
-  "description": "个人极简效率工作台：专注当下，保持秩序，静心构建。",
+  "description": "阅读、围棋与音乐，一个安静的个人工作台。",
   "id": "/",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#090a0d",
-  "theme_color": "#090a0d",
+  "background_color": "#f3eee4",
+  "theme_color": "#f3eee4",
   "icons": [
     {
       "src": "icon.svg",

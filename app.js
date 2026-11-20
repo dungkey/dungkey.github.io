@@ -20,7 +20,7 @@
     root.setAttribute('data-theme-mode', mode);
     root.setAttribute('data-theme', resolved);
     var meta = document.getElementById('themeColor');
-    if (meta) meta.setAttribute('content', resolved === 'light' ? '#f4f5f8' : '#090a0d');
+    if (meta) meta.setAttribute('content', resolved === 'light' ? '#f3eee4' : '#12110f');
     themeBtns.forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.setTheme === mode));
     });
@@ -118,38 +118,7 @@
     else if (scheme.addListener) scheme.addListener(onSchemeChange);
   }
 
-  /* ---------------- 搜索与键盘导航 ---------------- */
-
-  var input = $('#q');
-  var clearEl = $('#searchClear');
-  var links = Array.prototype.slice.call(document.querySelectorAll('[data-key]'));
-  var groups = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
-  var countEl = $('#count');
-  var totalEl = $('#total');
-  var countBadge = document.querySelector('.count-badge');
-  var emptyEl = $('#empty');
-  var statusEl = $('#status');
-  var resetEl = $('#reset');
-  var kbdMod = document.getElementById('kbdMod');
-  var resumeCard = document.getElementById('resumeCard');
-  var resumeTitle = document.getElementById('resumeTitle');
-  var resumeMeta = document.getElementById('resumeMeta');
-  var resumeFill = document.getElementById('resumeFill');
-  var resumeAvailable = false;
-  var total = links.length;
-  var active = -1;
-  var composing = false;
-  var reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var raf = window.requestAnimationFrame || function (fn) { return window.setTimeout(fn, 16); };
-
-  totalEl.textContent = String(total).padStart(2, '0');
-  if (countBadge) countBadge.classList.add('is-all');
-
-  if (kbdMod) {
-    var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ||
-      /Mac OS X/.test(navigator.userAgent || '');
-    kbdMod.textContent = isMac ? '⌘K' : 'Ctrl K';
-  }
+  /* ---------------- 外链无障碍提示 ---------------- */
 
   Array.prototype.forEach.call(document.querySelectorAll('a[target="_blank"]'), function (a) {
     if (a.querySelector('.sr-only')) return;
@@ -159,189 +128,10 @@
     a.appendChild(hint);
   });
 
-  function norm(s) {
-    s = String(s);
-    if (s.normalize) s = s.normalize('NFKC');
-    return s.toLowerCase()
-      .replace(/[.\-_/&]+/g, ' ')
-      .replace(/[，、；：！？（）【】「」《》〈〉…·]/g, ' ')
-      .replace(/[,;:!?()\[\]{}"'`]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  links.forEach(function (a) {
-    var name = a.querySelector('.link-title');
-    var hint = a.querySelector('.link-domain');
-    var group = a.closest('[data-group]');
-    var groupTitle = group ? group.querySelector('.group-title') : null;
-    var groupSub = group ? group.querySelector('.group-sub') : null;
-    a._index = norm([
-      name ? name.textContent : '',
-      hint ? hint.textContent : '',
-      groupTitle ? groupTitle.textContent : '',
-      groupSub ? groupSub.textContent : '',
-      a.dataset.key
-    ].join(' '));
-    a._tokens = a._index.split(' ').filter(Boolean);
-  });
-
-  function matchesToken(a, token) {
-    if (/^[\x00-\x7F]+$/.test(token)) {
-      for (var i = 0; i < a._tokens.length; i++) {
-        var word = a._tokens[i];
-        if (word.indexOf(token) === 0 || (token.length >= 3 && word.indexOf(token) !== -1)) return true;
-      }
-      return false;
-    }
-    return a._index.indexOf(token) !== -1;
-  }
-
-  function visibleLinks() {
-    return links.filter(function (a) { return !a.closest('li').hidden; });
-  }
-
-  function setActive(i) {
-    var vis = visibleLinks();
-    links.forEach(function (a) { a.classList.remove('is-active'); });
-    active = i;
-
-    if (i >= 0 && vis[i]) {
-      vis[i].classList.add('is-active');
-      vis[i].scrollIntoView({
-        block: 'nearest',
-        behavior: reduceMotion && reduceMotion.matches ? 'auto' : 'smooth'
-      });
-      if (statusEl) {
-        var title = vis[i].querySelector('.link-title');
-        statusEl.textContent = (title ? title.textContent : '') + '，' + (i + 1) + ' / ' + vis.length;
-      }
-    }
-  }
-
-  function filter() {
-    var tokens = norm(input.value).split(' ').filter(Boolean);
-    var shown = 0;
-    var revealed = [];
-
-    groups.forEach(function (group) {
-      var n = 0;
-      Array.prototype.forEach.call(group.querySelectorAll('[data-key]'), function (a) {
-        var hit = tokens.every(function (t) { return matchesToken(a, t); });
-        var li = a.closest('li');
-        var wasHidden = li.hidden;
-        li.hidden = !hit;
-        if (hit) {
-          n++;
-          if (wasHidden) {
-            li.classList.remove('is-revealed');
-            revealed.push(li);
-          }
-        }
-      });
-      group.hidden = n === 0;
-      shown += n;
-    });
-
-    if (revealed.length) {
-      raf(function () {
-        revealed.forEach(function (li) {
-          li.classList.add('is-revealed');
-          window.setTimeout(function () { li.classList.remove('is-revealed'); }, 240);
-        });
-      });
-    }
-
-    if (clearEl) clearEl.hidden = !input.value;
-    countEl.textContent = String(shown).padStart(2, '0');
-    if (countBadge) countBadge.classList.toggle('is-all', shown === total);
-    emptyEl.hidden = shown !== 0;
-    statusEl.textContent = shown === 0
-      ? '没有匹配的入口'
-      : shown + ' 个入口，共 ' + total + ' 个';
-    updateResumeVisibility();
-    setActive(-1);
-  }
-
-  function updateResumeVisibility() {
-    if (!resumeCard) return;
-    resumeCard.hidden = !resumeAvailable || !!input.value.trim();
-  }
-
-  input.addEventListener('compositionstart', function () { composing = true; });
-  input.addEventListener('compositionend', function () {
-    composing = false;
-    filter();
-  });
-  input.addEventListener('input', function (e) {
-    if (!composing && !e.isComposing) filter();
-  });
-  if (clearEl) {
-    clearEl.addEventListener('click', function () {
-      input.value = '';
-      filter();
-      input.focus();
-    });
-  }
-  resetEl.addEventListener('click', function () {
-    input.value = '';
-    filter();
-    input.focus();
-  });
-
-  document.addEventListener('keydown', function (e) {
-    // 优先支持 Cmd+K / Ctrl+K 全局呼出搜索
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-      e.preventDefault();
-      input.focus();
-      input.select();
-      return;
-    }
-
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-    var activeEl = document.activeElement;
-    var tag = (activeEl && activeEl.tagName) || '';
-    var isInputActive = tag === 'TEXTAREA' || tag === 'SELECT' ||
-      (tag === 'INPUT' && !/^(range|button|checkbox|radio|submit|reset|file|color|image)$/.test(activeEl.type)) ||
-      (activeEl && activeEl.isContentEditable);
-
-    if (e.key === '/' && !isInputActive) {
-      e.preventDefault();
-      input.focus();
-      input.select();
-      return;
-    }
-
-    if (e.isComposing || e.keyCode === 229) return;
-
-    if (e.key === 'Escape' && document.activeElement === input) {
-      input.value = '';
-      filter();
-      input.blur();
-      return;
-    }
-
-    if (document.activeElement !== input) return;
-
-    var vis = visibleLinks();
-    if (!vis.length) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActive(active + 1 >= vis.length ? 0 : active + 1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActive(active - 1 < 0 ? vis.length - 1 : active - 1);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (active >= 0 && vis[active]) {
-        vis[active].click();
-      } else if (input.value.trim().length > 0 && vis[0]) {
-        vis[0].click();
-      }
-    }
-  });
+  var resumeCard = document.getElementById('resumeCard');
+  var resumeTitle = document.getElementById('resumeTitle');
+  var resumeMeta = document.getElementById('resumeMeta');
+  var resumeFill = document.getElementById('resumeFill');
 
   /* ---------------- 继续阅读 ---------------- */
 
@@ -390,8 +180,7 @@
         resumeMeta.textContent = label + ' · ' + rounded + '%';
         resumeFill.style.width = percent.toFixed(1) + '%';
         resumeCard.href = 'reader/index.html#/read/' + encodeURIComponent(entry.id) + '/' + entry.chapter;
-        resumeAvailable = true;
-        updateResumeVisibility();
+        resumeCard.hidden = false;
       }).catch(tryNext);
     }
     tryNext();
@@ -411,7 +200,6 @@
   var volPopover = $('#volPopover');
   var volWrap = volBtn ? volBtn.closest('.deck-vol-wrap') : null;
   var trackListBtn = $('#trackListBtn');
-  var deckExpandBtn = $('#deckExpandBtn');
   var deckPlaylist = $('#deckPlaylist');
   var deckPlaylistClose = $('#deckPlaylistClose');
   var deckPlaylistItems = $('#deckPlaylistItems');
@@ -471,17 +259,6 @@
     });
   }
   applyMode(playMode, false);
-
-  /* 手机端折叠/展开播放器 */
-  if (deckExpandBtn) {
-    deckExpandBtn.addEventListener('click', function () {
-      var open = trackEl.classList.toggle('is-expanded');
-      deckExpandBtn.setAttribute('aria-expanded', String(open));
-      deckExpandBtn.setAttribute('aria-label', open ? '收起播放控制' : '展开播放控制');
-      deckExpandBtn.title = open ? '收起播放控制' : '展开播放控制';
-      if (!open) setVolOpen(false);
-    });
-  }
 
   /* 音量与静音控制 */
   var savedVol = 0.8;
@@ -1103,28 +880,6 @@
     });
   }
 
-  /* ---------------- 纯粹时钟 ---------------- */
-
-  var clockEl = document.getElementById('clock');
-  var dateEl = document.getElementById('date');
-  var yearEl = document.getElementById('year');
-  var weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
-
-  function tick() {
-    var d = new Date();
-    clockEl.textContent = d.toLocaleTimeString('zh-CN', { hour12: false });
-    clockEl.setAttribute('datetime', d.toISOString());
-    dateEl.textContent = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' · ' + weekdays[d.getDay()];
-  }
-
-  tick();
-  setTimeout(function () {
-    tick();
-    setInterval(tick, 1000);
-  }, 1000 - (Date.now() % 1000));
-
-  filter();
   initResume();
   initMediaSession();
   bootMusic();
