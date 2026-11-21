@@ -16,16 +16,22 @@
 
   const geometryCache = Object.create(null);
 
+  const RING_DX = [0, 1, 1, 1, 0, -1, -1, -1];
+  const RING_DY = [-1, -1, 0, 1, 1, 1, 0, -1];
+
   function makeGeometry(size) {
     if (geometryCache[size]) return geometryCache[size];
 
     const n = size * size;
-    const neighbors = Array.from({ length: n }, () => []);
-    const diagonals = Array.from({ length: n }, () => []);
+    const neighbors = new Array(n);
+    const diagonals = new Array(n);
     const xs = new Uint8Array(n);
     const ys = new Uint8Array(n);
     const edgeDistance = new Uint8Array(n);
     const positional = new Float32Array(n);
+    const bitLo = new Int32Array(n);
+    const bitHi = new Int32Array(n);
+    const ring3x3 = new Array(n);
     const center = (size - 1) / 2;
     const maxCenterDistance = Math.max(1, Math.hypot(center, center));
 
@@ -35,23 +41,40 @@
         xs[idx] = x;
         ys[idx] = y;
 
-        if (x > 0) neighbors[idx].push(idx - 1);
-        if (x < size - 1) neighbors[idx].push(idx + 1);
-        if (y > 0) neighbors[idx].push(idx - size);
-        if (y < size - 1) neighbors[idx].push(idx + size);
+        if (idx < 32) {
+          bitLo[idx] = 1 << idx;
+        } else {
+          bitHi[idx] = 1 << (idx - 32);
+        }
 
+        const nList = [];
+        if (x > 0) nList.push(idx - 1);
+        if (x < size - 1) nList.push(idx + 1);
+        if (y > 0) nList.push(idx - size);
+        if (y < size - 1) nList.push(idx + size);
+        neighbors[idx] = Uint8Array.from(nList);
+
+        const dList = [];
         for (let dy = -1; dy <= 1; dy += 1) {
           for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
             if (dx !== 0 && dy !== 0) {
               const nx = x + dx;
               const ny = y + dy;
               if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
-                diagonals[idx].push(ny * size + nx);
+                dList.push(ny * size + nx);
               }
             }
           }
         }
+        diagonals[idx] = Uint8Array.from(dList);
+
+        const ring = new Int8Array(8);
+        for (let d = 0; d < 8; d += 1) {
+          const nx = x + RING_DX[d];
+          const ny = y + RING_DY[d];
+          ring[d] = (nx >= 0 && nx < size && ny >= 0 && ny < size) ? (ny * size + nx) : -1;
+        }
+        ring3x3[idx] = ring;
 
         const edge = Math.min(x, y, size - 1 - x, size - 1 - y);
         edgeDistance[idx] = edge;
@@ -59,6 +82,44 @@
         const centerDistance = Math.hypot(x - center, y - center) / maxCenterDistance;
         value += (1 - centerDistance) * 0.4;
         positional[idx] = value;
+      }
+    }
+
+    const symmetries = Array.from({ length: 8 }, () => new Uint8Array(n));
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const idx = y * size + x;
+        const rx = size - 1 - x;
+        const ry = size - 1 - y;
+        symmetries[0][idx] = y * size + x;
+        symmetries[1][idx] = x * size + ry;
+        symmetries[2][idx] = ry * size + rx;
+        symmetries[3][idx] = rx * size + y;
+        symmetries[4][idx] = y * size + rx;
+        symmetries[5][idx] = ry * size + x;
+        symmetries[6][idx] = x * size + y;
+        symmetries[7][idx] = rx * size + ry;
+      }
+    }
+
+    const zobristLo = new Int32Array(3 * n);
+    const zobristHi = new Int32Array(3 * n);
+    let zSeed = (0x9e3779b9 ^ Math.imul(size, 0x85ebca6b)) | 0;
+    const nextZobrist32 = () => {
+      zSeed = (zSeed + 0x9e3779b9) | 0;
+      let z = zSeed;
+      z = Math.imul(z ^ (z >>> 16), 0x85ebca6b);
+      z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35);
+      return (z ^ (z >>> 16)) | 0;
+    };
+    for (let color = 1; color <= 2; color += 1) {
+      for (let idx = 0; idx < n; idx += 1) {
+        const offset = color * n + idx;
+        let lo = nextZobrist32();
+        let hi = nextZobrist32();
+        if ((lo | hi) === 0) lo = 1;
+        zobristLo[offset] = lo;
+        zobristHi[offset] = hi;
       }
     }
 
@@ -71,6 +132,12 @@
       ys,
       edgeDistance,
       positional,
+      bitLo,
+      bitHi,
+      ring3x3,
+      symmetries,
+      zobristLo,
+      zobristHi,
     };
     geometryCache[size] = geo;
     return geo;
@@ -285,65 +352,140 @@
   }
 
   /**
-   * 检测棋盘上的无条件死子（孤子或被困在敌方领地内无法做活的气数<=2的死棋）。
+   * 检测棋盘上的无条件死子（孤子或被困在健康敌棋领地内、无法做活且不构成双活的死棋）。
    */
   function findDeadGroups(board, geo) {
     const n = geo.n;
     const visited = new Uint8Array(n);
+    const groupIdOf = new Int16Array(n);
+    groupIdOf.fill(-1);
     const groups = [];
 
     for (let i = 0; i < n; i += 1) {
       if (board[i] === EMPTY || visited[i]) continue;
       const group = groupAt(board, geo, i);
+      const id = groups.length;
       for (let j = 0; j < group.stones.length; j += 1) {
-        visited[group.stones[j]] = 1;
+        const stone = group.stones[j];
+        visited[stone] = 1;
+        groupIdOf[stone] = id;
       }
       group.color = board[i];
+      let hasTrueEye = false;
+      for (let j = 0; j < group.liberties.length; j += 1) {
+        if (isSimpleEye(board, geo, group.liberties[j], group.color)) {
+          hasTrueEye = true;
+          break;
+        }
+      }
+      group.hasTrueEye = hasTrueEye;
       groups.push(group);
     }
 
     const dead = [];
-    for (let i = 0; i < groups.length; i += 1) {
-      const g = groups[i];
-      if (g.stones.length >= Math.ceil(geo.n / 2)) continue;
-      const opp = opponent(g.color);
+    const maxDeadStones = Math.ceil(n / 2);
+    const emptyMark = new Uint8Array(n);
+    const oppSeen = new Uint8Array(groups.length);
 
-      let hasEye = false;
+    for (let gId = 0; gId < groups.length; gId += 1) {
+      const g = groups[gId];
+      if (g.stones.length >= maxDeadStones) continue;
+      if (g.liberties.length > 2 || g.hasTrueEye) continue;
+
+      const ownColor = g.color;
+      const oppColor = opponent(ownColor);
+      emptyMark.fill(0);
+      oppSeen.fill(0);
+
+      const queue = [];
       for (let j = 0; j < g.liberties.length; j += 1) {
         const lib = g.liberties[j];
-        const ns = geo.neighbors[lib];
-        let ownCount = 0;
-        for (let k = 0; k < ns.length; k += 1) {
-          if (board[ns[k]] === g.color) ownCount += 1;
-        }
-        if (ownCount === ns.length) {
-          hasEye = true;
-          break;
+        if (!emptyMark[lib]) {
+          emptyMark[lib] = 1;
+          queue.push(lib);
         }
       }
-      if (hasEye) continue;
 
-      if (g.liberties.length <= 2) {
-        let trapped = true;
-        for (let j = 0; j < g.liberties.length; j += 1) {
-          const lib = g.liberties[j];
-          const ns = geo.neighbors[lib];
-          let hasOpp = false;
-          for (let k = 0; k < ns.length; k += 1) {
-            if (board[ns[k]] === opp) {
-              hasOpp = true;
+      let touchesOtherFriendly = false;
+      const adjOppIds = [];
+
+      let headIdx = 0;
+      while (headIdx < queue.length) {
+        const p = queue[headIdx];
+        headIdx += 1;
+        if (queue.length > 2) break;
+
+        const ns = geo.neighbors[p];
+        for (let k = 0; k < ns.length; k += 1) {
+          const nb = ns[k];
+          const c = board[nb];
+          if (c === EMPTY) {
+            if (!emptyMark[nb]) {
+              emptyMark[nb] = 1;
+              queue.push(nb);
+              if (queue.length > 2) break;
+            }
+          } else if (c === ownColor) {
+            if (groupIdOf[nb] !== gId) {
+              touchesOtherFriendly = true;
+              break;
+            }
+          } else {
+            const ogId = groupIdOf[nb];
+            if (!oppSeen[ogId]) {
+              oppSeen[ogId] = 1;
+              adjOppIds.push(ogId);
+            }
+          }
+        }
+        if (touchesOtherFriendly || queue.length > 2) break;
+      }
+
+      if (touchesOtherFriendly || queue.length > 2) continue;
+
+      for (let j = 0; j < g.stones.length; j += 1) {
+        const ns = geo.neighbors[g.stones[j]];
+        for (let k = 0; k < ns.length; k += 1) {
+          const nb = ns[k];
+          if (board[nb] === oppColor) {
+            const ogId = groupIdOf[nb];
+            if (!oppSeen[ogId]) {
+              oppSeen[ogId] = 1;
+              adjOppIds.push(ogId);
+            }
+          }
+        }
+      }
+
+      if (adjOppIds.length === 0) continue;
+
+      let allHealthy = true;
+      for (let j = 0; j < adjOppIds.length; j += 1) {
+        const og = groups[adjOppIds[j]];
+        if (og.liberties.length < 2) {
+          allHealthy = false;
+          break;
+        }
+        if (og.hasTrueEye || og.liberties.length >= 3) continue;
+
+        if (og.liberties.length > g.liberties.length) {
+          let hasOutsideLib = false;
+          for (let l = 0; l < og.liberties.length; l += 1) {
+            if (!emptyMark[og.liberties[l]]) {
+              hasOutsideLib = true;
               break;
             }
           }
-          if (!hasOpp) {
-            trapped = false;
-            break;
-          }
+          if (hasOutsideLib) continue;
         }
-        if (trapped) {
-          for (let j = 0; j < g.stones.length; j += 1) {
-            dead.push(g.stones[j]);
-          }
+
+        allHealthy = false;
+        break;
+      }
+
+      if (allHealthy) {
+        for (let j = 0; j < g.stones.length; j += 1) {
+          dead.push(g.stones[j]);
         }
       }
     }
@@ -397,6 +539,7 @@
     unplay,
     isSimpleEye,
     isSafeTerritory,
+    areaScore,
     judge,
     pointLabel,
   };

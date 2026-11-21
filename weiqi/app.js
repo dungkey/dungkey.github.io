@@ -3,11 +3,11 @@
 
   const Go = window.Go;
   const GoAI = window.GoAI;
-  const ASSET_VERSION = '20261121';
+  const ASSET_VERSION = '20261121b';
   const KOMI = 3.5;
   const CANVAS_MAX_DPR = 2;
   const CHINESE_NUMERALS = { 5: '五', 6: '六' };
-  const REVIEW_ITERATIONS = 320;
+  const REVIEW_ITERATIONS = 2400;
   const REVIEW_TOP_N = 5;
   const MAX_ARCHIVES = 8;
   const REVIEW_RANK_COLORS = ['var(--review-rank-1)', 'var(--review-rank-2)', 'var(--review-rank-3)'];
@@ -287,87 +287,86 @@
     return error;
   }
 
-  function createWorkerClient({ label, workerUrl }) {
-    let worker = null;
+  function createWorkerClient({ label, workerUrl, poolSize = 1 }) {
+    const targetSize = Math.max(1, poolSize);
+    let workers = [];
     let disabled = false;
-    let fallbackTimer = null;
-    let fallbackReject = null;
+    const fallbackEntries = new Set();
     const pending = new Map();
 
+    function canUseWorker() {
+      return !disabled
+        && typeof Worker !== 'undefined'
+        && window.location.protocol !== 'file:';
+    }
+
     function init() {
-      if (
-        disabled
-        || worker
-        || typeof Worker === 'undefined'
-        || window.location.protocol === 'file:'
-      ) {
-        return;
-      }
+      if (!canUseWorker() || workers.length > 0) return;
 
       try {
-        worker = new Worker(workerUrl);
-        worker.onmessage = (event) => {
-          const message = event.data || {};
-          const entry = pending.get(message.id);
-          if (!entry) return;
-          pending.delete(message.id);
-          if (message.error) entry.reject(new Error(message.error));
-          else entry.resolve(message.result);
-        };
+        for (let slot = 0; slot < targetSize; slot += 1) {
+          const w = new Worker(workerUrl);
+          const entry = { worker: w, inFlight: 0 };
+          w.onmessage = (event) => {
+            const message = event.data || {};
+            const req = pending.get(message.id);
+            if (!req) return;
+            pending.delete(message.id);
+            entry.inFlight = Math.max(0, entry.inFlight - 1);
+            if (message.error) req.reject(new Error(message.error));
+            else req.resolve(message.result);
+          };
 
-        worker.onerror = (event) => {
-          console.warn(`${label} worker 不可用，切换到主线程计算。`, event.message || event);
-          disabled = true;
-          if (worker) {
-            worker.terminate();
-            worker = null;
-          }
-          const error = new Error(`${label} worker error`);
-          pending.forEach((entry) => entry.reject(error));
-          pending.clear();
-        };
+          w.onerror = (event) => {
+            console.warn(`${label} worker 不可用，切换到主线程计算。`, event.message || event);
+            disabled = true;
+            workers.forEach((item) => item.worker.terminate());
+            workers = [];
+            const error = new Error(`${label} worker error`);
+            pending.forEach((req) => req.reject(error));
+            pending.clear();
+          };
+          workers.push(entry);
+        }
       } catch (error) {
         console.warn(`无法创建 ${label} worker，切换到主线程计算。`, error);
         disabled = true;
-        worker = null;
+        workers.forEach((item) => item.worker.terminate());
+        workers = [];
       }
     }
 
     function clearFallback() {
-      if (fallbackTimer) {
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      if (fallbackReject) {
-        const reject = fallbackReject;
-        fallbackReject = null;
-        reject(cancelledError());
-      }
+      fallbackEntries.forEach((entry) => {
+        window.clearTimeout(entry.timer);
+        entry.reject(cancelledError());
+      });
+      fallbackEntries.clear();
     }
 
     function stop() {
       clearFallback();
-      pending.forEach((entry) => entry.reject(cancelledError()));
+      pending.forEach((req) => req.reject(cancelledError()));
       pending.clear();
-      if (worker) {
-        worker.terminate();
-        worker = null;
-      }
+      workers.forEach((item) => item.worker.terminate());
+      workers = [];
     }
 
     function runOnMainThread(payload) {
       return new Promise((resolve, reject) => {
-        clearFallback();
-        fallbackReject = reject;
+        const entry = { timer: null, reject };
+        fallbackEntries.add(entry);
         // 留出一帧，让界面先绘制出来。
-        fallbackTimer = window.setTimeout(() => {
-          fallbackTimer = null;
-          fallbackReject = null;
+        entry.timer = window.setTimeout(() => {
+          fallbackEntries.delete(entry);
           try {
             const cfg = LEVEL_CONFIG[state.level] || LEVEL_CONFIG.normal;
             const fallbackLimit = cfg.fallbackLimit;
             const result = payload.type === 'analyze'
-              ? GoAI.analyzePosition(payload)
+              ? GoAI.analyzePosition({
+                ...payload,
+                iterations: Math.min(payload.iterations || REVIEW_ITERATIONS, 1000),
+              })
               : GoAI.chooseMove({
                 ...payload,
                 timeLimit: Math.min(payload.timeLimit || fallbackLimit, fallbackLimit),
@@ -381,17 +380,25 @@
     }
 
     function post(payload) {
-      if (!worker) return runOnMainThread(payload);
+      if (workers.length === 0) return runOnMainThread(payload);
+
+      let chosen = workers[0];
+      for (let i = 1; i < workers.length; i += 1) {
+        if (workers[i].inFlight < chosen.inFlight) chosen = workers[i];
+      }
+
       return new Promise((resolve, reject) => {
         const id = ++requestCounter;
+        chosen.inFlight += 1;
         pending.set(id, { resolve, reject });
         try {
-          worker.postMessage({ id, ...payload });
+          chosen.worker.postMessage({ id, ...payload });
         } catch (error) {
           pending.delete(id);
-          worker.terminate();
-          worker = null;
+          chosen.inFlight = Math.max(0, chosen.inFlight - 1);
           disabled = true;
+          workers.forEach((item) => item.worker.terminate());
+          workers = [];
           reject(error);
         }
       });
@@ -408,12 +415,21 @@
       }
     }
 
-    return { init, stop, request };
+    function concurrency() {
+      init();
+      return workers.length > 0 ? workers.length : 1;
+    }
+
+    return { init, stop, request, concurrency };
   }
 
   const workerUrl = `ai-worker.js?v=${ASSET_VERSION}`;
-  const aiClient = createWorkerClient({ label: 'AI ', workerUrl });
-  const reviewClient = createWorkerClient({ label: '复盘', workerUrl });
+  const reviewPoolSize = Math.min(
+    4,
+    Math.max(1, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 2) - 1),
+  );
+  const aiClient = createWorkerClient({ label: 'AI ', workerUrl, poolSize: 1 });
+  const reviewClient = createWorkerClient({ label: '复盘', workerUrl, poolSize: reviewPoolSize });
 
   function stopAITasks() {
     if (state.aiTimer) {
@@ -1233,47 +1249,86 @@
     archive.analysisStatus = 'running';
     renderReview();
 
-    for (let index = 0; index < positions.length; index += 1) {
-      if (results[index]) continue;
+    const concurrency = reviewClient.concurrency();
+    let nextIndex = 0;
+    let cancelled = false;
 
-      const position = positions[index];
-      let response;
-      try {
-        response = await reviewClient.request({
-          type: 'analyze',
-          size: archive.size,
-          board: position.board,
-          toMove: position.toMove,
-          ko: position.ko,
-          passes: position.passes,
-          komi: archive.komi,
-          lastMove: position.lastMove,
-          playedMove: position.playedMove,
-          iterations: REVIEW_ITERATIONS,
-          topN: REVIEW_TOP_N,
-        });
-      } catch (error) {
-        if (error && error.cancelled) {
-          archive.analysisStatus = 'idle';
+    async function workerLoop() {
+      while (nextIndex < positions.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (results[index]) continue;
+
+        const position = positions[index];
+        let response;
+        try {
+          response = await reviewClient.request({
+            type: 'analyze',
+            size: archive.size,
+            board: position.board,
+            toMove: position.toMove,
+            ko: position.ko,
+            passes: position.passes,
+            komi: archive.komi,
+            lastMove: position.lastMove,
+            playedMove: position.playedMove,
+            iterations: REVIEW_ITERATIONS,
+            topN: REVIEW_TOP_N,
+          });
+        } catch (error) {
+          if (error && error.cancelled) {
+            cancelled = true;
+            return;
+          }
+          throw error;
+        }
+
+        if (token !== state.review.token) {
+          cancelled = true;
           return;
         }
-        console.error('复盘分析失败。', error);
-        archive.analysisStatus = 'error';
+
+        results[index] = response;
         renderReview();
-        return;
       }
+    }
 
-      if (token !== state.review.token) {
-        archive.analysisStatus = 'idle';
-        return;
-      }
-
-      results[index] = response;
+    try {
+      await Promise.all(Array.from({ length: concurrency }, () => workerLoop()));
+    } catch (error) {
+      console.error('复盘分析失败。', error);
+      archive.analysisStatus = 'error';
       renderReview();
+      return;
+    }
+
+    if (cancelled || token !== state.review.token) {
+      archive.analysisStatus = 'idle';
+      return;
     }
 
     archive.analysisStatus = 'done';
     renderReview();
+  }
+
+  function summarizeRecommendations(analysis) {
+    const candidates = analysis && analysis.candidates ? analysis.candidates : [];
+    const passCandidate = candidates.find((candidate) => candidate.pass) || null;
+    const passIsTop = Boolean(candidates[0] && candidates[0].pass);
+    const showPass = Boolean(
+      passCandidate
+      && (passIsTop || passCandidate.winRate >= analysis.bestRate - 0.03 || passCandidate.winRate >= 0.5),
+    );
+    const pointCandidates = candidates
+      .filter((candidate) => !candidate.pass)
+      .slice(0, passIsTop ? 2 : 3);
+    return {
+      pointCandidates,
+      passCandidate,
+      passIsTop,
+      showPass,
+      pointOffset: passIsTop ? 2 : 1,
+    };
   }
 
   function renderReview() {
@@ -1381,9 +1436,10 @@
     const playedMove = position.playedMove;
     const hasPlayedMove = Number.isInteger(playedMove) && playedMove >= 0 && position.board[playedMove] === Go.EMPTY;
 
-    const pointCandidates = !isFinal && analysis
-      ? analysis.candidates.filter((candidate) => !candidate.pass).slice(0, 3)
-      : [];
+    const rec = !isFinal && analysis
+      ? summarizeRecommendations(analysis)
+      : { pointCandidates: [], passCandidate: null, passIsTop: false, showPass: false, pointOffset: 1 };
+    const { pointCandidates, passCandidate, passIsTop, showPass, pointOffset } = rec;
 
     const playedInCandidates = pointCandidates.some((c) => c.idx === playedMove);
 
@@ -1393,14 +1449,15 @@
 
     pointCandidates.forEach((candidate, rank) => {
       const isPlayed = candidate.idx === playedMove;
-      const color = REVIEW_RANK_COLORS[rank] || REVIEW_RANK_COLORS[2];
+      const displayRank = rank + pointOffset;
+      const color = REVIEW_RANK_COLORS[Math.min(2, displayRank - 1)] || REVIEW_RANK_COLORS[2];
       const x = pointX(candidate.idx);
       const y = pointY(candidate.idx);
       if (isPlayed) {
         svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.42}" fill="none" stroke="var(--zhu)" stroke-width="1.8" stroke-dasharray="4 3"/>`;
       }
       svg += `<circle cx="${x}" cy="${y}" r="${cell * 0.31}" fill="var(--review-badge-bg)" stroke="${color}" stroke-width="1.8"/>`;
-      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="400" fill="${color}">${rank + 1}</text>`;
+      svg += `<text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="${Math.max(10, cell * 0.2)}" font-weight="400" fill="${color}">${displayRank}</text>`;
     });
 
     els.reviewBoardSvg.innerHTML = svg;
@@ -1415,19 +1472,18 @@
       return;
     }
 
-    const passCandidate = analysis.candidates.find((candidate) => candidate.pass);
-    let note = '';
-    if (pointCandidates.length > 0) {
-      note = `推荐 ${pointCandidates
-        .map((candidate, rank) => `${rank + 1}. ${Go.pointLabel(candidate.idx, size)} ${percentText(candidate.winRate)}`)
-        .join(' · ')}`;
-    } else {
-      note = '终局局面';
+    const parts = [];
+    if (passIsTop && passCandidate) {
+      parts.push(`1. 停一手 ${percentText(passCandidate.winRate)}`);
+    }
+    pointCandidates.forEach((candidate, rank) => {
+      parts.push(`${rank + pointOffset}. ${Go.pointLabel(candidate.idx, size)} ${percentText(candidate.winRate)}`);
+    });
+    if (!passIsTop && showPass && passCandidate) {
+      parts.push(`停一手 ${percentText(passCandidate.winRate)}`);
     }
 
-    if (passCandidate && passCandidate.winRate >= 0.5) {
-      note += ` · 停一手 ${percentText(passCandidate.winRate)}`;
-    }
+    let note = parts.length > 0 ? `推荐 ${parts.join(' · ')}` : '终局局面';
 
     if (Number.isInteger(playedMove)) {
       if (playedMove === -1) {
@@ -1575,40 +1631,41 @@
           ? '—'
           : `<strong>${percentText(analysis.playedRate)}</strong>`;
 
-        const pointCandidates = analysis.candidates
-          .filter((candidate) => !candidate.pass)
-          .slice(0, 3);
-        const passCandidate = analysis.candidates.find((candidate) => candidate.pass);
+        const { pointCandidates, passCandidate, passIsTop, showPass, pointOffset } = summarizeRecommendations(analysis);
+        const pointHtml = pointCandidates
+          .map((candidate, rank) => (
+            `<span class="review-point rank-${Math.min(3, rank + pointOffset)}">`
+            + `${Go.pointLabel(candidate.idx, archive.size)} <em>${percentText(candidate.winRate)}</em>`
+            + '</span>'
+          ))
+          .join('');
+        const passHtml = showPass && passCandidate
+          ? `<span class="review-point rank-pass">停一手 <em>${percentText(passCandidate.winRate)}</em></span>`
+          : '';
 
-        if (pointCandidates.length > 0) {
-          topCell = pointCandidates
-            .map((candidate, rank) => (
-              `<span class="review-point rank-${rank + 1}">`
-              + `${Go.pointLabel(candidate.idx, archive.size)} <em>${percentText(candidate.winRate)}</em>`
-              + '</span>'
-            ))
-            .join('');
+        if (passIsTop) {
+          topCell = `${passHtml}${pointHtml}`;
+        } else if (pointHtml || passHtml) {
+          topCell = `${pointHtml}${passHtml}`;
         } else {
           topCell = '<span class="review-pending">终局</span>';
         }
 
-        if (passCandidate && passCandidate.winRate >= 0.5) {
-          topCell += `<span class="review-point rank-pass">停一手 <em>${percentText(passCandidate.winRate)}</em></span>`;
-        }
-
         if (analysis.playedRank !== null) {
           rankCell = `第 ${analysis.playedRank} <span>/ ${analysis.evaluated}</span>`;
-          if (analysis.playedRank === 1) {
-            qualityBadge = '<span class="move-quality quality-best">妙手</span>';
-          } else if (analysis.playedRank <= 2) {
-            qualityBadge = '<span class="move-quality quality-good">好手</span>';
-          } else if (analysis.playedRate !== null && analysis.bestRate !== null) {
-            const diff = analysis.bestRate - analysis.playedRate;
-            if (diff >= 0.22) {
+          if (analysis.playedRate !== null && analysis.bestRate !== null) {
+            const diff = Math.max(0, analysis.bestRate - analysis.playedRate);
+            if (diff >= 0.20) {
               qualityBadge = '<span class="move-quality quality-bad">恶手</span>';
-            } else if (diff >= 0.09) {
+            } else if (diff >= 0.08) {
               qualityBadge = '<span class="move-quality quality-dubious">缓手</span>';
+            } else if (analysis.playedRank === 1) {
+              qualityBadge = '<span class="move-quality quality-best">妙手</span>';
+            } else if (diff <= 0.04) {
+              qualityBadge = '<span class="move-quality quality-good">好手</span>';
             }
+          } else if (analysis.playedRank === 1) {
+            qualityBadge = '<span class="move-quality quality-best">妙手</span>';
           }
         }
       }
