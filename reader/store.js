@@ -3,11 +3,12 @@
 /*
  * 本地书库：IndexedDB 存书籍元数据与原始文件。
  *
- *   ReaderStore.all()            -> 全部元数据（不含文件）
- *   ReaderStore.file(id)         -> 原始文件 Blob
- *   ReaderStore.save(meta, blob) -> 写入 / 覆盖
+ *   ReaderStore.all()             -> 全部元数据（不含文件）
+ *   ReaderStore.get(id)           -> 单本书元数据
+ *   ReaderStore.file(id)          -> 原始文件 Blob
+ *   ReaderStore.save(meta, blob)  -> 写入 / 覆盖
  *   ReaderStore.update(id, patch) -> 只修改元数据
- *   ReaderStore.remove(id)       -> 删除
+ *   ReaderStore.remove(id)        -> 删除
  */
 
 (function () {
@@ -21,11 +22,21 @@
   function open() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
+      const fail = (error) => {
+        dbPromise = null;
+        reject(error);
+      };
       if (!window.indexedDB) {
-        reject(new Error('当前浏览器不支持 IndexedDB'));
+        fail(new Error('当前浏览器不支持 IndexedDB'));
         return;
       }
-      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+      let request;
+      try {
+        request = window.indexedDB.open(DB_NAME, DB_VERSION);
+      } catch (error) {
+        fail(error || new Error('无法打开本地书库'));
+        return;
+      }
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(META)) {
@@ -35,9 +46,17 @@
           db.createObjectStore(FILES, { keyPath: 'id' });
         }
       };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error('无法打开本地书库'));
-      request.onblocked = () => reject(new Error('本地书库被其他标签页占用，请关闭后重试'));
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onclose = () => { dbPromise = null; };
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+        resolve(db);
+      };
+      request.onerror = () => fail(request.error || new Error('无法打开本地书库'));
+      request.onblocked = () => fail(new Error('本地书库被其他标签页占用，请关闭后重试'));
     });
     return dbPromise;
   }

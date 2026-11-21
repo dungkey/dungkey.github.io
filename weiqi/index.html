@@ -31,17 +31,19 @@
         var saved = localStorage.getItem('desk-theme');
         if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
       } catch (e) {}
-      var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
-      var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var resolved = mode === 'auto' ? (dark ? 'dark' : 'light') : mode;
       document.documentElement.setAttribute('data-theme-mode', mode);
       document.documentElement.setAttribute('data-theme', resolved);
+      var scheme = document.querySelector('meta[name="color-scheme"]');
+      if (scheme) scheme.setAttribute('content', mode === 'auto' ? 'light dark' : resolved);
       var meta = document.getElementById('themeColor');
       if (meta) meta.setAttribute('content', resolved === 'dark' ? '#12110f' : '#f3eee4');
     })();
   </script>
   <link rel="preload" href="../assets/fonts/kinghwa-oldsong.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="../assets/tokens.css?v=20261120">
-  <link rel="stylesheet" href="styles.css?v=20261120">
+  <link rel="stylesheet" href="../assets/tokens.css?v=20261121">
+  <link rel="stylesheet" href="styles.css?v=20261121">
 </head>
 <body>
   <div class="app-shell">
@@ -56,11 +58,11 @@
         <div class="masthead-controls">
           <button class="icon-toggle-btn is-active" id="soundToggleBtn" type="button" aria-label="音效开关" aria-pressed="true" title="音效开关">
             <span class="toggle-dot" aria-hidden="true"></span>
-            <span class="btn-text">音效</span>
+            <span>音效</span>
           </button>
           <button class="icon-toggle-btn" id="moveNumberToggleBtn" type="button" aria-label="显示手数" aria-pressed="false" title="显示手数">
             <span class="toggle-dot" aria-hidden="true"></span>
-            <span class="btn-text">手数</span>
+            <span>手数</span>
           </button>
         </div>
         <div class="theme-switch" role="group" aria-label="界面配色">
@@ -116,7 +118,7 @@
       </section>
 
       <aside class="side-panel">
-        <section class="panel setup-panel">
+        <section class="panel">
           <div class="panel-title">
             <div>
               <h2>对局设置</h2>
@@ -270,7 +272,7 @@
           <svg id="reviewChart" class="review-chart" viewBox="0 0 620 250"
                role="img" aria-label="黑棋胜率折线图"></svg>
           <div class="review-chart-legend">
-            <span class="legend-item legend-black"><i></i>黑棋胜率</span>
+            <span class="legend-item"><i></i>黑棋胜率</span>
             <span class="legend-item legend-mid"><i></i>五成均势</span>
             <span class="legend-item legend-pick"><i></i>当前局面</span>
           </div>
@@ -306,8 +308,9 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <p class="sr-only" id="liveRegion" aria-live="polite"></p>
 
-  <script src="engine.js?v=20261120"></script>
-  <script src="ai.js?v=20261120"></script>
-  <script src="app.js?v=20261120"></script>
+  <script src="../assets/theme.js?v=20261121"></script>
+  <script src="engine.js?v=20261121"></script>
+  <script src="ai.js?v=20261121"></script>
+  <script src="app.js?v=20261121"></script>
 </body>
 </html>

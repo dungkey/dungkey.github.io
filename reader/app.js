@@ -3,7 +3,6 @@
 const SETTINGS_KEY = 'dengxia.settings.v1';
 const PROGRESS_KEY = 'dengxia.progress.v1';
 const BOOKMARKS_KEY = 'dengxia.bookmarks.v1';
-const SHARED_THEME_KEY = 'desk-theme';
 
 const IS_WINDOWS = /Windows/i.test(
   (navigator.userAgentData && navigator.userAgentData.platform)
@@ -27,11 +26,16 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 const THEME_NAMES = { dark: '深色', light: '浅色', auto: '跟随系统' };
-const THEME_COLORS = { dark: '#12110f', light: '#f3eee4' };
-const THEME_ORDER = ['dark', 'light', 'auto'];
 const PAPER_ORDER = ['paper', 'cream'];
 const PAPER_NAMES = { paper: '素白', cream: '宣纸' };
 const WEIGHTS = [300, 400, 700];
+const WENKAI_CSS_URLS = [
+  'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css',
+  'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+  'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css',
+];
+let wenkaiLoaded = false;
+let themeCtrl = null;
 
 const $ = (id) => document.getElementById(id);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -89,7 +93,6 @@ const el = {
   chapterPrevBottom: $('chapterPrevBottom'),
   chapterNextBottom: $('chapterNextBottom'),
   tocDialog: $('tocDialog'),
-  tocHeading: $('tocHeading'),
   tocBookName: $('tocBookName'),
   tocSearch: $('tocSearch'),
   tocCount: $('tocCount'),
@@ -128,15 +131,12 @@ const state = {
   book: null,
   parsedBook: null,
   imageUrls: new Map(),
-  searchQuery: '',
   searchTimer: 0,
   chapters: [],
   chapter: null,
   prev: null,
   next: null,
-  chapterLoading: false,
   openToken: 0,
-  chapterToken: 0,
   tocNodes: [],
   tocGroups: [],
   tocTotalChars: 0,
@@ -182,21 +182,25 @@ function normalizeTheme(value) {
 }
 
 function readSharedTheme() {
-  try {
-    const value = localStorage.getItem(SHARED_THEME_KEY);
-    return THEME_ORDER.includes(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistSharedTheme(mode) {
-  try { localStorage.setItem(SHARED_THEME_KEY, mode); } catch { /* 无法写入时仅影响跨页同步 */ }
+  return window.WorkbenchTheme ? window.WorkbenchTheme.read() : null;
 }
 
 function resolveTheme(mode) {
+  if (window.WorkbenchTheme) return window.WorkbenchTheme.resolve(mode);
   if (mode === 'light' || mode === 'dark') return mode;
   return DARK_MEDIA && DARK_MEDIA.matches ? 'dark' : 'light';
+}
+
+function ensureWenkaiFonts() {
+  if (wenkaiLoaded) return;
+  wenkaiLoaded = true;
+  for (const href of WENKAI_CSS_URLS) {
+    if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) continue;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }
 }
 
 function loadSettings() {
@@ -230,8 +234,6 @@ function persistSettings() {
 function applySettings() {
   const root = document.documentElement;
   const effectiveTheme = resolveTheme(settings.theme);
-  root.dataset.themeMode = settings.theme;
-  root.dataset.theme = effectiveTheme;
   root.dataset.paper = settings.paper;
   root.dataset.mode = settings.mode;
   root.dataset.font = settings.font;
@@ -242,14 +244,8 @@ function applySettings() {
   root.style.setProperty('--reader-indent', settings.indent ? '2em' : '0em');
   root.style.setProperty('--reader-body-weight', String(settings.weight));
 
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.content = THEME_COLORS[effectiveTheme];
+  if (settings.font === 'wenkai') ensureWenkaiFonts();
 
-  $$('[data-set-theme]').forEach((button) => {
-    const pressed = button.dataset.setTheme === settings.theme;
-    button.setAttribute('aria-pressed', String(pressed));
-    button.title = THEME_NAMES[button.dataset.setTheme] || '';
-  });
   $$('[data-set-font]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.setFont === settings.font));
   });
@@ -293,86 +289,23 @@ function changeSetting(key, value) {
   settings[key] = value;
   applySettings();
   persistSettings();
-  if (key === 'theme') persistSharedTheme(value);
-}
-
-let themeSwitchTimer = 0;
-
-function changeTheme(mode, event, remember = true) {
-  const root = document.documentElement;
-  const currentMode = settings.theme;
-  const currentTheme = root.dataset.theme || resolveTheme(currentMode);
-  const targetTheme = resolveTheme(mode);
-
-  const commit = () => {
-    settings.theme = mode;
-    applySettings();
-    if (remember) {
-      persistSettings();
-      persistSharedTheme(mode);
-    }
-  };
-
-  if (currentTheme === targetTheme) {
-    commit();
-    return;
-  }
-
-  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const canViewTransition = typeof document.startViewTransition === 'function' && !reducedMotion;
-
-  if (canViewTransition) {
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
-    if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
-      x = event.clientX;
-      y = event.clientY;
-    } else if (event?.currentTarget instanceof HTMLElement) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      x = rect.left + rect.width / 2;
-      y = rect.top + rect.height / 2;
-    }
-
-    const endRadius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y)
-    );
-
-    try {
-      const transition = document.startViewTransition(() => {
-        commit();
-      });
-      transition.ready.then(() => {
-        root.animate(
-          {
-            clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${endRadius}px at ${x}px ${y}px)`,
-            ],
-          },
-          {
-            duration: 400,
-            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-            pseudoElement: '::view-transition-new(root)',
-          }
-        );
-      }).catch(() => {});
-      return;
-    } catch {}
-  }
-
-  root.classList.add('is-theme-switching');
-  commit();
-  window.clearTimeout(themeSwitchTimer);
-  themeSwitchTimer = window.setTimeout(() => {
-    root.classList.remove('is-theme-switching');
-  }, 350);
 }
 
 function bindSettings() {
-  $$('[data-set-theme]').forEach((button) => {
-    button.addEventListener('click', (event) => changeTheme(button.dataset.setTheme, event, true));
-  });
+  themeCtrl = window.WorkbenchTheme ? window.WorkbenchTheme.bind({
+    initialMode: settings.theme,
+    titles: THEME_NAMES,
+    onChange: ({ mode, theme, source }) => {
+      settings.theme = mode;
+      $$('[data-set-paper]').forEach((button) => {
+        button.disabled = theme === 'dark';
+      });
+      if (source === 'user' || source === 'storage') {
+        persistSettings();
+      }
+    },
+  }) : null;
+
   $$('[data-set-font]').forEach((button) => {
     button.addEventListener('click', () => {
       settings.font = button.dataset.setFont;
@@ -420,26 +353,9 @@ function bindSettings() {
     settings.fontExplicit = false;
     applySettings();
     persistSettings();
-    persistSharedTheme(settings.theme);
+    themeCtrl?.transition(DEFAULT_SETTINGS.theme, { remember: true });
     exitReaderFullscreen();
     toast('已恢复默认格式');
-  });
-
-  const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
-  const onSystemThemeChange = () => {
-    if (settings.theme === 'auto') applySettings();
-  };
-  if (typeof themeMedia.addEventListener === 'function') {
-    themeMedia.addEventListener('change', onSystemThemeChange);
-  } else if (typeof themeMedia.addListener === 'function') {
-    themeMedia.addListener(onSystemThemeChange);
-  }
-
-  window.addEventListener('storage', (event) => {
-    if (event.key !== SHARED_THEME_KEY || !THEME_ORDER.includes(event.newValue)) return;
-    settings.theme = event.newValue;
-    applySettings();
-    persistSettings();
   });
 }
 
@@ -541,12 +457,17 @@ function sortedBooks() {
 let libraryPromise = null;
 
 function ensureLibrary() {
-  if (!libraryPromise) libraryPromise = loadBooks();
+  if (!libraryPromise) {
+    libraryPromise = loadBooks().then((ok) => {
+      if (!ok && !state.booksLoaded) libraryPromise = null;
+      return ok;
+    });
+  }
   return libraryPromise;
 }
 
 async function loadBooks({ manual = false, quiet = false } = {}) {
-  if (state.booksLoading) return;
+  if (state.booksLoading) return state.booksLoaded;
   state.booksLoading = true;
   el.refreshBooksBtn.disabled = true;
   el.refreshBooksBtn.classList.add('is-spinning');
@@ -573,6 +494,7 @@ async function loadBooks({ manual = false, quiet = false } = {}) {
     el.libraryError.hidden = true;
     renderLibrary();
     if (manual) toast(`书库已更新，共 ${state.books.length} 本书`);
+    return true;
   } catch (error) {
     el.libraryLoading.hidden = true;
     el.bookGrid.hidden = true;
@@ -585,6 +507,7 @@ async function loadBooks({ manual = false, quiet = false } = {}) {
       el.libraryStatus.textContent = '书库未加载';
       el.shelfSummary.textContent = '读取书库失败';
     }
+    return false;
   } finally {
     state.booksLoading = false;
     el.refreshBooksBtn.disabled = false;
@@ -739,7 +662,7 @@ function renderLibrary() {
     el.bookGrid.replaceChildren();
     el.libraryEmpty.hidden = false;
     el.libraryEmptyTitle.textContent = '书架还是空的';
-    el.libraryEmptyText.textContent = '把 .epub 或 .txt 拖进来，或点「导入书籍」。';
+    el.libraryEmptyText.textContent = '把 .epub、.txt 或 .md 拖进来，或点「导入」。';
     el.emptyImportBtn.hidden = false;
     return;
   }
@@ -866,7 +789,7 @@ function createBookCard(book, rawProgress, index) {
 
   const exportButton = document.createElement('button');
   exportButton.type = 'button';
-  exportButton.className = 'book-action-btn book-export';
+  exportButton.className = 'book-action-btn';
   exportButton.dataset.exportBook = book.id;
   exportButton.setAttribute('aria-label', `导出《${book.title}》文件`);
   exportButton.setAttribute('title', '导出原文件');
@@ -874,7 +797,7 @@ function createBookCard(book, rawProgress, index) {
 
   const removeButton = document.createElement('button');
   removeButton.type = 'button';
-  removeButton.className = 'book-action-btn book-remove';
+  removeButton.className = 'book-action-btn';
   removeButton.dataset.removeBook = book.id;
   removeButton.setAttribute('aria-label', `移除《${book.title}》`);
   removeButton.setAttribute('title', '从书架移除');
@@ -998,7 +921,6 @@ function showReaderOpening() {
 }
 
 function showReaderError(message) {
-  state.chapterLoading = false;
   el.readerLoading.hidden = true;
   el.chapterArticle.hidden = true;
   el.readerError.hidden = false;
@@ -1053,7 +975,6 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
   if (state.book) saveProgressNow();
   clearChapterImages();
   state.openToken += 1;
-  state.chapterToken += 1;
   const token = state.openToken;
 
   state.lastOpenRequest = { bookId, chapterIndex };
@@ -1067,7 +988,6 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
   state.tocGroups = [];
   state.hasParts = false;
   state.libraryScroll = window.scrollY;
-  state.chapterLoading = false;
 
   setView('reader');
   showReaderOpening();
@@ -1083,6 +1003,7 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
       parsed = await window.ReaderLibrary.parse(record.filename || record.title, await blob.arrayBuffer());
       if (token !== state.openToken) return;
       parsed.id = record.id;
+      state.parsed.clear();
       state.parsed.set(record.id, parsed);
     }
     if (!parsed.chapters.length) throw new Error('这本书没有可读取的章节');
@@ -1117,7 +1038,7 @@ async function openBook(bookId, chapterIndex = null, options = {}) {
     if (options.scrollRatio != null) ratio = clamp(Number(options.scrollRatio) || 0, 0, 1);
     const resumed = Boolean(saved && !Number.isInteger(chapterIndex) && target === saved.chapter && target > 0);
 
-    await loadChapter(target, { scrollRatio: ratio, initial: true });
+    loadChapter(target, { scrollRatio: ratio, initial: true });
     if (token !== state.openToken) return;
     if (resumed) toast(`已回到上次读到的${chapterDisplayLabel(state.chapter)}`);
   } catch (error) {
@@ -1137,8 +1058,6 @@ function backToLibrary() {
   if (notePopoverAnchor) hideNotePopover({ immediate: true, blur: true });
   clearChapterImages();
   state.openToken += 1;
-  state.chapterToken += 1;
-  state.chapterLoading = false;
   state.book = null;
   state.parsedBook = null;
   state.chapters = [];
@@ -1168,7 +1087,7 @@ function backToLibrary() {
 /* 章节                                                               */
 /* ------------------------------------------------------------------ */
 
-async function loadChapter(index, options = {}) {
+function loadChapter(index, options = {}) {
   if (!state.book || !state.chapters.length) return;
   const total = state.chapters.length;
   const target = clamp(Number(index) || 0, 0, total - 1);
@@ -1177,9 +1096,6 @@ async function loadChapter(index, options = {}) {
   const previousChapter = state.chapter;
   const sameChapter = Boolean(previousChapter && previousChapter.index === target);
   if (previousChapter && !sameChapter) saveProgressNow();
-
-  state.chapterToken += 1;
-  state.chapterLoading = true;
 
   if (!previousChapter) {
     el.readerLoading.hidden = false;
@@ -1207,7 +1123,6 @@ async function loadChapter(index, options = {}) {
     };
     state.prev = target > 0 ? target - 1 : null;
     state.next = target < total - 1 ? target + 1 : null;
-    state.chapterLoading = false;
 
     renderChapter();
     el.readerLoading.hidden = true;
@@ -1231,7 +1146,6 @@ async function loadChapter(index, options = {}) {
       window.setTimeout(saveProgressNow, 40);
     });
   } catch (error) {
-    state.chapterLoading = false;
     el.readerMain.classList.remove('is-loading');
     if (!previousChapter) {
       showReaderError(error.message || '章节加载失败');
@@ -1347,16 +1261,13 @@ function createParagraph(paragraph, noteApi) {
     const url = getImageUrl(run.path);
     if (!url) return null;
     const figure = document.createElement('figure');
-    figure.className = 'chapter-figure';
     const img = document.createElement('img');
-    img.className = 'chapter-image';
     img.src = url;
     img.alt = run.alt || '';
     img.loading = 'lazy';
     figure.append(img);
     if (run.alt) {
       const caption = document.createElement('figcaption');
-      caption.className = 'chapter-caption';
       caption.textContent = run.alt;
       figure.append(caption);
     }
@@ -1367,15 +1278,12 @@ function createParagraph(paragraph, noteApi) {
   const kind = paragraph.kind || 'p';
   if (kind === 'quote') {
     container = document.createElement('blockquote');
-    container.className = 'chapter-quote';
   } else if (kind === 'code') {
     const pre = document.createElement('pre');
-    pre.className = 'chapter-code';
     container = document.createElement('code');
     pre.append(container);
   } else if (kind === 'subheading') {
     container = document.createElement('h3');
-    container.className = 'chapter-subheading';
   } else {
     container = document.createElement('p');
   }
@@ -1461,10 +1369,13 @@ function renderChapter() {
   };
   if (notePopoverAnchor) hideNotePopover({ immediate: true, blur: true });
   const fragment = document.createDocumentFragment();
-  for (const paragraph of chapter.paragraphs) {
+  chapter.paragraphs.forEach((paragraph, pIdx) => {
     const p = createParagraph(paragraph, noteApi);
-    if (p) fragment.append(p);
-  }
+    if (p) {
+      p.dataset.paraIndex = String(pIdx);
+      fragment.append(p);
+    }
+  });
   el.chapterBody.replaceChildren(fragment);
 
   const previousTitle = state.prev == null ? '已是开篇' : chapterLabelAt(state.prev);
@@ -1647,8 +1558,7 @@ function handleReadingTap(event) {
 }
 
 function updateReaderBarVisibility() {
-  const mobile = window.matchMedia('(max-width: 720px)').matches;
-  if (!mobile) {
+  if (!isMobileViewport()) {
     setReaderBarHidden(false);
     state.lastScrollY = window.scrollY;
     return;
@@ -1735,7 +1645,6 @@ function buildToc() {
       items.className = 'toc-group-items';
       details.append(summary, items);
       groupRecord.details = details;
-      groupRecord.summary = summary;
       container = items;
       fragment.append(details);
     }
@@ -1867,7 +1776,7 @@ function renderSearchResults(matches, query) {
   for (const item of matches) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'toc-item search-result-item';
+    btn.className = 'search-result-item';
     btn.dataset.chapter = String(item.chapterIndex);
     btn.dataset.paragraph = String(item.paragraphIndex);
 
@@ -1942,14 +1851,13 @@ function doSearch() {
   renderSearchResults(matches, query);
 }
 
-async function goToSearchResult(chapterIndex, paragraphIndex) {
+function goToSearchResult(chapterIndex, paragraphIndex) {
   closeDialog(el.searchDialog);
   if (state.chapter?.index !== chapterIndex) {
-    await loadChapter(chapterIndex);
+    loadChapter(chapterIndex);
   }
   requestAnimationFrame(() => {
-    const paragraphs = el.chapterBody.querySelectorAll('p, blockquote, pre, h3, figure');
-    const target = paragraphs[paragraphIndex];
+    const target = el.chapterBody.querySelector(`[data-para-index="${paragraphIndex}"]`);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       target.classList.remove('chapter-search-target');
@@ -2090,29 +1998,22 @@ function openBookmark(bookmark) {
 /* 弹层                                                               */
 /* ------------------------------------------------------------------ */
 
-function syncModalBodyState() {
-  document.body.classList.toggle('modal-open', Boolean(document.querySelector('dialog[open]')));
-}
-
 function openModal(dialog) {
   if (!dialog) return;
   setReaderBarHidden(false);
   if (notePopoverAnchor) hideNotePopover({ immediate: true, blur: true });
   closeAllDialogs(dialog);
   if (!dialog.open) dialog.showModal();
-  syncModalBodyState();
 }
 
 function closeDialog(dialog) {
   if (dialog?.open) dialog.close();
-  syncModalBodyState();
 }
 
 function closeAllDialogs(except = null) {
   for (const dialog of $$('dialog[open]')) {
     if (dialog !== except) dialog.close();
   }
-  syncModalBodyState();
 }
 
 let lastInputMode = 'pointer';
@@ -2132,7 +2033,6 @@ function bindDialogs() {
       if (event.target === dialog) dialog.close();
     });
     dialog.addEventListener('close', () => {
-      syncModalBodyState();
       if (lastInputMode !== 'keyboard' && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
         document.activeElement.blur();
       }
@@ -2313,7 +2213,7 @@ function bindReader() {
   window.addEventListener('scroll', handleScroll, { passive: true });
   window.addEventListener('resize', () => {
     state.lastScrollY = window.scrollY;
-    if (!window.matchMedia('(max-width: 720px)').matches) setReaderBarHidden(false);
+    if (!isMobileViewport()) setReaderBarHidden(false);
   });
   window.addEventListener('pagehide', saveProgressNow);
   document.addEventListener('visibilitychange', () => {
@@ -2508,15 +2408,15 @@ function init() {
         loadChapter(route.chapterIndex);
       }
     } else {
-      openBook(route.bookId, route.chapterIndex, { fromRoute: true });
+      openBook(route.bookId, route.chapterIndex);
     }
   });
 
   const route = parseRoute();
   ensureLibrary().then(() => {
-    if (route) openBook(route.bookId, route.chapterIndex, { fromRoute: true });
+    if (route) openBook(route.bookId, route.chapterIndex);
   });
 }
 
-// 页面脚本在 body 末尾以 defer 加载，DOM 已就绪。
+// 页面脚本在 <head> 中以 defer 加载，执行时 DOM 已就绪。
 init();

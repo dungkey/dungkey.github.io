@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f3eee4" id="themeColor">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23b23a25'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23f3eee4' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <script>
   (function () {
     var mode = 'auto';
@@ -16,53 +16,19 @@
       var saved = localStorage.getItem('desk-theme');
       if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
     } catch (e) {}
-    var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var resolved = mode === 'auto' ? (dark ? 'dark' : 'light') : mode;
+    document.documentElement.setAttribute('data-theme-mode', mode);
     document.documentElement.setAttribute('data-theme', resolved);
+    var scheme = document.querySelector('meta[name="color-scheme"]');
+    if (scheme) scheme.setAttribute('content', mode === 'auto' ? 'light dark' : resolved);
     var meta = document.getElementById('themeColor');
     if (meta) meta.setAttribute('content', resolved === 'light' ? '#f3eee4' : '#12110f');
   })();
 </script>
+<link rel="stylesheet" href="/assets/tokens.css?v=20261121">
 <style>
-  @font-face {
-    font-family: "KingHwa OldSong";
-    src: url("/assets/fonts/kinghwa-oldsong.woff2") format("woff2");
-    font-display: swap;
-  }
-
-  :root {
-    --paper: #f3eee4;
-    --paper-deep: #e9e2d4;
-    --ink: #1d1b18;
-    --ink-2: #57514a;
-    --ink-3: #746c60;
-    --rule: rgba(29, 27, 24, 0.16);
-    --rule-strong: rgba(29, 27, 24, 0.72);
-    --zhu: #b23a25;
-    --zhu-ink: #f3eee4;
-    --grain-opacity: 0.07;
-    --display: "KingHwa OldSong", "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
-    color-scheme: light;
-  }
-
-  :root[data-theme="dark"] {
-    --paper: #12110f;
-    --paper-deep: #1c1a17;
-    --ink: #e9e3d6;
-    --ink-2: #aaa294;
-    --ink-3: #888073;
-    --rule: rgba(233, 227, 214, 0.14);
-    --rule-strong: rgba(233, 227, 214, 0.6);
-    --zhu: #d65a3f;
-    --zhu-ink: #12110f;
-    --grain-opacity: 0.05;
-    color-scheme: dark;
-  }
-
   *, *::before, *::after { box-sizing: border-box; }
-
-  html { background: var(--paper); }
 
   body {
     margin: 0;
@@ -72,25 +38,10 @@
     align-items: center;
     justify-content: center;
     padding: 48px 24px;
-    background: var(--paper);
-    color: var(--ink);
     font-family: var(--serif);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: var(--grain-opacity);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-  :root[data-theme="dark"] body::before { filter: invert(1); }
-
-  ::selection { background: var(--zhu); color: var(--zhu-ink); }
 
   .wrap {
     position: relative;
@@ -113,18 +64,9 @@
   }
 
   .seal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 24px;
     height: 24px;
-    background: var(--zhu);
-    color: var(--zhu-ink);
-    border-radius: 3px;
     font-size: 13px;
-    line-height: 1;
-    transform: rotate(-2deg);
-    box-shadow: inset 0 0 0 2px var(--zhu), inset 0 0 0 3px var(--zhu-ink);
   }
 
   .code {

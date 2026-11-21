@@ -25,10 +25,24 @@ jobs:
         uses: actions/checkout@v7
       - name: Setup Pages
         uses: actions/configure-pages@v6
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='_site/' \
+            --exclude='.gitignore' \
+            --exclude='.DS_Store' \
+            --exclude='**/README.md' \
+            --exclude='README.md' \
+            --exclude='music/scan.mjs' \
+            --exclude='music/*.flac' \
+            ./ _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: '.'
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

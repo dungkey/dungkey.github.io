@@ -4,14 +4,6 @@
 /* ------------------------------------------------------------------ */
 
 :root {
-  --ink-soft: var(--ink-2);
-  --ink-faint: var(--ink-3);
-  --line: var(--rule);
-  --line-strong: var(--rule-strong);
-  --cinnabar: var(--zhu);
-  --cinnabar-deep: var(--zhu-deep);
-  --ivory: var(--paper-card);
-
   --board-frame-pad: 6px;
   --board-bg: #efe9dc;
   --board-grid: rgba(29, 27, 24, 0.56);
@@ -861,10 +853,6 @@ button:disabled {
   font-size: 13.5px;
 }
 
-.result-primary {
-  grid-column: 1 / -1;
-}
-
 /* ---------- Review ---------- */
 
 .review-panel {
@@ -1083,11 +1071,6 @@ button:disabled {
   font-family: var(--display);
   font-size: 16px;
   letter-spacing: 0.08em;
-}
-
-.review-chart-head span {
-  color: var(--ink-3);
-  font-size: 11.5px;
 }
 
 .review-chart {
@@ -1310,13 +1293,6 @@ button:disabled {
 .review-pending {
   color: var(--ink-3);
   font-size: 12px;
-}
-
-.review-footnote {
-  margin: 12px 2px 0;
-  color: var(--ink-3);
-  font-size: 12px;
-  line-height: 1.65;
 }
 
 /* ---------- Footer ---------- */

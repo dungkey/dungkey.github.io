@@ -23,7 +23,7 @@
 <meta name="twitter:image" content="https://dungkey.github.io/og.png">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f3eee4" id="themeColor">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23b23a25'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23f3eee4' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png" sizes="180x180">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -37,16 +37,19 @@
       var saved = localStorage.getItem('desk-theme');
       if (saved === 'dark' || saved === 'light' || saved === 'auto') mode = saved;
     } catch (e) {}
-    var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var resolved = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var resolved = mode === 'auto' ? (dark ? 'dark' : 'light') : mode;
     document.documentElement.setAttribute('data-theme-mode', mode);
     document.documentElement.setAttribute('data-theme', resolved);
+    var scheme = document.querySelector('meta[name="color-scheme"]');
+    if (scheme) scheme.setAttribute('content', mode === 'auto' ? 'light dark' : resolved);
     var meta = document.getElementById('themeColor');
     if (meta) meta.setAttribute('content', resolved === 'light' ? '#f3eee4' : '#12110f');
   })();
 </script>
 <link rel="preload" href="assets/fonts/kinghwa-oldsong.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=20261120">
+<link rel="stylesheet" href="assets/tokens.css?v=20261121">
+<link rel="stylesheet" href="styles.css?v=20261121">
 </head>
 <body>
 <a class="skip" href="#main">跳到主内容</a>
@@ -161,8 +164,6 @@
             date.textContent = cnYear(y) + '年' + cnNum(d.getMonth() + 1) + '月' + cnNum(d.getDate()) + '日　星期' + WEEK[d.getDay()];
             seal.textContent = STEM[((y - 4) % 10 + 10) % 10] + BRANCH[((y - 4) % 12 + 12) % 12];
           }
-          var yearEl = document.getElementById('year');
-          if (yearEl) yearEl.textContent = String(d.getFullYear());
         }
         tick();
         setTimeout(function () { tick(); setInterval(tick, 1000); }, 1000 - (Date.now() % 1000));
@@ -208,12 +209,13 @@
 
     <footer class="colophon">
       <p>© <span id="year">2026</span> 工作台</p>
-      <a href="https://github.com/dungkey" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/dungkey" target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only">（在新标签页打开）</span></a>
     </footer>
   </main>
 </div>
 
-<script src="reader/store.js?v=20261120" defer></script>
-<script src="app.js?v=20261120" defer></script>
+<script src="assets/theme.js?v=20261121" defer></script>
+<script src="reader/store.js?v=20261121" defer></script>
+<script src="app.js?v=20261121" defer></script>
 </body>
 </html>

@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f3eee4" id="themeColor">
-<meta name="description" content="EPUB / TXT 本地阅读器。">
+<meta name="description" content="EPUB / TXT / Markdown 本地阅读器。">
 <title>阅读 · 工作台</title>
 <link rel="canonical" href="https://dungkey.github.io/reader/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="工作台 · Workbench">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:title" content="阅读 · 工作台">
-<meta property="og:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
+<meta property="og:description" content="EPUB / TXT / Markdown 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
 <meta property="og:url" content="https://dungkey.github.io/reader/">
 <meta property="og:image" content="https://dungkey.github.io/og.png">
 <meta property="og:image:type" content="image/png">
@@ -21,9 +21,9 @@
 <meta property="og:image:alt" content="阅读 · 工作台">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="阅读 · 工作台">
-<meta name="twitter:description" content="EPUB / TXT 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
+<meta name="twitter:description" content="EPUB / TXT / Markdown 本地阅读器，支持目录、注释、书签、纸色背景与字体字重调节。">
 <meta name="twitter:image" content="https://dungkey.github.io/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23b23a25'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h14' stroke='%23f3eee4' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
 <script>
   (function () {
     var mode = 'auto';
@@ -57,8 +57,8 @@
       }
     } catch (e) {}
     if (!weight) weight = 400;
-    var light = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var theme = mode === 'auto' ? (light ? 'light' : 'dark') : mode;
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = mode === 'auto' ? (dark ? 'dark' : 'light') : mode;
     var root = document.documentElement;
     root.dataset.themeMode = mode;
     root.dataset.theme = theme;
@@ -66,22 +66,20 @@
     root.dataset.font = font;
     root.dataset.os = isWindows ? 'windows' : 'other';
     root.style.setProperty('--reader-body-weight', String(weight));
+    var scheme = document.querySelector('meta[name="color-scheme"]');
+    if (scheme) scheme.setAttribute('content', mode === 'auto' ? 'light dark' : theme);
     var themeColors = { dark: '#12110f', light: '#f3eee4' };
     var metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme && themeColors[theme]) metaTheme.setAttribute('content', themeColors[theme]);
   })();
 </script>
 <link rel="preload" href="../assets/fonts/kinghwa-oldsong.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="../assets/tokens.css?v=20261120">
-<link rel="stylesheet" href="styles.css?v=20261120">
-<!-- 修改 reader 静态资源后同步更新上面的 v= 版本号，避免旧缓存 -->
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-light.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-bold.css">
-<script src="library.js?v=20261120" defer></script>
-<script src="store.js?v=20261120" defer></script>
-<script src="app.js?v=20261120" defer></script>
+<link rel="stylesheet" href="../assets/tokens.css?v=20261121">
+<link rel="stylesheet" href="styles.css?v=20261121">
+<script src="library.js?v=20261121" defer></script>
+<script src="store.js?v=20261121" defer></script>
+<script src="../assets/theme.js?v=20261121" defer></script>
+<script src="app.js?v=20261121" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#mainContent">跳到主要内容</a>
@@ -164,7 +162,7 @@
           <svg viewBox="0 0 64 64"><path d="M14 14h27a9 9 0 0 1 9 9v27H23a9 9 0 0 1-9-9z"/><path d="M20 44V21h22M20 35h16"/></svg>
         </div>
         <h3 id="libraryEmptyTitle">书架还是空的</h3>
-        <p id="libraryEmptyText">把 .epub 或 .txt 拖进来，或点「导入书籍」。</p>
+        <p id="libraryEmptyText">把 .epub、.txt 或 .md 拖进来，或点「导入」。</p>
         <button class="text-button" id="emptyImportBtn" type="button">导入书籍</button>
       </div>
 
@@ -262,7 +260,7 @@
     <article class="chapter" id="chapterArticle" aria-labelledby="chapterTitle" hidden>
       <header class="chapter-header">
         <p class="chapter-eyebrow">
-          <span id="chapterKicker">CHAPTER 001</span>
+          <span id="chapterKicker"></span>
           <span class="eyebrow-dot" aria-hidden="true"></span>
           <span id="chapterStats"></span>
         </p>

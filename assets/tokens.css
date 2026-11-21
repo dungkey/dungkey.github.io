@@ -36,14 +36,10 @@
   --surface: var(--paper-card);
   --surface-elevated: var(--paper);
   --surface-hover: var(--paper-deep);
-  --surface-active: var(--paper-deep);
   --line: var(--rule);
   --line-subtle: var(--rule-subtle);
   --line-strong: var(--rule-strong);
-  --line-focus: var(--rule-strong);
-  --line-inset: none;
 
-  --ink-dim: var(--ink-2);
   --ink-soft: var(--ink-2);
   --ink-faint: var(--ink-3);
   --track: var(--rule);
@@ -51,19 +47,19 @@
   --accent: var(--zhu);
   --accent-text: var(--zhu);
   --accent-deep: var(--zhu-deep);
-  --accent-hover: var(--zhu-deep);
-  --accent-glow: rgba(178, 58, 37, 0.14);
   --accent-wash: var(--zhu-wash);
   --accent-ink: var(--zhu-ink);
 
-  --shadow-sm: none;
   --shadow-md: 0 18px 40px -24px rgba(29, 27, 24, 0.22);
   --radius-xs: 2px;
   --radius-sm: 2px;
   --radius-md: 2px;
-  --radius-lg: 2px;
   --radius-full: 999px;
 
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
 }
 
@@ -83,7 +79,6 @@
   --zhu-ink: #12110f;
   --grain-opacity: 0.05;
 
-  --accent-glow: rgba(214, 90, 63, 0.18);
   --shadow-md: 0 18px 40px -20px rgba(0, 0, 0, 0.55);
 
   color-scheme: dark;

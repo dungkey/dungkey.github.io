@@ -1,5 +1,6 @@
 /* AI 在独立线程中计算，避免阻塞棋盘交互。 */
-importScripts('engine.js', 'ai.js');
+const qs = self.location.search || '';
+importScripts(`engine.js${qs}`, `ai.js${qs}`);
 
 self.onmessage = function (event) {
   const payload = event.data || {};

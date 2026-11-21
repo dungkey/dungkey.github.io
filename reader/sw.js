@@ -1,14 +1,15 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-reader-v20261120-2';
+const CACHE_NAME = 'workbench-reader-v20261121';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=20261120',
-  './library.js?v=20261120',
-  './store.js?v=20261120',
-  './app.js?v=20261120',
-  '../assets/tokens.css?v=20261120',
+  './styles.css?v=20261121',
+  './library.js?v=20261121',
+  './store.js?v=20261121',
+  './app.js?v=20261121',
+  '../assets/tokens.css?v=20261121',
+  '../assets/theme.js?v=20261121',
   '../assets/fonts/kinghwa-oldsong.woff2',
 ];
 
@@ -35,7 +36,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // 针对外链字体 CDN：Cache First 优先缓存
-  if (url.hostname.includes('jsdelivr.net')) {
+  if (url.hostname === 'cdn.jsdelivr.net') {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(request).then((cached) => {
@@ -45,7 +46,7 @@ self.addEventListener('fetch', (event) => {
               cache.put(request, response.clone());
             }
             return response;
-          }).catch(() => cached);
+          }).catch(() => cached || Response.error());
         })
       )
     );
@@ -55,16 +56,18 @@ self.addEventListener('fetch', (event) => {
   // 针对本站同源资源：Stale-While-Revalidate
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        const fetchPromise = fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone()));
-          }
-          return networkResponse;
-        }).catch(() => cached);
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          const fetchPromise = fetch(request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(request, networkResponse.clone());
+            }
+            return networkResponse;
+          }).catch(() => cached || Response.error());
 
-        return cached || fetchPromise;
-      })
+          return cached || fetchPromise;
+        })
+      )
     );
   }
 });

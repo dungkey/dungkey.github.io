@@ -384,10 +384,6 @@
     return `${LETTERS[x]}${size - y}`;
   }
 
-  function coordinateText(idx, size) {
-    return pointLabel(idx, size);
-  }
-
   root.Go = {
     EMPTY,
     BLACK,
@@ -401,12 +397,8 @@
     unplay,
     isSimpleEye,
     isSafeTerritory,
-    findDeadGroups,
-    resolveBoard,
-    areaScore,
     judge,
     pointLabel,
-    coordinateText,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

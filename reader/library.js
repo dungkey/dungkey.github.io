@@ -789,16 +789,13 @@
     ), 0);
   }
 
-  function makeChapter(title, section, path, start, end, part = '') {
+  function makeChapter(title, section, part = '') {
     return {
       title: String(title).slice(0, 160),
       part: String(part || '').slice(0, 160),
       paragraphs: section.paragraphs,
       chars: section.paragraphs.reduce((sum, paragraph) => sum + paragraphChars(paragraph), 0),
       notes: [],
-      _sourcePath: path,
-      _sourceStart: start,
-      _sourceEnd: end,
       _orphanNotes: section.orphanNotes.map((block) => block.noteDef?.primaryKey).filter(Boolean),
     };
   }
@@ -854,7 +851,7 @@
         const section = paragraphsForSection(info, point.start, end, point.entry.title, displayTitle);
         if (isPart) part = point.entry.title;
         if (!section.paragraphs.length) continue;
-        chapters.push(makeChapter(displayTitle, section, path, point.start, end, chapterPart));
+        chapters.push(makeChapter(displayTitle, section, chapterPart));
       }
     }
     return chapters;
@@ -882,7 +879,7 @@
         if (text.length <= 80) title = text;
       }
       if (!title) title = `第 ${chapters.length + 1} 章`;
-      chapters.push(makeChapter(title, section, path, 0, info.blocks.length));
+      chapters.push(makeChapter(title, section));
     }
     return chapters;
   }
@@ -1082,31 +1079,384 @@
 
   const TXT_HEADING_PATTERNS = [
     /^(?:(\d{1,4})\s*[_\-—.、]\s*)?(第\s*[0-9零〇一二三四五六七八九十百千万两]+\s*[章节回卷篇部集折])(?:\s*[：:、.\-—]?\s*(.*?))?$/u,
-    /^(?:(\d{1,4})\s*[_\-—.、]\s*)?([【\[（(]?\s*(?:序[章言幕曲]?|前言|楔子|引子|尾声|后记|结语|番外(?:篇)?|终章|附录)\s*[】\]）)]?)(?:\s*[：:、.\-—]?\s*(.*?))?$/u,
+    /^(?:(\d{1,4})\s*[_\-—]\s*)?([【\[（(]?\s*(?:序[章言幕曲]?|前言|楔子|引子|尾声|后记|结语|番外(?:篇)?|终章|附录)\s*[】\]）)]?)(?:\s*[：:、.\-—]?\s*(.*?))?$/u,
     /^(?:(\d{1,4})\s*[_\-—.、]\s*)?((?:chapter|section|part|book|act|scene)\s+[0-9ivxlcdm]+)(?:\s*[：:、.\-—]?\s*(.*?))?$/i,
-    /^(?:([0-9]{1,4}|[零〇一二三四五六七八九十百千]{1,10})[、.．\s])\s*([^\s。！？；].{0,40})$/u,
   ];
+  const TXT_NUMBERED_HEADING = /^([0-9]{1,4}|[零〇一二三四五六七八九十百千]{1,10})([、.．]|\s+)\s*([^\s].{0,40})$/u;
 
-  function matchHeading(line, isMarkdown = false) {
-    const trimmed = line.trim().replace(/\.(?:txt|md|markdown)\s*$/i, '').trim();
+  function matchHeading(line) {
+    const trimmed = line.trim().replace(/\.txt\s*$/i, '').trim();
     if (!trimmed || trimmed.length > 100) return null;
-    if (isMarkdown) {
-      const mdMatch = trimmed.match(/^(#{1,3})\s+(.*?)$/);
-      if (mdMatch) {
-        const title = normalizeText(mdMatch[2]).slice(0, 160);
-        if (title) return title;
-      }
-    }
     for (const pattern of TXT_HEADING_PATTERNS) {
       const match = trimmed.match(pattern);
       if (match) {
-        const token = normalizeText(match[2] || match[1] || '').replace(/\s+/g, ' ');
-        const rest = normalizeText((match[3] || match[2] || '').replace(/^[，,]\s*/, ''));
+        const token = normalizeText(match[2] || '').replace(/\s+/g, ' ');
+        const rest = normalizeText((match[3] || '').replace(/^[，,]\s*/, ''));
         const title = normalizeText(`${token}${rest && rest !== token ? ` ${rest}` : ''}`).slice(0, 160);
         if (title) return title;
       }
     }
+    const numbered = trimmed.match(TXT_NUMBERED_HEADING);
+    if (numbered) {
+      const body = normalizeText(numbered[3]);
+      if (!body || /[。！？；,，]$/.test(body)) return null;
+      const sep = numbered[2].trim() ? numbered[2] : ' ';
+      return normalizeText(`${numbered[1]}${sep}${body}`).slice(0, 160);
+    }
     return null;
+  }
+
+  function findClosingBackticks(text, start, count) {
+    let index = start;
+    while (index < text.length) {
+      if (text[index] === '`') {
+        let len = 0;
+        while (index + len < text.length && text[index + len] === '`') len += 1;
+        if (len === count) return index;
+        index += len;
+      } else {
+        index += 1;
+      }
+    }
+    return -1;
+  }
+
+  function findClosingDelim(text, start, delim, single) {
+    const ch = delim[0];
+    let index = start;
+    while (index < text.length) {
+      if (text[index] === '\\' && index + 1 < text.length) {
+        index += 2;
+        continue;
+      }
+      if (text[index] === '`') {
+        let len = 0;
+        while (index + len < text.length && text[index + len] === '`') len += 1;
+        const closeCode = findClosingBackticks(text, index + len, len);
+        index = closeCode >= 0 ? closeCode + len : index + len;
+        continue;
+      }
+      if (text.startsWith(delim, index)) {
+        if (single && text[index + 1] === ch) {
+          index += 2;
+          continue;
+        }
+        if (index > start && !/\s/.test(text[index - 1])) {
+          if (ch === '_' && index + delim.length < text.length && /[a-zA-Z0-9_]/.test(text[index + delim.length])) {
+            index += 1;
+            continue;
+          }
+          return index;
+        }
+      }
+      index += 1;
+    }
+    return -1;
+  }
+
+  function parseMarkdownInline(source, baseFormat = {}) {
+    const runs = [];
+    const walk = (text, format) => {
+      let i = 0;
+      let buf = '';
+      const flushBuf = () => {
+        if (buf) {
+          pushTextRun(runs, buf, format);
+          buf = '';
+        }
+      };
+
+      while (i < text.length) {
+        const ch = text[i];
+
+        if (ch === '\\' && i + 1 < text.length && /[\\`*_{}[\]()#+\-.!>~]/.test(text[i + 1])) {
+          buf += text[i + 1];
+          i += 2;
+          continue;
+        }
+
+        if (ch === '`') {
+          let count = 0;
+          while (i + count < text.length && text[i + count] === '`') count += 1;
+          const close = findClosingBackticks(text, i + count, count);
+          if (close > i + count) {
+            flushBuf();
+            let content = text.slice(i + count, close);
+            if (content.length >= 2 && content.startsWith(' ') && content.endsWith(' ') && content.trim()) {
+              content = content.slice(1, -1);
+            }
+            pushTextRun(runs, content, { ...format, code: true });
+            i = close + count;
+            continue;
+          }
+          buf += text.slice(i, i + count);
+          i += count;
+          continue;
+        }
+
+        if (ch === '!' && text[i + 1] === '[') {
+          const closeBracket = text.indexOf(']', i + 2);
+          if (closeBracket >= 0 && text[closeBracket + 1] === '(') {
+            const closeParen = text.indexOf(')', closeBracket + 2);
+            if (closeParen >= 0) {
+              const alt = normalizeText(text.slice(i + 2, closeBracket));
+              buf += alt ? `[图: ${alt}]` : '[图]';
+              i = closeParen + 1;
+              continue;
+            }
+          }
+        }
+
+        if (ch === '[') {
+          const closeBracket = text.indexOf(']', i + 1);
+          if (closeBracket > i + 1 && text[closeBracket + 1] === '(') {
+            const closeParen = text.indexOf(')', closeBracket + 2);
+            if (closeParen >= 0) {
+              flushBuf();
+              walk(text.slice(i + 1, closeBracket), format);
+              i = closeParen + 1;
+              continue;
+            }
+          }
+        }
+
+        if ((ch === '*' || ch === '_') && text[i + 1] === ch) {
+          const delim = ch + ch;
+          const canOpen = !(ch === '_' && i > 0 && /[a-zA-Z0-9_]/.test(text[i - 1]))
+            && i + 2 < text.length && !/\s/.test(text[i + 2]);
+          if (canOpen) {
+            const close = findClosingDelim(text, i + 2, delim, false);
+            if (close > i + 2) {
+              flushBuf();
+              walk(text.slice(i + 2, close), { ...format, bold: true });
+              i = close + 2;
+              continue;
+            }
+          }
+        }
+
+        if (ch === '*' || ch === '_') {
+          const canOpen = !(ch === '_' && i > 0 && /[a-zA-Z0-9_]/.test(text[i - 1]))
+            && i + 1 < text.length && !/\s/.test(text[i + 1]) && text[i + 1] !== ch;
+          if (canOpen) {
+            const close = findClosingDelim(text, i + 1, ch, true);
+            if (close > i + 1) {
+              flushBuf();
+              walk(text.slice(i + 1, close), { ...format, italic: true });
+              i = close + 1;
+              continue;
+            }
+          }
+        }
+
+        buf += ch;
+        i += 1;
+      }
+      flushBuf();
+    };
+
+    walk(String(source || ''), baseFormat);
+    return runs;
+  }
+
+  function joinSoftLines(lines) {
+    let out = '';
+    for (const raw of lines) {
+      const part = raw.trim();
+      if (!part) continue;
+      if (!out) {
+        out = part;
+        continue;
+      }
+      const prevChar = out[out.length - 1];
+      const nextChar = part[0];
+      const bothCjk = /[\u3000-\u9fff\uff00-\uffef]/.test(prevChar)
+        && /[\u3000-\u9fff\uff00-\uffef]/.test(nextChar);
+      out += (bothCjk ? '' : ' ') + part;
+    }
+    return out;
+  }
+
+  function chapterChars(paragraphs) {
+    return paragraphs.reduce((sum, paragraph) => sum + paragraphChars(paragraph), 0);
+  }
+
+  function parseMarkdownText(text) {
+    const normalized = text.replace(/\r\n?/g, '\n').replace(/\u0000/g, '');
+    const lines = normalized.split('\n');
+    const chapters = [];
+    const prefaceParagraphs = [];
+    let currentTitle = null;
+    let currentParagraphs = [];
+    let paraLines = [];
+    let quoteLines = [];
+    let inFence = false;
+    let fenceChar = '';
+    let fenceLen = 0;
+    let codeLines = [];
+
+    const targetList = () => (currentTitle === null ? prefaceParagraphs : currentParagraphs);
+
+    const flushPara = () => {
+      if (!paraLines.length) return;
+      const joined = joinSoftLines(paraLines);
+      paraLines = [];
+      if (!joined) return;
+      const runs = parseMarkdownInline(joined);
+      if (runs.length) targetList().push({ kind: 'p', runs });
+    };
+
+    const flushQuote = () => {
+      if (!quoteLines.length) return;
+      let group = [];
+      const emitGroup = () => {
+        if (!group.length) return;
+        const joined = joinSoftLines(group);
+        group = [];
+        if (!joined) return;
+        const runs = parseMarkdownInline(joined);
+        if (runs.length) targetList().push({ kind: 'quote', runs });
+      };
+      for (const line of quoteLines) {
+        if (!line.trim()) emitGroup();
+        else group.push(line);
+      }
+      emitGroup();
+      quoteLines = [];
+    };
+
+    const flushBlock = () => {
+      flushPara();
+      flushQuote();
+    };
+
+    const finalizeSection = () => {
+      if (currentTitle !== null && currentParagraphs.length) {
+        chapters.push({
+          title: currentTitle,
+          paragraphs: currentParagraphs,
+          chars: chapterChars(currentParagraphs),
+        });
+      }
+    };
+
+    for (const line of lines) {
+      if (inFence) {
+        const closeRe = new RegExp(`^\\s*${fenceChar}{${fenceLen},}\\s*$`);
+        if (closeRe.test(line)) {
+          const codeText = codeLines.join('\n');
+          if (codeText.trim()) {
+            targetList().push({ kind: 'code', runs: [{ type: 'text', text: codeText }] });
+          }
+          inFence = false;
+          codeLines = [];
+        } else {
+          codeLines.push(line);
+        }
+        continue;
+      }
+
+      const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+      if (fenceMatch) {
+        flushBlock();
+        inFence = true;
+        fenceChar = fenceMatch[1][0];
+        fenceLen = fenceMatch[1].length;
+        codeLines = [];
+        continue;
+      }
+
+      if (!line.trim()) {
+        flushBlock();
+        continue;
+      }
+
+      const headingMatch = line.match(/^\s*(#{1,6})\s+(.*?)\s*#*\s*$/);
+      if (headingMatch && headingMatch[2].trim()) {
+        flushBlock();
+        const level = headingMatch[1].length;
+        if (level <= 3) {
+          if (currentTitle === null) {
+            if (prefaceParagraphs.length) {
+              chapters.push({
+                title: '简介',
+                paragraphs: prefaceParagraphs,
+                chars: chapterChars(prefaceParagraphs),
+              });
+            }
+          } else {
+            finalizeSection();
+          }
+          const title = runsToText(parseMarkdownInline(headingMatch[2])).slice(0, 160);
+          currentTitle = title || `第 ${chapters.length + 1} 章`;
+          currentParagraphs = [];
+        } else {
+          const runs = parseMarkdownInline(headingMatch[2]);
+          if (runs.length) targetList().push({ kind: 'subheading', runs });
+        }
+        continue;
+      }
+
+      if (/^\s*(?:[-*_]\s*){3,}$/.test(line)) {
+        flushBlock();
+        continue;
+      }
+
+      const quoteMatch = line.match(/^\s*>\s?(.*)$/);
+      if (quoteMatch) {
+        flushPara();
+        quoteLines.push(quoteMatch[1]);
+        continue;
+      }
+      if (quoteLines.length) flushQuote();
+
+      if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) {
+        flushPara();
+        const runs = parseMarkdownInline(line.trim());
+        if (runs.length) targetList().push({ kind: 'p', runs });
+        continue;
+      }
+
+      paraLines.push(line);
+    }
+
+    if (inFence) {
+      const codeText = codeLines.join('\n');
+      if (codeText.trim()) {
+        targetList().push({ kind: 'code', runs: [{ type: 'text', text: codeText }] });
+      }
+    }
+    flushBlock();
+
+    if (currentTitle !== null) {
+      finalizeSection();
+    } else if (prefaceParagraphs.length) {
+      const targetChars = 9000;
+      let bucket = [];
+      let size = 0;
+      for (const paragraph of prefaceParagraphs) {
+        bucket.push(paragraph);
+        size += paragraphChars(paragraph);
+        if (size >= targetChars) {
+          chapters.push({
+            title: `第 ${chapters.length + 1} 章`,
+            paragraphs: bucket,
+            chars: chapterChars(bucket),
+          });
+          bucket = [];
+          size = 0;
+        }
+      }
+      if (bucket.length) {
+        chapters.push({
+          title: `第 ${chapters.length + 1} 章`,
+          paragraphs: bucket,
+          chars: chapterChars(bucket),
+        });
+      }
+    }
+
+    return chapters;
   }
 
   function textToParagraphs(text) {
@@ -1117,7 +1467,7 @@
       .filter((line) => line && !/^[\s\-—–·•*]+$/.test(line) && line.length < 50000);
   }
 
-  function parseTxtText(text, filename = '', isMarkdown = false) {
+  function parseTxtText(text) {
     const normalized = text.replace(/\r\n?/g, '\n').replace(/\u0000/g, '');
     const lines = normalized.split('\n');
     const candidates = [];
@@ -1127,7 +1477,7 @@
       const original = lines[i];
       const lineOffset = offset;
       offset += original.length + 1;
-      const title = matchHeading(original, isMarkdown);
+      const title = matchHeading(original);
       if (!title) continue;
       candidates.push({ title, line: i, headingStart: lineOffset, bodyStart: lineOffset + original.length + 1 });
     }
@@ -1139,7 +1489,7 @@
         const paragraphs = textToParagraphs(preface);
         if (paragraphs.length) {
           chapters.push({
-            title: isMarkdown ? '简介' : '前言',
+            title: '前言',
             paragraphs,
             chars: paragraphs.reduce((sum, line) => sum + line.replace(/\s/g, '').length, 0),
           });
@@ -1194,7 +1544,8 @@
   function parseTxt(buffer, filename) {
     const ext = extensionOf(filename);
     const isMarkdown = ext === '.md' || ext === '.markdown';
-    const chapters = parseTxtText(decodeBytes(new Uint8Array(buffer)), filename, isMarkdown);
+    const text = decodeBytes(new Uint8Array(buffer));
+    const chapters = isMarkdown ? parseMarkdownText(text) : parseTxtText(text);
     if (!chapters.length) throw new Error(`${isMarkdown ? 'Markdown' : 'TXT'} 中没有找到可阅读的正文`);
     const cleanTitle = String(filename).replace(/\.(txt|md|markdown)$/i, '');
     return {
@@ -1243,5 +1594,5 @@
     return book;
   }
 
-  window.ReaderLibrary = { parse, bookId, extensionOf };
+  window.ReaderLibrary = { parse, bookId };
 })();

@@ -1,21 +1,22 @@
 'use strict';
 
-const CACHE_NAME = 'workbench-shell-v20261120-2';
+const CACHE_NAME = 'workbench-shell-v20261121';
 const BASE = new URL('./', self.location.href);
 
 const SHELL = [
   './',
   './index.html',
   './assets/fonts/kinghwa-oldsong.woff2',
-  './styles.css?v=20261120',
-  './app.js?v=20261120',
-  './reader/store.js?v=20261120',
+  './assets/tokens.css?v=20261121',
+  './assets/theme.js?v=20261121',
+  './styles.css?v=20261121',
+  './app.js?v=20261121',
+  './reader/store.js?v=20261121',
   './manifest.webmanifest',
   './icon.svg',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
-  './icon-maskable-512.png',
 ];
 
 const SHELL_PATHS = new Set(
@@ -37,7 +38,7 @@ function staleWhileRevalidate(request) {
           cache.put(request, response.clone());
         }
         return response;
-      }).catch(() => cached);
+      }).catch(() => cached || Response.error());
       return cached || networkFetch;
     })
   );
@@ -50,7 +51,11 @@ function networkFirstNavigation(request) {
       caches.open(CACHE_NAME).then((cache) => cache.put(INDEX_URL, copy));
     }
     return response;
-  }).catch(() => caches.match(INDEX_URL).then((cached) => cached || caches.match(BASE.href)));
+  }).catch(() =>
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.match(INDEX_URL).then((cached) => cached || cache.match(BASE.href) || Response.error())
+    )
+  );
 }
 
 self.addEventListener('install', (event) => {

@@ -3,13 +3,29 @@
 
   const Go = window.Go;
   const GoAI = window.GoAI;
+  const ASSET_VERSION = '20261121';
   const KOMI = 3.5;
   const CANVAS_MAX_DPR = 2;
   const CHINESE_NUMERALS = { 5: '五', 6: '六' };
-  const REVIEW_PLAYOUTS = 20;
+  const REVIEW_ITERATIONS = 320;
   const REVIEW_TOP_N = 5;
   const MAX_ARCHIVES = 8;
   const REVIEW_RANK_COLORS = ['var(--review-rank-1)', 'var(--review-rank-2)', 'var(--review-rank-3)'];
+
+  function readPref(key, fallback = null) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : value;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function writePref(key, value) {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch { /* 存储受限时跳过持久化 */ }
+  }
 
   const LEVEL_CONFIG = {
     easy: { timeLimit: 450, fallbackLimit: 380, label: '入门' },
@@ -19,7 +35,7 @@
 
   const AudioFX = (function () {
     let audioCtx = null;
-    let soundEnabled = localStorage.getItem('weiqi_sound') !== 'false';
+    let soundEnabled = readPref('weiqi_sound') !== 'false';
 
     function getContext() {
       if (!audioCtx && typeof AudioContext !== 'undefined') {
@@ -126,7 +142,7 @@
 
     function toggleSound() {
       soundEnabled = !soundEnabled;
-      localStorage.setItem('weiqi_sound', String(soundEnabled));
+      writePref('weiqi_sound', soundEnabled);
       return soundEnabled;
     }
 
@@ -221,7 +237,7 @@
     selectedColor: Go.BLACK,
     level: 'normal',
     selectedLevel: 'normal',
-    showMoveNumbers: localStorage.getItem('weiqi_move_numbers') === 'true',
+    showMoveNumbers: readPref('weiqi_move_numbers') === 'true',
     board: null,
     geo: null,
     toMove: Go.BLACK,
@@ -233,7 +249,6 @@
     lastAction: null,
     phase: 'playing',
     result: null,
-    aiStats: null,
     history: [],
     archives: [],
     archiveCounter: 0,
@@ -250,7 +265,6 @@
     stoneAnimation: null,
     drawFrame: null,
     aiTimer: null,
-    fallbackTimer: null,
     toastTimer: null,
   };
 
@@ -261,51 +275,11 @@
     dpr: 1,
   };
 
-  let aiWorker = null;
-  let workerDisabled = false;
   let requestCounter = 0;
-  const pendingAI = new Map();
 
   /* -----------------------------------------------------------------------
-   * AI worker
+   * Worker clients (对局 AI 与复盘分析共用调度封装，各自独立定时与降级)
    * --------------------------------------------------------------------- */
-
-  function initAIWorker() {
-    if (workerDisabled || typeof Worker === 'undefined' || window.location.protocol === 'file:') {
-      return;
-    }
-
-    try {
-      aiWorker = new Worker('ai-worker.js');
-      aiWorker.onmessage = (event) => {
-        const message = event.data || {};
-        const pending = pendingAI.get(message.id);
-        if (!pending) return;
-        pendingAI.delete(message.id);
-        if (message.error) {
-          pending.reject(new Error(message.error));
-        } else {
-          pending.resolve(message.result);
-        }
-      };
-
-      aiWorker.onerror = (event) => {
-        console.warn('AI worker 不可用，切换到主线程计算。', event.message || event);
-        workerDisabled = true;
-        if (aiWorker) {
-          aiWorker.terminate();
-          aiWorker = null;
-        }
-        const error = new Error('AI worker error');
-        pendingAI.forEach((pending) => pending.reject(error));
-        pendingAI.clear();
-      };
-    } catch (error) {
-      console.warn('无法创建 AI worker，切换到主线程计算。', error);
-      workerDisabled = true;
-      aiWorker = null;
-    }
-  }
 
   function cancelledError() {
     const error = new Error('AI request cancelled');
@@ -313,165 +287,144 @@
     return error;
   }
 
+  function createWorkerClient({ label, workerUrl }) {
+    let worker = null;
+    let disabled = false;
+    let fallbackTimer = null;
+    let fallbackReject = null;
+    const pending = new Map();
+
+    function init() {
+      if (
+        disabled
+        || worker
+        || typeof Worker === 'undefined'
+        || window.location.protocol === 'file:'
+      ) {
+        return;
+      }
+
+      try {
+        worker = new Worker(workerUrl);
+        worker.onmessage = (event) => {
+          const message = event.data || {};
+          const entry = pending.get(message.id);
+          if (!entry) return;
+          pending.delete(message.id);
+          if (message.error) entry.reject(new Error(message.error));
+          else entry.resolve(message.result);
+        };
+
+        worker.onerror = (event) => {
+          console.warn(`${label} worker 不可用，切换到主线程计算。`, event.message || event);
+          disabled = true;
+          if (worker) {
+            worker.terminate();
+            worker = null;
+          }
+          const error = new Error(`${label} worker error`);
+          pending.forEach((entry) => entry.reject(error));
+          pending.clear();
+        };
+      } catch (error) {
+        console.warn(`无法创建 ${label} worker，切换到主线程计算。`, error);
+        disabled = true;
+        worker = null;
+      }
+    }
+
+    function clearFallback() {
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if (fallbackReject) {
+        const reject = fallbackReject;
+        fallbackReject = null;
+        reject(cancelledError());
+      }
+    }
+
+    function stop() {
+      clearFallback();
+      pending.forEach((entry) => entry.reject(cancelledError()));
+      pending.clear();
+      if (worker) {
+        worker.terminate();
+        worker = null;
+      }
+    }
+
+    function runOnMainThread(payload) {
+      return new Promise((resolve, reject) => {
+        clearFallback();
+        fallbackReject = reject;
+        // 留出一帧，让界面先绘制出来。
+        fallbackTimer = window.setTimeout(() => {
+          fallbackTimer = null;
+          fallbackReject = null;
+          try {
+            const cfg = LEVEL_CONFIG[state.level] || LEVEL_CONFIG.normal;
+            const fallbackLimit = cfg.fallbackLimit;
+            const result = payload.type === 'analyze'
+              ? GoAI.analyzePosition(payload)
+              : GoAI.chooseMove({
+                ...payload,
+                timeLimit: Math.min(payload.timeLimit || fallbackLimit, fallbackLimit),
+              });
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          }
+        }, 70);
+      });
+    }
+
+    function post(payload) {
+      if (!worker) return runOnMainThread(payload);
+      return new Promise((resolve, reject) => {
+        const id = ++requestCounter;
+        pending.set(id, { resolve, reject });
+        try {
+          worker.postMessage({ id, ...payload });
+        } catch (error) {
+          pending.delete(id);
+          worker.terminate();
+          worker = null;
+          disabled = true;
+          reject(error);
+        }
+      });
+    }
+
+    async function request(payload) {
+      init();
+      try {
+        return await post(payload);
+      } catch (error) {
+        if (error && error.cancelled) throw error;
+        console.warn(`${label}计算失败，尝试改用主线程。`, error);
+        return runOnMainThread(payload);
+      }
+    }
+
+    return { init, stop, request };
+  }
+
+  const workerUrl = `ai-worker.js?v=${ASSET_VERSION}`;
+  const aiClient = createWorkerClient({ label: 'AI ', workerUrl });
+  const reviewClient = createWorkerClient({ label: '复盘', workerUrl });
+
   function stopAITasks() {
     if (state.aiTimer) {
       window.clearTimeout(state.aiTimer);
       state.aiTimer = null;
     }
-    if (state.fallbackTimer) {
-      window.clearTimeout(state.fallbackTimer);
-      state.fallbackTimer = null;
-    }
-
-    pendingAI.forEach((pending) => pending.reject(cancelledError()));
-    pendingAI.clear();
-
-    if (aiWorker) {
-      aiWorker.terminate();
-      aiWorker = null;
-    }
-  }
-
-  function requestAIMove(payload) {
-    if (!aiWorker) {
-      return runAIOnMainThread(payload);
-    }
-
-    return new Promise((resolve, reject) => {
-      const id = ++requestCounter;
-      pendingAI.set(id, { resolve, reject });
-      try {
-        aiWorker.postMessage({ id, ...payload });
-      } catch (error) {
-        pendingAI.delete(id);
-        aiWorker.terminate();
-        aiWorker = null;
-        workerDisabled = true;
-        reject(error);
-      }
-    });
-  }
-
-  function runAIOnMainThread(payload) {
-    return new Promise((resolve, reject) => {
-      if (state.fallbackTimer) {
-        window.clearTimeout(state.fallbackTimer);
-      }
-      // 留出一帧，让界面先绘制出来。
-      state.fallbackTimer = window.setTimeout(() => {
-        state.fallbackTimer = null;
-        try {
-          const cfg = LEVEL_CONFIG[state.level] || LEVEL_CONFIG.normal;
-          const fallbackLimit = cfg.fallbackLimit;
-          const result = payload.type === 'analyze'
-            ? GoAI.analyzePosition(payload)
-            : GoAI.chooseMove({
-              ...payload,
-              timeLimit: Math.min(payload.timeLimit || fallbackLimit, fallbackLimit),
-            });
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      }, 70);
-    });
-  }
-
-  async function getAIMove(payload) {
-    try {
-      return await requestAIMove(payload);
-    } catch (error) {
-      if (error && error.cancelled) throw error;
-      console.warn('AI 首次计算失败，尝试改用主线程。', error);
-      return runAIOnMainThread(payload);
-    }
-  }
-
-  /* -----------------------------------------------------------------------
-   * Review worker
-   *
-   * 复盘分析和对局 AI 分开线程，避免历史复盘拖慢当前对局。
-   * --------------------------------------------------------------------- */
-
-  let reviewWorker = null;
-  let reviewWorkerDisabled = false;
-  const pendingReview = new Map();
-
-  function initReviewWorker() {
-    if (
-      reviewWorkerDisabled
-      || reviewWorker
-      || typeof Worker === 'undefined'
-      || window.location.protocol === 'file:'
-    ) {
-      return;
-    }
-
-    try {
-      reviewWorker = new Worker('ai-worker.js');
-      reviewWorker.onmessage = (event) => {
-        const message = event.data || {};
-        const pending = pendingReview.get(message.id);
-        if (!pending) return;
-        pendingReview.delete(message.id);
-        if (message.error) pending.reject(new Error(message.error));
-        else pending.resolve(message.result);
-      };
-
-      reviewWorker.onerror = (event) => {
-        console.warn('复盘 worker 不可用，切换到主线程计算。', event.message || event);
-        reviewWorkerDisabled = true;
-        if (reviewWorker) {
-          reviewWorker.terminate();
-          reviewWorker = null;
-        }
-        const error = new Error('review worker error');
-        pendingReview.forEach((pending) => pending.reject(error));
-        pendingReview.clear();
-      };
-    } catch (error) {
-      console.warn('无法创建复盘 worker，切换到主线程计算。', error);
-      reviewWorkerDisabled = true;
-      reviewWorker = null;
-    }
+    aiClient.stop();
   }
 
   function stopReviewTasks() {
-    pendingReview.forEach((pending) => pending.reject(cancelledError()));
-    pendingReview.clear();
-    if (reviewWorker) {
-      reviewWorker.terminate();
-      reviewWorker = null;
-    }
-  }
-
-  function requestReviewAnalysis(payload) {
-    if (!reviewWorker) return runAIOnMainThread(payload);
-
-    return new Promise((resolve, reject) => {
-      const id = ++requestCounter;
-      pendingReview.set(id, { resolve, reject });
-      try {
-        reviewWorker.postMessage({ id, ...payload });
-      } catch (error) {
-        pendingReview.delete(id);
-        reviewWorker.terminate();
-        reviewWorker = null;
-        reviewWorkerDisabled = true;
-        reject(error);
-      }
-    });
-  }
-
-  async function getReviewAnalysis(payload) {
-    initReviewWorker();
-    try {
-      return await requestReviewAnalysis(payload);
-    } catch (error) {
-      if (error && error.cancelled) throw error;
-      console.warn('复盘计算失败，尝试改用主线程。', error);
-      return runAIOnMainThread(payload);
-    }
+    reviewClient.stop();
   }
 
   /* -----------------------------------------------------------------------
@@ -501,7 +454,6 @@
     state.kbCursor = null;
     state.phase = 'playing';
     state.result = null;
-    state.aiStats = null;
     state.history = [];
     state.hover = null;
     state.stoneAnimation = null;
@@ -517,7 +469,7 @@
     els.reviewChipBtn.hidden = true;
     els.reviewPanel.hidden = true;
 
-    initAIWorker();
+    aiClient.init();
     updateSetupUi();
     updateUi();
     resizeCanvas();
@@ -579,7 +531,7 @@
 
     let response;
     try {
-      response = await getAIMove(payload);
+      response = await aiClient.request(payload);
     } catch (error) {
       if (error && error.cancelled) return;
       if (gameId !== state.gameId) return;
@@ -590,10 +542,6 @@
     }
 
     if (gameId !== state.gameId || state.phase !== 'ai' || state.result) return;
-
-    if (response && response.stats) {
-      state.aiStats = response.stats;
-    }
 
     if (!response || response.move === -1 || !Number.isInteger(response.move)) {
       doPass(color);
@@ -700,19 +648,19 @@
     state.phase = 'over';
     state.hover = null;
 
-    const judge = Go.judge(state.board, state.geo, KOMI);
-    if (judge.deadStones && judge.deadStones.length > 0) {
-      for (let i = 0; i < judge.deadStones.length; i += 1) {
-        state.board[judge.deadStones[i]] = Go.EMPTY;
-      }
-    }
     if (reason === 'resign') {
       state.result = {
         reason: 'resign',
         winner: aiColor(),
-        judge,
+        judge: null,
       };
     } else {
+      const judge = Go.judge(state.board, state.geo, KOMI);
+      if (judge.deadStones && judge.deadStones.length > 0) {
+        for (let i = 0; i < judge.deadStones.length; i += 1) {
+          state.board[judge.deadStones[i]] = Go.EMPTY;
+        }
+      }
       state.result = {
         reason: 'score',
         winner: judge.winner,
@@ -1019,7 +967,7 @@
     return `${(rate * 100).toFixed(1)}%`;
   }
 
-  function reviewStarPoints(size) {
+  function starPoints(size = state.size) {
     if (size === 5) return [[2, 2], [1, 1], [1, 3], [3, 1], [3, 3]];
     if (size === 6) return [[2, 2], [2, 3], [3, 2], [3, 3]];
     return [];
@@ -1158,7 +1106,9 @@
   function archiveLabel(archive) {
     const humanSide = archive.humanColor === Go.BLACK ? '黑' : '白';
     let outcome;
-    if (archive.result.reason === 'resign') {
+    if (archive.result.winner === Go.EMPTY) {
+      outcome = '和棋';
+    } else if (archive.result.reason === 'resign') {
       outcome = archive.result.winner === archive.humanColor ? '你胜' : '认输';
     } else {
       outcome = archive.result.winner === archive.humanColor ? '你胜' : 'AI 胜';
@@ -1289,7 +1239,7 @@
       const position = positions[index];
       let response;
       try {
-        response = await getReviewAnalysis({
+        response = await reviewClient.request({
           type: 'analyze',
           size: archive.size,
           board: position.board,
@@ -1299,7 +1249,7 @@
           komi: archive.komi,
           lastMove: position.lastMove,
           playedMove: position.playedMove,
-          playoutsPerMove: REVIEW_PLAYOUTS,
+          iterations: REVIEW_ITERATIONS,
           topN: REVIEW_TOP_N,
         });
       } catch (error) {
@@ -1345,7 +1295,9 @@
     archive.analysisSelected = state.review.selected;
 
     const humanSide = archive.humanColor === Go.BLACK ? '黑' : '白';
-    const outcome = archive.result.winner === archive.humanColor ? '你获胜' : 'AI 获胜';
+    const outcome = archive.result.winner === Go.EMPTY
+      ? '双方和棋'
+      : archive.result.winner === archive.humanColor ? '你获胜' : 'AI 获胜';
     els.reviewMeta.textContent =
       `${archive.size} 路 · 你执${humanSide} · 共 ${archive.moveNumber} 手 · ${outcome}`;
 
@@ -1354,7 +1306,7 @@
 
     if (archive.analysisStatus === 'done') {
       els.reviewProgressText.textContent =
-        `分析完成 · ${total} 个局面 · 每个点 ${REVIEW_PLAYOUTS} 次推演`;
+        `分析完成 · ${total} 个局面 · 每局面 ${REVIEW_ITERATIONS} 次 MCTS 推演`;
     } else if (archive.analysisStatus === 'error') {
       els.reviewProgressText.textContent = '分析中断，可点击“重新分析”重试';
     } else if (archive.analysisStatus === 'running') {
@@ -1410,7 +1362,7 @@
     }
     svg += `<rect x="${pad}" y="${pad}" width="${width - pad * 2}" height="${width - pad * 2}" fill="none" stroke="var(--board-grid-outer)" stroke-width="1.5"/>`;
 
-    for (const [sx, sy] of reviewStarPoints(size)) {
+    for (const [sx, sy] of starPoints(size)) {
       svg += `<circle cx="${pad + sx * cell}" cy="${pad + sy * cell}" r="2.2" fill="var(--board-star)"/>`;
     }
 
@@ -1601,7 +1553,6 @@
   }
 
   function renderReviewTable(archive) {
-    const positions = archive.reviewPositions || [];
     const results = archive.analysisResults || [];
     const rows = [];
 
@@ -1663,7 +1614,7 @@
       }
 
       rows.push(`
-        <tr data-index="${index}" tabindex="0" aria-label="查看第 ${entry.moveNumber} 手之后的局面" class="${selected ? 'is-selected' : ''}">
+        <tr data-index="${index}" tabindex="0" aria-label="查看第 ${entry.moveNumber} 手落子前的局面" class="${selected ? 'is-selected' : ''}">
           <td><span class="review-move-no">${entry.moveNumber}</span></td>
           <td>
             <span class="review-move">
@@ -1761,7 +1712,9 @@
     const isOver = state.phase === 'over';
     const isThinking = state.phase === 'ai';
     const humanTurn = !isOver && !isThinking && state.toMove === state.humanColor;
-    const displayColor = isOver && state.result ? state.result.winner : state.toMove;
+    const displayColor = isOver && state.result && state.result.winner !== Go.EMPTY
+      ? state.result.winner
+      : state.toMove;
     const humanColorName = colorName(state.humanColor);
     const sideColorName = colorName(displayColor);
 
@@ -1789,8 +1742,12 @@
     els.statusStone.classList.toggle('is-thinking', isThinking);
 
     if (isOver) {
-      const humanWon = state.result && state.result.winner === state.humanColor;
-      els.statusText.textContent = humanWon ? '你获胜' : 'AI 获胜';
+      if (state.result && state.result.winner === Go.EMPTY) {
+        els.statusText.textContent = '双方和棋';
+      } else {
+        const humanWon = state.result && state.result.winner === state.humanColor;
+        els.statusText.textContent = humanWon ? '你获胜' : 'AI 获胜';
+      }
       els.statusSide.textContent = '终局';
     } else if (isThinking) {
       els.statusText.textContent = 'AI 思考中…';
@@ -1835,7 +1792,6 @@
 
     els.showResultBtn.hidden = !(isOver && els.resultLayer.hidden);
     els.reviewChipBtn.hidden = !isOver;
-    els.canvas.setAttribute('aria-label', `${state.size}乘${state.size}围棋棋盘`);
 
     updateSetupUi();
   }
@@ -2057,18 +2013,11 @@
     ctx.restore();
   }
 
-  function starPoints() {
-    if (state.size === 5) {
-      return [[2, 2], [1, 1], [1, 3], [3, 1], [3, 3]];
-    }
-    return [[2, 2], [2, 3], [3, 2], [3, 3]];
-  }
-
   function drawStarPoints(palette = getBoardPalette()) {
     const radius = Math.max(2.2, Math.min(4.2, view.cell * 0.046));
     ctx.save();
     ctx.fillStyle = palette.star;
-    for (const [x, y] of starPoints()) {
+    for (const [x, y] of starPoints(state.size)) {
       ctx.beginPath();
       ctx.arc(view.pad + x * view.cell, view.pad + y * view.cell, radius, 0, TAU);
       ctx.fill();
@@ -2189,7 +2138,7 @@
     if (els.moveNumberToggleBtn) {
       els.moveNumberToggleBtn.addEventListener('click', () => {
         state.showMoveNumbers = !state.showMoveNumbers;
-        localStorage.setItem('weiqi_move_numbers', String(state.showMoveNumbers));
+        writePref('weiqi_move_numbers', state.showMoveNumbers);
         els.moveNumberToggleBtn.classList.toggle('is-active', state.showMoveNumbers);
         els.moveNumberToggleBtn.setAttribute('aria-pressed', String(state.showMoveNumbers));
         drawBoard();
@@ -2345,8 +2294,9 @@
         }
       }
 
-      if (event.key === 'z' || event.key === 'Z') {
-        if (!state.review.open && els.resultLayer.hidden && canUndo()) {
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && (event.key === 'z' || event.key === 'Z')) {
+        const tag = event.target && event.target.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !state.review.open && els.resultLayer.hidden && canUndo()) {
           event.preventDefault();
           undoMove();
           return;
@@ -2362,129 +2312,6 @@
     });
   }
 
-  const THEME_STORAGE_KEY = 'desk-theme';
-  const darkScheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  const themeBtns = Array.from(document.querySelectorAll('[data-set-theme]'));
-  let themeSwitchTimer = 0;
-
-  function resolveTheme(mode) {
-    if (mode === 'dark' || mode === 'light') return mode;
-    return darkScheme && darkScheme.matches ? 'dark' : 'light';
-  }
-
-  function applyThemeState(mode, remember) {
-    const resolved = resolveTheme(mode);
-    const root = document.documentElement;
-    root.setAttribute('data-theme-mode', mode);
-    root.setAttribute('data-theme', resolved);
-    const meta = document.getElementById('themeColor');
-    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#12110f' : '#f3eee4');
-    themeBtns.forEach((btn) => {
-      btn.setAttribute('aria-pressed', String(btn.dataset.setTheme === mode));
-    });
-    if (remember) {
-      try { localStorage.setItem(THEME_STORAGE_KEY, mode); } catch (e) {}
-    }
-    invalidateBoardPalette();
-    if (state.board && view.cssSize) drawBoard();
-    if (state.review.open) renderReview();
-  }
-
-  function paintTheme(mode, remember, event) {
-    const root = document.documentElement;
-    const currentMode = root.getAttribute('data-theme-mode') || 'auto';
-    const currentTheme = root.getAttribute('data-theme') || resolveTheme(currentMode);
-    const targetTheme = resolveTheme(mode);
-
-    if (currentMode === mode && currentTheme === targetTheme) return;
-
-    const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const canViewTransition = typeof document.startViewTransition === 'function' && !reducedMotion;
-
-    if (currentTheme === targetTheme) {
-      applyThemeState(mode, remember);
-      return;
-    }
-
-    if (canViewTransition) {
-      let x = window.innerWidth / 2;
-      let y = window.innerHeight / 2;
-      if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
-        x = event.clientX;
-        y = event.clientY;
-      } else {
-        const activeBtn = themeBtns.find((b) => b.dataset.setTheme === mode);
-        if (activeBtn) {
-          const rect = activeBtn.getBoundingClientRect();
-          x = rect.left + rect.width / 2;
-          y = rect.top + rect.height / 2;
-        }
-      }
-      const endRadius = Math.hypot(
-        Math.max(x, window.innerWidth - x),
-        Math.max(y, window.innerHeight - y)
-      );
-
-      try {
-        const transition = document.startViewTransition(() => {
-          applyThemeState(mode, remember);
-        });
-        transition.ready.then(() => {
-          root.animate(
-            {
-              clipPath: [
-                `circle(0px at ${x}px ${y}px)`,
-                `circle(${endRadius}px at ${x}px ${y}px)`,
-              ],
-            },
-            {
-              duration: 400,
-              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-              pseudoElement: '::view-transition-new(root)',
-            }
-          );
-        }).catch(() => {});
-        return;
-      } catch (e) {}
-    }
-
-    root.classList.add('is-theme-switching');
-    applyThemeState(mode, remember);
-    window.clearTimeout(themeSwitchTimer);
-    themeSwitchTimer = window.setTimeout(() => {
-      root.classList.remove('is-theme-switching');
-    }, 350);
-  }
-
-  function bindThemeControls() {
-    const initialMode = document.documentElement.getAttribute('data-theme-mode') || 'auto';
-    applyThemeState(initialMode, false);
-
-    themeBtns.forEach((btn) => {
-      btn.addEventListener('click', (event) => {
-        paintTheme(btn.dataset.setTheme, true, event);
-      });
-    });
-
-    if (darkScheme) {
-      const onChange = () => {
-        if ((document.documentElement.getAttribute('data-theme-mode') || 'auto') === 'auto') {
-          paintTheme('auto', false);
-        }
-      };
-      if (darkScheme.addEventListener) darkScheme.addEventListener('change', onChange);
-      else if (darkScheme.addListener) darkScheme.addListener(onChange);
-    }
-
-    window.addEventListener('storage', (event) => {
-      if (event.key !== THEME_STORAGE_KEY) return;
-      const nextMode = event.newValue;
-      if (nextMode === 'light' || nextMode === 'dark' || nextMode === 'auto') {
-        applyThemeState(nextMode, false);
-      }
-    });
-  }
-
   function init() {
     if (!Go || !GoAI) {
       console.error('围棋引擎加载失败。');
@@ -2496,7 +2323,13 @@
 
     canvas.setAttribute('tabindex', '0');
     els.boardFrame.tabIndex = -1;
-    bindThemeControls();
+    window.WorkbenchTheme?.bind({
+      onChange: () => {
+        invalidateBoardPalette();
+        if (state.board && view.cssSize) drawBoard();
+        if (state.review.open) renderReview();
+      },
+    });
     bindEvents();
 
     if (typeof ResizeObserver !== 'undefined') {

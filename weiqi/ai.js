@@ -197,7 +197,8 @@
     if (node.prepared) return;
     node.prepared = true;
 
-    const candidates = generateCandidates(node, ctx, true);
+    const skipEyes = !(isRoot && ctx.includeAllRootMoves);
+    const candidates = generateCandidates(node, ctx, skipEyes);
     // 停一手始终作为候选；没有可下点时它就是唯一选择。
     addPassCandidate(candidates, ctx, node, isRoot);
 
@@ -481,6 +482,7 @@
       komi,
       aiColor: toMove,
       opponentPassed: passes === 1,
+      includeAllRootMoves: true,
     };
 
     // 双方连续停一手，局面已经终局，直接给出结果。
@@ -511,7 +513,16 @@
       terminal: false,
     });
 
-    const iterations = Math.max(200, Math.min(600, (Number(options.playoutsPerMove) || 20) * 16));
+    const requestedIterations = Number(options.iterations);
+    const legacyIterations = (Number(options.playoutsPerMove) || 20) * 16;
+    const iterations = Math.max(
+      100,
+      Math.min(2000, Math.round(
+        Number.isFinite(requestedIterations) && requestedIterations > 0
+          ? requestedIterations
+          : legacyIterations,
+      )),
+    );
     for (let i = 0; i < iterations; i += 1) {
       runIteration(rootNode, ctx);
     }
@@ -607,14 +618,11 @@
     let maxReadDepth = 0;
     let maxTreeDepth = 0;
 
-    while (now() < deadline) {
-      const batchEnd = Math.min(deadline, now() + 24);
-      do {
-        const result = runIteration(rootNode, ctx);
-        simulations += 1;
-        if (result.readDepth > maxReadDepth) maxReadDepth = result.readDepth;
-        if (result.treeDepth > maxTreeDepth) maxTreeDepth = result.treeDepth;
-      } while (simulations < 200000 && now() < batchEnd);
+    while (simulations < 200000 && now() < deadline) {
+      const result = runIteration(rootNode, ctx);
+      simulations += 1;
+      if (result.readDepth > maxReadDepth) maxReadDepth = result.readDepth;
+      if (result.treeDepth > maxTreeDepth) maxTreeDepth = result.treeDepth;
     }
 
     // 时间极短时也至少完成一次扩展，保证有可下的着法。
@@ -636,7 +644,7 @@
         simulations,
         elapsedMs: Math.round(elapsed),
         treeDepth: maxTreeDepth,
-        readDepth: Math.max(maxReadDepth, MIN_LOOKAHEAD_PLIES),
+        readDepth: maxReadDepth,
         chosenVisits: chosen ? chosen.visits : 0,
         chosenWinRate: chosen && chosen.visits > 0
           ? chosen.wins / chosen.visits

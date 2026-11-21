@@ -1,8 +1,7 @@
 // 扫描本目录的音频文件，生成 tracks.js 清单。
 // 用法：node music/scan.mjs
 //
-// file:// 直接打开 index.html 时需要它：浏览器不允许网页列目录。
-// 本地 http 开发时页面会解析目录；GitHub Pages 等静态托管则读取这份清单。
+// 静态页面通过读取该清单加载曲目；增删 music/ 下的音频后重新运行即可。
 
 import { readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
